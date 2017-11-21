@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package grpc;
+
+import "oci.proto";
+import "google/protobuf/empty.proto";
+
+// To generate hyperstart.pb.go, run:
+// $ go get -u github.com/google/protobuf
+// $ protoc -I=$GOPATH/src/github.com/google/protobuf/src/ -I. --go_out=plugins=grpc:. hyperstart.proto oci.proto
+
+// unstable
+service HyperstartService {
+	// execution
+	rpc CreateContainer(CreateContainerRequest) returns (google.protobuf.Empty);
+	rpc StartContainer(StartContainerRequest) returns (google.protobuf.Empty);
+	rpc ExecProcess(ExecProcessRequest) returns (google.protobuf.Empty);
+	rpc SignalProcess(SignalProcessRequest) returns (google.protobuf.Empty);
+	rpc WaitProcess(WaitProcessRequest) returns (WaitProcessResponse); // wait & reap like waitpid(2)
+
+	// stdio
+	rpc WriteStdin(WriteStreamRequest) returns (WriteStreamResponse);
+	rpc ReadStdout(ReadStreamRequest) returns (ReadStreamResponse);
+	rpc ReadStderr(ReadStreamRequest) returns (ReadStreamResponse);
+	rpc CloseStdin(CloseStdinRequest) returns (google.protobuf.Empty);
+	rpc TtyWinResize(TtyWinResizeRequest) returns (google.protobuf.Empty);
+
+	// misc (TODO: some rpcs can be replaced by hyperstart-exec)
+	rpc StartSandbox(StartSandboxRequest) returns (google.protobuf.Empty);
+	rpc DestroySandbox(DestroySandboxRequest) returns (google.protobuf.Empty);
+	rpc UpdateInterface(UpdateInterfaceRequest) returns (google.protobuf.Empty);
+	rpc AddRoute(AddRouteRequest) returns (google.protobuf.Empty);
+	rpc OnlineCPUMem(OnlineCPUMemRequest) returns (google.protobuf.Empty);
+}
+
+message CreateContainerRequest {
+	string container_id = 1;
+	Spec OCI = 2;
+}
+
+message StartContainerRequest {
+	string container_id = 1;
+}
+
+message ExecProcessRequest {
+	string container_id = 1;
+	Process process = 2;
+}
+
+message SignalProcessRequest {
+	string container_id = 1;
+	string process_id = 2;
+	uint32 signal = 3;
+}
+
+message WaitProcessRequest {
+	string container_id = 1;
+	string process_id = 2;
+}
+
+message WaitProcessResponse {
+	int32 status = 1;
+}
+
+message WriteStreamRequest {
+	string container_id = 1;
+	string process_id = 2;
+	bytes data = 3;
+}
+
+message WriteStreamResponse {
+	uint32 len = 1;
+}
+
+message ReadStreamRequest {
+	string container_id = 1;
+	string process_id = 2;
+	uint32 len = 3;
+}
+
+message ReadStreamResponse {
+	bytes data = 1;
+}
+
+message CloseStdinRequest {
+	string container_id = 1;
+	string process_id = 2;
+}
+
+message TtyWinResizeRequest {
+	string container_id = 1;
+	string process_id = 2;
+	uint32 row = 3;
+	uint32 column = 4;
+}
+
+message StartSandboxRequest {
+	string hostname = 1;
+	repeated string dns = 2;
+}
+
+message DestroySandboxRequest {
+}
+
+message IpAddress {
+	string address = 1;
+	string mask = 2;
+}
+
+message UpdateInterfaceRequest {
+	uint64 type	=1;
+	string device = 2;
+	string newName = 3;
+	repeated IpAddress ipAddresses = 4;
+	uint64 mtu = 5;
+}
+
+message AddRouteRequest {
+	repeated Route routes = 1;
+}
+
+message OnlineCPUMemRequest {
+}
+
+message StringUser {
+	string uid = 1;
+	string gid = 2;
+	repeated string additionalGids = 3;
+}
+
+message Route {
+	string dest = 1;
+	string gateway = 2;
+	string device = 3;
+}
