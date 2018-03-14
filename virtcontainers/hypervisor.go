@@ -34,6 +34,9 @@ const (
 
 	// MockHypervisor is a mock hypervisor for testing purposes
 	MockHypervisor HypervisorType = "mock"
+
+	// PluginHypervisor is a plugin hypervisor for proprietary hypervisors.
+	PluginHypervisor HypervisorType = "plugin"
 )
 
 const (
@@ -98,6 +101,9 @@ func (hType *HypervisorType) Set(value string) error {
 	case "mock":
 		*hType = MockHypervisor
 		return nil
+	case "plugin":
+		*hType = PluginHypervisor
+		return nil
 	default:
 		return fmt.Errorf("Unknown hypervisor type %s", value)
 	}
@@ -110,6 +116,8 @@ func (hType *HypervisorType) String() string {
 		return string(QemuHypervisor)
 	case MockHypervisor:
 		return string(MockHypervisor)
+	case PluginHypervisor:
+		return string(PluginHypervisor)
 	default:
 		return ""
 	}
@@ -122,6 +130,8 @@ func newHypervisor(hType HypervisorType) (hypervisor, error) {
 		return &qemu{}, nil
 	case MockHypervisor:
 		return &mockHypervisor{}, nil
+	case PluginHypervisor:
+		return &pluginHypervisor{}, nil
 	default:
 		return nil, fmt.Errorf("Unknown hypervisor type %s", hType)
 	}
@@ -145,6 +155,9 @@ type Param struct {
 
 // HypervisorConfig is the hypervisor configuration.
 type HypervisorConfig struct {
+	// PluginPath is the hypervisor implementation plugin path.
+	PluginPath string
+
 	// KernelPath is the guest kernel host path.
 	KernelPath string
 
