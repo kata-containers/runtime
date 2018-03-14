@@ -54,39 +54,39 @@ const (
 // In some architectures the maximum number of vCPUs depends on the number of physical cores.
 var defaultMaxQemuVCPUs = maxQemuVCPUs()
 
-// deviceType describes a virtualized device type.
-type deviceType int
+// DeviceType describes a virtualized device type.
+type DeviceType int
 
 const (
 	// ImgDev is the image device type.
-	imgDev deviceType = iota
+	ImgDev DeviceType = iota
 
 	// FsDev is the filesystem device type.
-	fsDev
+	FsDev
 
 	// NetDev is the network device type.
-	netDev
+	NetDev
 
 	// SerialDev is the serial device type.
-	serialDev
+	SerialDev
 
 	// BlockDev is the block device type.
-	blockDev
+	BlockDev
 
 	// ConsoleDev is the console device type.
-	consoleDev
+	ConsoleDev
 
 	// SerialPortDev is the serial port device type.
-	serialPortDev
+	SerialPortDev
 
 	// VFIODevice is VFIO device type
-	vfioDev
+	VfioDev
 
-	// vhostuserDev is a Vhost-user device type
-	vhostuserDev
+	// VhostuserDev is a Vhost-user device type
+	VhostuserDev
 
 	// CPUDevice is CPU device type
-	cpuDev
+	CPUDev
 )
 
 // Set sets an hypervisor type based on the input string.
@@ -128,7 +128,7 @@ func newHypervisor(hType HypervisorType) (hypervisor, error) {
 }
 
 //Generic function for creating a named-id for passing on the hypervisor commandline
-func makeNameID(namedType string, id string) string {
+func MakeNameID(namedType string, id string) string {
 	nameID := fmt.Sprintf("%s-%s", namedType, id)
 	if len(nameID) > maxDevIDSize {
 		nameID = string(nameID[:maxDevIDSize])
@@ -220,7 +220,15 @@ type HypervisorConfig struct {
 	customAssets map[assetType]*asset
 }
 
-func (conf *HypervisorConfig) valid() (bool, error) {
+// HypervisorState keeps hypervisor's state.
+type HypervisorState struct {
+	Bridges []Bridge
+	// HotpluggedCPUs is the list of CPUs that were hot-added
+	HotpluggedVCPUs []CPUDevice
+	UUID            string
+}
+
+func (conf *HypervisorConfig) Valid() (bool, error) {
 	if conf.KernelPath == "" {
 		return false, fmt.Errorf("Missing kernel path")
 	}
@@ -402,7 +410,7 @@ func DeserializeParams(parameters []string) []Param {
 	return params
 }
 
-func getHostMemorySizeKb(memInfoPath string) (uint64, error) {
+func GetHostMemorySizeKb(memInfoPath string) (uint64, error) {
 	f, err := os.Open(memInfoPath)
 	if err != nil {
 		return 0, err
@@ -492,9 +500,9 @@ type hypervisor interface {
 	stopPod() error
 	pausePod() error
 	resumePod() error
-	addDevice(devInfo interface{}, devType deviceType) error
-	hotplugAddDevice(devInfo interface{}, devType deviceType) error
-	hotplugRemoveDevice(devInfo interface{}, devType deviceType) error
+	addDevice(devInfo interface{}, devType DeviceType) error
+	hotplugAddDevice(devInfo interface{}, devType DeviceType) error
+	hotplugRemoveDevice(devInfo interface{}, devType DeviceType) error
 	getPodConsole(podID string) string
-	capabilities() capabilities
+	capabilities() Capabilities
 }

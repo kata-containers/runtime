@@ -42,7 +42,7 @@ type qemuArch interface {
 	kernelParameters(debug bool) []Param
 
 	//capabilities returns the capabilities supported by QEMU
-	capabilities() capabilities
+	capabilities() Capabilities
 
 	// bridges returns the number bridges for the machine type
 	bridges(number uint32) []Bridge
@@ -87,7 +87,7 @@ type qemuArch interface {
 	appendVhostUserDevice(devices []govmmQemu.Device, vhostUserDevice VhostUserDevice) []govmmQemu.Device
 
 	// appendVFIODevice appends a VFIO device to devices
-	appendVFIODevice(devices []govmmQemu.Device, vfioDevice VFIODevice) []govmmQemu.Device
+	appendVFIODevice(devices []govmmQemu.Device, VfioDevice VFIODevice) []govmmQemu.Device
 }
 
 type qemuArchBase struct {
@@ -187,9 +187,9 @@ func (q *qemuArchBase) kernelParameters(debug bool) []Param {
 	return params
 }
 
-func (q *qemuArchBase) capabilities() capabilities {
-	var caps capabilities
-	caps.setBlockDeviceHotplugSupport()
+func (q *qemuArchBase) capabilities() Capabilities {
+	var caps Capabilities
+	caps.SetBlockDeviceHotplugSupport()
 	return caps
 }
 
@@ -198,8 +198,8 @@ func (q *qemuArchBase) bridges(number uint32) []Bridge {
 
 	for i := uint32(0); i < number; i++ {
 		bridges = append(bridges, Bridge{
-			Type:    pciBridge,
-			ID:      fmt.Sprintf("%s-bridge-%d", pciBridge, i),
+			Type:    PCIBridge,
+			ID:      fmt.Sprintf("%s-bridge-%d", PCIBridge, i),
 			Address: make(map[uint32]string),
 		})
 	}
@@ -273,12 +273,12 @@ func (q *qemuArchBase) appendImage(devices []govmmQemu.Device, path string) ([]g
 		return nil, err
 	}
 
-	randBytes, err := generateRandomBytes(8)
+	randBytes, err := GenerateRandomBytes(8)
 	if err != nil {
 		return nil, err
 	}
 
-	id := makeNameID("image", hex.EncodeToString(randBytes))
+	id := MakeNameID("image", hex.EncodeToString(randBytes))
 
 	drive := Drive{
 		File:   path,
@@ -304,7 +304,7 @@ func (q *qemuArchBase) appendSCSIController(devices []govmmQemu.Device) []govmmQ
 func (q *qemuArchBase) appendBridges(devices []govmmQemu.Device, bridges []Bridge) []govmmQemu.Device {
 	for idx, b := range bridges {
 		t := govmmQemu.PCIBridge
-		if b.Type == pcieBridge {
+		if b.Type == PCIEBridge {
 			t = govmmQemu.PCIEBridge
 		}
 
@@ -438,30 +438,30 @@ func (q *qemuArchBase) appendVhostUserDevice(devices []govmmQemu.Device, vhostUs
 
 	switch vhostUserDevice := vhostUserDevice.(type) {
 	case *VhostUserNetDevice:
-		qemuVhostUserDevice.TypeDevID = makeNameID("net", vhostUserDevice.ID)
+		qemuVhostUserDevice.TypeDevID = MakeNameID("net", vhostUserDevice.ID)
 		qemuVhostUserDevice.Address = vhostUserDevice.MacAddress
 	case *VhostUserSCSIDevice:
-		qemuVhostUserDevice.TypeDevID = makeNameID("scsi", vhostUserDevice.ID)
+		qemuVhostUserDevice.TypeDevID = MakeNameID("scsi", vhostUserDevice.ID)
 	case *VhostUserBlkDevice:
 	}
 
 	qemuVhostUserDevice.VhostUserType = govmmQemu.VhostUserDeviceType(vhostUserDevice.Type())
 	qemuVhostUserDevice.SocketPath = vhostUserDevice.Attrs().SocketPath
-	qemuVhostUserDevice.CharDevID = makeNameID("char", vhostUserDevice.Attrs().ID)
+	qemuVhostUserDevice.CharDevID = MakeNameID("char", vhostUserDevice.Attrs().ID)
 
 	devices = append(devices, qemuVhostUserDevice)
 
 	return devices
 }
 
-func (q *qemuArchBase) appendVFIODevice(devices []govmmQemu.Device, vfioDevice VFIODevice) []govmmQemu.Device {
-	if vfioDevice.BDF == "" {
+func (q *qemuArchBase) appendVFIODevice(devices []govmmQemu.Device, VfioDevice VFIODevice) []govmmQemu.Device {
+	if VfioDevice.BDF == "" {
 		return devices
 	}
 
 	devices = append(devices,
 		govmmQemu.VFIODevice{
-			BDF: vfioDevice.BDF,
+			BDF: VfioDevice.BDF,
 		},
 	)
 

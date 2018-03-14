@@ -221,15 +221,15 @@ func TestNewDevices(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, len(devices), 1)
-	vfioDev, ok := devices[0].(*VFIODevice)
+	VfioDev, ok := devices[0].(*VFIODevice)
 	assert.True(t, ok)
-	assert.Equal(t, vfioDev.DeviceInfo.HostPath, path)
-	assert.Equal(t, vfioDev.DeviceInfo.ContainerPath, path)
-	assert.Equal(t, vfioDev.DeviceInfo.DevType, "c")
-	assert.Equal(t, vfioDev.DeviceInfo.Major, major)
-	assert.Equal(t, vfioDev.DeviceInfo.Minor, minor)
-	assert.Equal(t, vfioDev.DeviceInfo.UID, uint32(2))
-	assert.Equal(t, vfioDev.DeviceInfo.GID, uint32(2))
+	assert.Equal(t, VfioDev.DeviceInfo.HostPath, path)
+	assert.Equal(t, VfioDev.DeviceInfo.ContainerPath, path)
+	assert.Equal(t, VfioDev.DeviceInfo.DevType, "c")
+	assert.Equal(t, VfioDev.DeviceInfo.Major, major)
+	assert.Equal(t, VfioDev.DeviceInfo.Minor, minor)
+	assert.Equal(t, VfioDev.DeviceInfo.UID, uint32(2))
+	assert.Equal(t, VfioDev.DeviceInfo.GID, uint32(2))
 }
 
 func TestGetBDF(t *testing.T) {

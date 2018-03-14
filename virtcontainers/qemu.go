@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	govmmQemu "github.com/intel/govmm/qemu"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -141,7 +141,7 @@ func (q *qemu) kernelParameters() string {
 }
 
 // Adds all capabilities supported by qemu implementation of hypervisor interface
-func (q *qemu) capabilities() capabilities {
+func (q *qemu) capabilities() Capabilities {
 	return q.arch.capabilities()
 }
 
@@ -168,7 +168,7 @@ func (q *qemu) qemuPath() (string, error) {
 
 // init intializes the Qemu structure.
 func (q *qemu) init(pod *Pod) error {
-	valid, err := pod.config.HypervisorConfig.valid()
+	valid, err := pod.config.HypervisorConfig.Valid()
 	if valid == false || err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func (q *qemu) cpuTopology() govmmQemu.SMP {
 }
 
 func (q *qemu) memoryTopology(podConfig PodConfig) (govmmQemu.Memory, error) {
-	hostMemKb, err := getHostMemorySizeKb(procMemInfo)
+	hostMemKb, err := GetHostMemorySizeKb(procMemInfo)
 	if err != nil {
 		return govmmQemu.Memory{}, fmt.Errorf("Unable to read memory info: %s", err)
 	}
@@ -550,7 +550,7 @@ func (q *qemu) addDeviceToBridge(ID string) (string, string, error) {
 
 	// looking for an empty address in the bridges
 	for _, b := range q.state.Bridges {
-		addr, err = b.addDevice(ID)
+		addr, err = b.AddDevice(ID)
 		if err == nil {
 			return fmt.Sprintf("0x%x", addr), b.ID, nil
 		}
@@ -562,7 +562,7 @@ func (q *qemu) addDeviceToBridge(ID string) (string, string, error) {
 func (q *qemu) removeDeviceFromBridge(ID string) error {
 	var err error
 	for _, b := range q.state.Bridges {
-		err = b.removeDevice(ID)
+		err = b.RemoveDevice(ID)
 		if err == nil {
 			// device was removed correctly
 			return nil
@@ -610,7 +610,7 @@ func (q *qemu) hotplugBlockDevice(drive Drive, op operation) error {
 			bus := scsiControllerID + ".0"
 
 			// Get SCSI-id and LUN based on the order of attaching drives.
-			scsiID, lun, err := getSCSIIdLun(drive.Index)
+			scsiID, lun, err := GetSCSIIdLun(drive.Index)
 			if err != nil {
 				return err
 			}
@@ -632,12 +632,12 @@ func (q *qemu) hotplugBlockDevice(drive Drive, op operation) error {
 	return nil
 }
 
-func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operation) error {
+func (q *qemu) hotplugDevice(devInfo interface{}, devType DeviceType, op operation) error {
 	switch devType {
-	case blockDev:
+	case BlockDev:
 		drive := devInfo.(Drive)
 		return q.hotplugBlockDevice(drive, op)
-	case cpuDev:
+	case CPUDev:
 		vcpus := devInfo.(uint32)
 		return q.hotplugCPUs(vcpus, op)
 	default:
@@ -645,7 +645,7 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operati
 	}
 }
 
-func (q *qemu) hotplugAddDevice(devInfo interface{}, devType deviceType) error {
+func (q *qemu) hotplugAddDevice(devInfo interface{}, devType DeviceType) error {
 	if err := q.hotplugDevice(devInfo, devType, addDevice); err != nil {
 		return err
 	}
@@ -653,7 +653,7 @@ func (q *qemu) hotplugAddDevice(devInfo interface{}, devType deviceType) error {
 	return q.pod.storage.storeHypervisorState(q.pod.id, q.state)
 }
 
-func (q *qemu) hotplugRemoveDevice(devInfo interface{}, devType deviceType) error {
+func (q *qemu) hotplugRemoveDevice(devInfo interface{}, devType DeviceType) error {
 	if err := q.hotplugDevice(devInfo, devType, removeDevice); err != nil {
 		return err
 	}
@@ -768,7 +768,7 @@ func (q *qemu) resumePod() error {
 }
 
 // addDevice will add extra devices to Qemu command line.
-func (q *qemu) addDevice(devInfo interface{}, devType deviceType) error {
+func (q *qemu) addDevice(devInfo interface{}, devType DeviceType) error {
 	switch v := devInfo.(type) {
 	case Volume:
 		q.qemuConfig.Devices = q.arch.append9PVolume(q.qemuConfig.Devices, v)

@@ -275,7 +275,7 @@ func (h *hyper) init(pod *Pod, config interface{}) (err error) {
 
 func (h *hyper) createPod(pod *Pod) (err error) {
 	for _, socket := range h.sockets {
-		err := pod.hypervisor.addDevice(socket, serialPortDev)
+		err := pod.hypervisor.addDevice(socket, SerialPortDev)
 		if err != nil {
 			return err
 		}
@@ -292,11 +292,11 @@ func (h *hyper) createPod(pod *Pod) (err error) {
 		return err
 	}
 
-	return pod.hypervisor.addDevice(sharedVolume, fsDev)
+	return pod.hypervisor.addDevice(sharedVolume, FsDev)
 }
 
-func (h *hyper) capabilities() capabilities {
-	var caps capabilities
+func (h *hyper) capabilities() Capabilities {
+	var caps Capabilities
 
 	// add all capabilities supported by agent
 	caps.setBlockDeviceSupport()

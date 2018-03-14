@@ -142,7 +142,7 @@ type agent interface {
 
 	// capabilities should return a structure that specifies the capabilities
 	// supported by the agent.
-	capabilities() capabilities
+	capabilities() Capabilities
 
 	// createPod will tell the agent to perform necessary setup for a Pod.
 	createPod(pod *Pod) error

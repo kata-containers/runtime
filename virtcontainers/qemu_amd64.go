@@ -100,12 +100,12 @@ func newQemuArch(machineType string) qemuArch {
 	}
 }
 
-func (q *qemuAmd64) capabilities() capabilities {
-	var caps capabilities
+func (q *qemuAmd64) capabilities() Capabilities {
+	var caps Capabilities
 
 	// Only pc machine type supports hotplugging drives
 	if q.machineType == QemuPC {
-		caps.setBlockDeviceHotplugSupport()
+		caps.SetBlockDeviceHotplugSupport()
 	}
 
 	return caps
@@ -113,7 +113,7 @@ func (q *qemuAmd64) capabilities() capabilities {
 
 func (q *qemuAmd64) bridges(number uint32) []Bridge {
 	var bridges []Bridge
-	var bt bridgeType
+	var bt BridgeType
 
 	switch q.machineType {
 	case QemuQ35:
@@ -121,7 +121,7 @@ func (q *qemuAmd64) bridges(number uint32) []Bridge {
 		// qemu-2.10 will introduce pcie bridges
 		fallthrough
 	case QemuPC:
-		bt = pciBridge
+		bt = PCIBridge
 	default:
 		return nil
 	}
@@ -199,7 +199,7 @@ func (q *qemuAmd64) appendBridges(devices []govmmQemu.Device, bridges []Bridge) 
 
 	for idx, b := range bridges {
 		t := govmmQemu.PCIBridge
-		if b.Type == pcieBridge {
+		if b.Type == PCIEBridge {
 			t = govmmQemu.PCIEBridge
 		}
 

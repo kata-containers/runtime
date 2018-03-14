@@ -193,7 +193,7 @@ func TestQemuMemoryTopology(t *testing.T) {
 	}
 }
 
-func testQemuAddDevice(t *testing.T, devInfo interface{}, devType deviceType, expected []govmmQemu.Device) {
+func testQemuAddDevice(t *testing.T, devInfo interface{}, devType DeviceType, expected []govmmQemu.Device) {
 	q := &qemu{
 		arch: &qemuArchBase{},
 	}
@@ -228,7 +228,7 @@ func TestQemuAddDeviceFsDev(t *testing.T) {
 		HostPath: hostPath,
 	}
 
-	testQemuAddDevice(t, volume, fsDev, expectedOut)
+	testQemuAddDevice(t, volume, FsDev, expectedOut)
 }
 
 func TestQemuAddDeviceSerialPortDev(t *testing.T) {
@@ -255,7 +255,7 @@ func TestQemuAddDeviceSerialPortDev(t *testing.T) {
 		Name:     name,
 	}
 
-	testQemuAddDevice(t, socket, serialPortDev, expectedOut)
+	testQemuAddDevice(t, socket, SerialPortDev, expectedOut)
 }
 
 func TestQemuGetPodConsole(t *testing.T) {

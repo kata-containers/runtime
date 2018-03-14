@@ -478,6 +478,32 @@ func (p *Pod) ID() string {
 	return p.id
 }
 
+// RunStoragePath returns the pod runtime storage path corresponding to this
+// specific pod.
+func (p *Pod) RunStoragePath() string {
+	return filepath.Join(runStoragePath, p.id)
+}
+
+// Config returns the pod configuration.
+func (p *Pod) Config() *PodConfig {
+	return p.config
+}
+
+// FetchHypervisorState fetches the hypervisor state related to this pod.
+func (p *Pod) FetchHypervisorState() (HypervisorState, error) {
+	state := HypervisorState{}
+	if err := p.storage.fetchHypervisorState(p.id, &state); err != nil {
+		return HypervisorState{}, err
+	}
+
+	return state, nil
+}
+
+// StoreHypervisorState stores the hypervisor state related to this pod.
+func (p *Pod) StoreHypervisorState(state HypervisorState) error {
+	return p.storage.storeHypervisorState(p.id, state)
+}
+
 // Logger returns a logrus logger appropriate for logging Pod messages
 func (p *Pod) Logger() *logrus.Entry {
 	return virtLog.WithFields(logrus.Fields{

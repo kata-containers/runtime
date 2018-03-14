@@ -233,7 +233,7 @@ func (endpoint *VirtualEndpoint) Attach(h hypervisor) error {
 		return err
 	}
 
-	return h.addDevice(endpoint, netDev)
+	return h.addDevice(endpoint, NetDev)
 }
 
 // Detach for the virtual endpoint tears down the tap and bridge
@@ -273,7 +273,7 @@ func (endpoint *VhostUserEndpoint) Attach(h hypervisor) error {
 	networkLogger().Info("Attaching vhostuser based endpoint")
 
 	// generate a unique ID to be used for hypervisor commandline fields
-	randBytes, err := generateRandomBytes(8)
+	randBytes, err := GenerateRandomBytes(8)
 	if err != nil {
 		return err
 	}
@@ -285,7 +285,7 @@ func (endpoint *VhostUserEndpoint) Attach(h hypervisor) error {
 	d.SocketPath = endpoint.SocketPath
 	d.ID = id
 
-	return h.addDevice(d, vhostuserDev)
+	return h.addDevice(d, VhostuserDev)
 }
 
 // Detach for vhostuser endpoint
@@ -346,7 +346,7 @@ func (endpoint *PhysicalEndpoint) Attach(h hypervisor) error {
 		BDF: endpoint.BDF,
 	}
 
-	return h.addDevice(d, vfioDev)
+	return h.addDevice(d, VfioDev)
 }
 
 // Detach for physical endpoint unbinds the physical network interface from vfio-pci

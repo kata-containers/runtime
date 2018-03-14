@@ -308,7 +308,7 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 			continue
 		}
 
-		randBytes, err := generateRandomBytes(8)
+		randBytes, err := GenerateRandomBytes(8)
 		if err != nil {
 			return nil, err
 		}
@@ -710,7 +710,7 @@ func (c *Container) hotplugDrive() error {
 	}
 
 	// Add drive with id as container id
-	devID := makeNameID("drive", c.id)
+	devID := MakeNameID("drive", c.id)
 	drive := Drive{
 		File:   devicePath,
 		Format: "raw",
@@ -718,7 +718,7 @@ func (c *Container) hotplugDrive() error {
 		Index:  driveIndex,
 	}
 
-	if err := c.pod.hypervisor.hotplugAddDevice(drive, blockDev); err != nil {
+	if err := c.pod.hypervisor.hotplugAddDevice(drive, BlockDev); err != nil {
 		return err
 	}
 	c.setStateHotpluggedDrive(true)
@@ -742,7 +742,7 @@ func (c *Container) removeDrive() (err error) {
 	if c.isDriveUsed() && c.state.HotpluggedDrive {
 		c.Logger().Info("unplugging block device")
 
-		devID := makeNameID("drive", c.id)
+		devID := MakeNameID("drive", c.id)
 		drive := Drive{
 			ID: devID,
 		}
@@ -750,7 +750,7 @@ func (c *Container) removeDrive() (err error) {
 		l := c.Logger().WithField("device-id", devID)
 		l.Info("Unplugging block device")
 
-		if err := c.pod.hypervisor.hotplugRemoveDevice(drive, blockDev); err != nil {
+		if err := c.pod.hypervisor.hotplugRemoveDevice(drive, BlockDev); err != nil {
 			l.WithError(err).Info("Failed to unplug block device")
 			return err
 		}
@@ -788,7 +788,7 @@ func (c *Container) addResources() error {
 	vCPUs := ConstraintsToVCPUs(c.config.Resources.CPUQuota, c.config.Resources.CPUPeriod)
 	if vCPUs != 0 {
 		virtLog.Debugf("hot adding %d vCPUs", vCPUs)
-		if err := c.pod.hypervisor.hotplugAddDevice(uint32(vCPUs), cpuDev); err != nil {
+		if err := c.pod.hypervisor.hotplugAddDevice(uint32(vCPUs), CPUDev); err != nil {
 			return err
 		}
 	}
@@ -805,7 +805,7 @@ func (c *Container) removeResources() error {
 	vCPUs := ConstraintsToVCPUs(c.config.Resources.CPUQuota, c.config.Resources.CPUPeriod)
 	if vCPUs != 0 {
 		virtLog.Debugf("hot removing %d vCPUs", vCPUs)
-		if err := c.pod.hypervisor.hotplugRemoveDevice(uint32(vCPUs), cpuDev); err != nil {
+		if err := c.pod.hypervisor.hotplugRemoveDevice(uint32(vCPUs), CPUDev); err != nil {
 			return err
 		}
 	}
