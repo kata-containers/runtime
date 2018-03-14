@@ -1,1 +1,2 @@
 /build-runv
+/plugins/hypervisor/qemu/*.so
