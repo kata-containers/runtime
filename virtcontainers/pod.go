@@ -378,9 +378,9 @@ func (podConfig *PodConfig) valid() bool {
 		return false
 	}
 
-	if _, err := newHypervisor(podConfig.HypervisorType); err != nil {
-		podConfig.HypervisorType = QemuHypervisor
-	}
+	// HACK: This forces the plugin to be used.
+	podConfig.HypervisorType = PluginHypervisor
+	podConfig.HypervisorConfig.PluginPath = "$GOPATH/src/github.com/kata-containers/runtime/plugins/hypervisor/qemu/qemu.so"
 
 	return true
 }
