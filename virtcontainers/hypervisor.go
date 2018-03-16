@@ -506,3 +506,20 @@ type hypervisor interface {
 	getPodConsole(podID string) string
 	capabilities() Capabilities
 }
+
+// HypervisorPlugin is the external hypervisor interface allowing proprietary
+// hypervisor implementations through dynamic library plugins.
+type HypervisorPlugin interface {
+	Init(pod *Pod) error
+	CreatePod(podConfig PodConfig) error
+	StartPod() error
+	WaitPod(timeout int) error
+	StopPod() error
+	PausePod() error
+	ResumePod() error
+	AddDevice(devInfo interface{}, devType DeviceType) error
+	HotplugAddDevice(devInfo interface{}, devType DeviceType) error
+	HotplugRemoveDevice(devInfo interface{}, devType DeviceType) error
+	GetPodConsole(podID string) string
+	Capabilities() Capabilities
+}
