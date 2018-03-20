@@ -139,7 +139,7 @@ func (device *VFIODevice) attach(h hypervisor, c *Container) error {
 
 		device.BDF = deviceBDF
 
-		if err := h.addDevice(*device, vfioDev); err != nil {
+		if err := h.addDevice(*device, VfioDev); err != nil {
 			deviceLogger().WithError(err).Error("Failed to add device")
 			return err
 		}
@@ -241,7 +241,7 @@ func (vhostUserBlkDevice *VhostUserBlkDevice) Type() string {
 // attach functions
 func vhostUserAttach(device VhostUserDevice, h hypervisor, c *Container) (err error) {
 	// generate a unique ID to be used for hypervisor commandline fields
-	randBytes, err := generateRandomBytes(8)
+	randBytes, err := GenerateRandomBytes(8)
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func vhostUserAttach(device VhostUserDevice, h hypervisor, c *Container) (err er
 
 	device.Attrs().ID = id
 
-	return h.addDevice(device, vhostuserDev)
+	return h.addDevice(device, VhostuserDev)
 }
 
 //
@@ -356,7 +356,7 @@ func newBlockDevice(devInfo DeviceInfo) *BlockDevice {
 }
 
 func (device *BlockDevice) attach(h hypervisor, c *Container) (err error) {
-	randBytes, err := generateRandomBytes(8)
+	randBytes, err := GenerateRandomBytes(8)
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func (device *BlockDevice) attach(h hypervisor, c *Container) (err error) {
 	drive := Drive{
 		File:   device.DeviceInfo.HostPath,
 		Format: "raw",
-		ID:     makeNameID("drive", device.DeviceInfo.ID),
+		ID:     MakeNameID("drive", device.DeviceInfo.ID),
 		Index:  index,
 	}
 
@@ -392,7 +392,7 @@ func (device *BlockDevice) attach(h hypervisor, c *Container) (err error) {
 
 	deviceLogger().WithField("device", device.DeviceInfo.HostPath).Info("Attaching block device")
 
-	if err = h.hotplugAddDevice(drive, blockDev); err != nil {
+	if err = h.hotplugAddDevice(drive, BlockDev); err != nil {
 		return err
 	}
 
@@ -417,10 +417,10 @@ func (device BlockDevice) detach(h hypervisor) error {
 		deviceLogger().WithField("device", device.DeviceInfo.HostPath).Info("Unplugging block device")
 
 		drive := Drive{
-			ID: makeNameID("drive", device.DeviceInfo.ID),
+			ID: MakeNameID("drive", device.DeviceInfo.ID),
 		}
 
-		if err := h.hotplugRemoveDevice(drive, blockDev); err != nil {
+		if err := h.hotplugRemoveDevice(drive, BlockDev); err != nil {
 			deviceLogger().WithError(err).Error("Failed to unplug block device")
 			return err
 		}

@@ -1153,12 +1153,12 @@ func TestPodAttachDevicesVFIO(t *testing.T) {
 		ContainerPath: path,
 		DevType:       "c",
 	}
-	vfioDevice := newVFIODevice(deviceInfo)
+	VfioDevice := newVFIODevice(deviceInfo)
 
 	c := &Container{
 		id: "100",
 		devices: []Device{
-			vfioDevice,
+			VfioDevice,
 		},
 	}
 

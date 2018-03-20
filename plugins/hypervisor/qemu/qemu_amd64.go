@@ -14,12 +14,13 @@
 // limitations under the License.
 //
 
-package virtcontainers
+package main
 
 import (
 	"fmt"
 	"os"
 
+	vc "github.com/kata-containers/runtime/virtcontainers"
 	govmmQemu "github.com/intel/govmm/qemu"
 )
 
@@ -42,7 +43,7 @@ var qemuPaths = map[string]string{
 	QemuQ35:    defaultQemuPath,
 }
 
-var kernelParams = []Param{
+var kernelParams = []vc.Param{
 	{"root", "/dev/pmem0p1"},
 	{"rootflags", "dax,data=ordered,errors=remount-ro rw"},
 	{"rootfstype", "ext4"},
@@ -100,8 +101,8 @@ func newQemuArch(machineType string) qemuArch {
 	}
 }
 
-func (q *qemuAmd64) capabilities() Capabilities {
-	var caps Capabilities
+func (q *qemuAmd64) capabilities() vc.Capabilities {
+	var caps vc.Capabilities
 
 	// Only pc machine type supports hotplugging drives
 	if q.machineType == QemuPC {
@@ -111,9 +112,9 @@ func (q *qemuAmd64) capabilities() Capabilities {
 	return caps
 }
 
-func (q *qemuAmd64) bridges(number uint32) []Bridge {
-	var bridges []Bridge
-	var bt BridgeType
+func (q *qemuAmd64) bridges(number uint32) []vc.Bridge {
+	var bridges []vc.Bridge
+	var bt vc.BridgeType
 
 	switch q.machineType {
 	case QemuQ35:
@@ -121,13 +122,13 @@ func (q *qemuAmd64) bridges(number uint32) []Bridge {
 		// qemu-2.10 will introduce pcie bridges
 		fallthrough
 	case QemuPC:
-		bt = PCIBridge
+		bt = vc.PCIBridge
 	default:
 		return nil
 	}
 
 	for i := uint32(0); i < number; i++ {
-		bridges = append(bridges, Bridge{
+		bridges = append(bridges, vc.Bridge{
 			Type:    bt,
 			ID:      fmt.Sprintf("%s-bridge-%d", bt, i),
 			Address: make(map[uint32]string),
@@ -191,7 +192,7 @@ func (q *qemuAmd64) appendImage(devices []govmmQemu.Device, path string) ([]govm
 }
 
 // appendBridges appends to devices the given bridges
-func (q *qemuAmd64) appendBridges(devices []govmmQemu.Device, bridges []Bridge) []govmmQemu.Device {
+func (q *qemuAmd64) appendBridges(devices []govmmQemu.Device, bridges []vc.Bridge) []govmmQemu.Device {
 	bus := defaultPCBridgeBus
 	if q.machineType == QemuQ35 {
 		bus = defaultBridgeBus
@@ -199,7 +200,7 @@ func (q *qemuAmd64) appendBridges(devices []govmmQemu.Device, bridges []Bridge) 
 
 	for idx, b := range bridges {
 		t := govmmQemu.PCIBridge
-		if b.Type == PCIEBridge {
+		if b.Type == vc.PCIEBridge {
 			t = govmmQemu.PCIEBridge
 		}
 

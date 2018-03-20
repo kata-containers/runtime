@@ -14,13 +14,14 @@
 // limitations under the License.
 //
 
-package virtcontainers
+package main
 
 import (
 	"encoding/hex"
 	"fmt"
 	"os"
 
+	vc "github.com/kata-containers/runtime/virtcontainers"
 	govmmQemu "github.com/intel/govmm/qemu"
 )
 
@@ -39,13 +40,13 @@ type qemuArch interface {
 
 	// kernelParameters returns the kernel parameters
 	// if debug is true then kernel debug parameters are included
-	kernelParameters(debug bool) []Param
+	kernelParameters(debug bool) []vc.Param
 
 	//capabilities returns the capabilities supported by QEMU
-	capabilities() Capabilities
+	capabilities() vc.Capabilities
 
 	// bridges returns the number bridges for the machine type
-	bridges(number uint32) []Bridge
+	bridges(number uint32) []vc.Bridge
 
 	// cpuTopology returns the CPU topology for the given amount of vcpus
 	cpuTopology(vcpus uint32) govmmQemu.SMP
@@ -57,7 +58,7 @@ type qemuArch interface {
 	memoryTopology(memoryMb, hostMemoryMb uint64) govmmQemu.Memory
 
 	// append9PVolumes appends volumes to devices
-	append9PVolumes(devices []govmmQemu.Device, volumes []Volume) []govmmQemu.Device
+	append9PVolumes(devices []govmmQemu.Device, volumes []vc.Volume) []govmmQemu.Device
 
 	// appendConsole appends a console to devices
 	appendConsole(devices []govmmQemu.Device, path string) []govmmQemu.Device
@@ -69,25 +70,25 @@ type qemuArch interface {
 	appendSCSIController(devices []govmmQemu.Device) []govmmQemu.Device
 
 	// appendBridges appends bridges to devices
-	appendBridges(devices []govmmQemu.Device, bridges []Bridge) []govmmQemu.Device
+	appendBridges(devices []govmmQemu.Device, bridges []vc.Bridge) []govmmQemu.Device
 
 	// append9PVolume appends a 9P volume to devices
-	append9PVolume(devices []govmmQemu.Device, volume Volume) []govmmQemu.Device
+	append9PVolume(devices []govmmQemu.Device, volume vc.Volume) []govmmQemu.Device
 
 	// appendSocket appends a socket to devices
-	appendSocket(devices []govmmQemu.Device, socket Socket) []govmmQemu.Device
+	appendSocket(devices []govmmQemu.Device, socket vc.Socket) []govmmQemu.Device
 
 	// appendNetwork appends a endpoint device to devices
-	appendNetwork(devices []govmmQemu.Device, endpoint Endpoint) []govmmQemu.Device
+	appendNetwork(devices []govmmQemu.Device, endpoint vc.Endpoint) []govmmQemu.Device
 
 	// appendBlockDevice appends a block drive to devices
-	appendBlockDevice(devices []govmmQemu.Device, drive Drive) []govmmQemu.Device
+	appendBlockDevice(devices []govmmQemu.Device, drive vc.Drive) []govmmQemu.Device
 
 	// appendVhostUserDevice appends a vhost user device to devices
-	appendVhostUserDevice(devices []govmmQemu.Device, vhostUserDevice VhostUserDevice) []govmmQemu.Device
+	appendVhostUserDevice(devices []govmmQemu.Device, vhostUserDevice vc.VhostUserDevice) []govmmQemu.Device
 
 	// appendVFIODevice appends a VFIO device to devices
-	appendVFIODevice(devices []govmmQemu.Device, VfioDevice VFIODevice) []govmmQemu.Device
+	appendVFIODevice(devices []govmmQemu.Device, VfioDevice vc.VFIODevice) []govmmQemu.Device
 }
 
 type qemuArchBase struct {
@@ -96,9 +97,9 @@ type qemuArchBase struct {
 	networkIndex          int
 	qemuPaths             map[string]string
 	supportedQemuMachines []govmmQemu.Machine
-	kernelParamsNonDebug  []Param
-	kernelParamsDebug     []Param
-	kernelParams          []Param
+	kernelParamsNonDebug  []vc.Param
+	kernelParamsDebug     []vc.Param
+	kernelParams          []vc.Param
 }
 
 const (
@@ -134,7 +135,7 @@ const (
 
 // kernelParamsNonDebug is a list of the default kernel
 // parameters that will be used in standard (non-debug) mode.
-var kernelParamsNonDebug = []Param{
+var kernelParamsNonDebug = []vc.Param{
 	{"quiet", ""},
 	{"systemd.show_status", "false"},
 }
@@ -142,7 +143,7 @@ var kernelParamsNonDebug = []Param{
 // kernelParamsDebug is a list of the default kernel
 // parameters that will be used in debug mode (as much boot output as
 // possible).
-var kernelParamsDebug = []Param{
+var kernelParamsDebug = []vc.Param{
 	{"debug", ""},
 	{"systemd.show_status", "true"},
 	{"systemd.log_level", "debug"},
@@ -175,7 +176,7 @@ func (q *qemuArchBase) qemuPath() (string, error) {
 	return p, nil
 }
 
-func (q *qemuArchBase) kernelParameters(debug bool) []Param {
+func (q *qemuArchBase) kernelParameters(debug bool) []vc.Param {
 	params := q.kernelParams
 
 	if debug {
@@ -187,19 +188,19 @@ func (q *qemuArchBase) kernelParameters(debug bool) []Param {
 	return params
 }
 
-func (q *qemuArchBase) capabilities() Capabilities {
-	var caps Capabilities
+func (q *qemuArchBase) capabilities() vc.Capabilities {
+	var caps vc.Capabilities
 	caps.SetBlockDeviceHotplugSupport()
 	return caps
 }
 
-func (q *qemuArchBase) bridges(number uint32) []Bridge {
-	var bridges []Bridge
+func (q *qemuArchBase) bridges(number uint32) []vc.Bridge {
+	var bridges []vc.Bridge
 
 	for i := uint32(0); i < number; i++ {
-		bridges = append(bridges, Bridge{
-			Type:    PCIBridge,
-			ID:      fmt.Sprintf("%s-bridge-%d", PCIBridge, i),
+		bridges = append(bridges, vc.Bridge{
+			Type:    vc.PCIBridge,
+			ID:      fmt.Sprintf("%s-bridge-%d", vc.PCIBridge, i),
 			Address: make(map[uint32]string),
 		})
 	}
@@ -235,7 +236,7 @@ func (q *qemuArchBase) memoryTopology(memoryMb, hostMemoryMb uint64) govmmQemu.M
 	return memory
 }
 
-func (q *qemuArchBase) append9PVolumes(devices []govmmQemu.Device, volumes []Volume) []govmmQemu.Device {
+func (q *qemuArchBase) append9PVolumes(devices []govmmQemu.Device, volumes []vc.Volume) []govmmQemu.Device {
 	// Add the shared volumes
 	for _, v := range volumes {
 		devices = q.append9PVolume(devices, v)
@@ -273,14 +274,14 @@ func (q *qemuArchBase) appendImage(devices []govmmQemu.Device, path string) ([]g
 		return nil, err
 	}
 
-	randBytes, err := GenerateRandomBytes(8)
+	randBytes, err := vc.GenerateRandomBytes(8)
 	if err != nil {
 		return nil, err
 	}
 
-	id := MakeNameID("image", hex.EncodeToString(randBytes))
+	id := vc.MakeNameID("image", hex.EncodeToString(randBytes))
 
-	drive := Drive{
+	drive := vc.Drive{
 		File:   path,
 		Format: "raw",
 		ID:     id,
@@ -301,10 +302,10 @@ func (q *qemuArchBase) appendSCSIController(devices []govmmQemu.Device) []govmmQ
 }
 
 // appendBridges appends to devices the given bridges
-func (q *qemuArchBase) appendBridges(devices []govmmQemu.Device, bridges []Bridge) []govmmQemu.Device {
+func (q *qemuArchBase) appendBridges(devices []govmmQemu.Device, bridges []vc.Bridge) []govmmQemu.Device {
 	for idx, b := range bridges {
 		t := govmmQemu.PCIBridge
-		if b.Type == PCIEBridge {
+		if b.Type == vc.PCIEBridge {
 			t = govmmQemu.PCIEBridge
 		}
 
@@ -323,7 +324,7 @@ func (q *qemuArchBase) appendBridges(devices []govmmQemu.Device, bridges []Bridg
 	return devices
 }
 
-func (q *qemuArchBase) append9PVolume(devices []govmmQemu.Device, volume Volume) []govmmQemu.Device {
+func (q *qemuArchBase) append9PVolume(devices []govmmQemu.Device, volume vc.Volume) []govmmQemu.Device {
 	if volume.MountTag == "" || volume.HostPath == "" {
 		return devices
 	}
@@ -348,7 +349,7 @@ func (q *qemuArchBase) append9PVolume(devices []govmmQemu.Device, volume Volume)
 	return devices
 }
 
-func (q *qemuArchBase) appendSocket(devices []govmmQemu.Device, socket Socket) []govmmQemu.Device {
+func (q *qemuArchBase) appendSocket(devices []govmmQemu.Device, socket vc.Socket) []govmmQemu.Device {
 	devID := socket.ID
 	if len(devID) > maxDevIDSize {
 		devID = devID[:maxDevIDSize]
@@ -368,11 +369,11 @@ func (q *qemuArchBase) appendSocket(devices []govmmQemu.Device, socket Socket) [
 	return devices
 }
 
-func networkModelToQemuType(model NetInterworkingModel) govmmQemu.NetDeviceType {
+func networkModelToQemuType(model vc.NetInterworkingModel) govmmQemu.NetDeviceType {
 	switch model {
-	case NetXConnectBridgedModel:
+	case vc.NetXConnectBridgedModel:
 		return govmmQemu.MACVTAP //TODO: We should rename MACVTAP to .NET_FD
-	case NetXConnectMacVtapModel:
+	case vc.NetXConnectMacVtapModel:
 		return govmmQemu.MACVTAP
 	//case ModelEnlightened:
 	// Here the Network plugin will create a VM native interface
@@ -385,9 +386,9 @@ func networkModelToQemuType(model NetInterworkingModel) govmmQemu.NetDeviceType 
 	}
 }
 
-func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint Endpoint) []govmmQemu.Device {
+func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint vc.Endpoint) []govmmQemu.Device {
 	switch ep := endpoint.(type) {
-	case *VirtualEndpoint:
+	case *vc.VirtualEndpoint:
 		devices = append(devices,
 			govmmQemu.NetDevice{
 				Type:          networkModelToQemuType(ep.NetPair.NetInterworkingModel),
@@ -409,7 +410,7 @@ func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint Endpoi
 	return devices
 }
 
-func (q *qemuArchBase) appendBlockDevice(devices []govmmQemu.Device, drive Drive) []govmmQemu.Device {
+func (q *qemuArchBase) appendBlockDevice(devices []govmmQemu.Device, drive vc.Drive) []govmmQemu.Device {
 	if drive.File == "" || drive.ID == "" || drive.Format == "" {
 		return devices
 	}
@@ -433,28 +434,28 @@ func (q *qemuArchBase) appendBlockDevice(devices []govmmQemu.Device, drive Drive
 	return devices
 }
 
-func (q *qemuArchBase) appendVhostUserDevice(devices []govmmQemu.Device, vhostUserDevice VhostUserDevice) []govmmQemu.Device {
+func (q *qemuArchBase) appendVhostUserDevice(devices []govmmQemu.Device, vhostUserDevice vc.VhostUserDevice) []govmmQemu.Device {
 	qemuVhostUserDevice := govmmQemu.VhostUserDevice{}
 
 	switch vhostUserDevice := vhostUserDevice.(type) {
-	case *VhostUserNetDevice:
-		qemuVhostUserDevice.TypeDevID = MakeNameID("net", vhostUserDevice.ID)
+	case *vc.VhostUserNetDevice:
+		qemuVhostUserDevice.TypeDevID = vc.MakeNameID("net", vhostUserDevice.ID)
 		qemuVhostUserDevice.Address = vhostUserDevice.MacAddress
-	case *VhostUserSCSIDevice:
-		qemuVhostUserDevice.TypeDevID = MakeNameID("scsi", vhostUserDevice.ID)
-	case *VhostUserBlkDevice:
+	case *vc.VhostUserSCSIDevice:
+		qemuVhostUserDevice.TypeDevID = vc.MakeNameID("scsi", vhostUserDevice.ID)
+	case *vc.VhostUserBlkDevice:
 	}
 
 	qemuVhostUserDevice.VhostUserType = govmmQemu.VhostUserDeviceType(vhostUserDevice.Type())
 	qemuVhostUserDevice.SocketPath = vhostUserDevice.Attrs().SocketPath
-	qemuVhostUserDevice.CharDevID = MakeNameID("char", vhostUserDevice.Attrs().ID)
+	qemuVhostUserDevice.CharDevID = vc.MakeNameID("char", vhostUserDevice.Attrs().ID)
 
 	devices = append(devices, qemuVhostUserDevice)
 
 	return devices
 }
 
-func (q *qemuArchBase) appendVFIODevice(devices []govmmQemu.Device, VfioDevice VFIODevice) []govmmQemu.Device {
+func (q *qemuArchBase) appendVFIODevice(devices []govmmQemu.Device, VfioDevice vc.VFIODevice) []govmmQemu.Device {
 	if VfioDevice.BDF == "" {
 		return devices
 	}

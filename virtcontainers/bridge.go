@@ -18,11 +18,11 @@ package virtcontainers
 
 import "fmt"
 
-type bridgeType string
+type BridgeType string
 
 const (
-	pciBridge  bridgeType = "pci"
-	pcieBridge            = "pcie"
+	PCIBridge  BridgeType = "pci"
+	PCIEBridge            = "pcie"
 )
 
 const pciBridgeMaxCapacity = 30
@@ -33,15 +33,15 @@ type Bridge struct {
 	Address map[uint32]string
 
 	// Type is the type of the bridge (pci, pcie, etc)
-	Type bridgeType
+	Type BridgeType
 
 	//ID is used to identify the bridge in the hypervisor
 	ID string
 }
 
-// addDevice on success adds the device ID to the bridge and return the address
+// AddDevice on success adds the device ID to the bridge and return the address
 // where the device was added, otherwise an error is returned
-func (b *Bridge) addDevice(ID string) (uint32, error) {
+func (b *Bridge) AddDevice(ID string) (uint32, error) {
 	var addr uint32
 
 	// looking for the first available address
@@ -61,9 +61,9 @@ func (b *Bridge) addDevice(ID string) (uint32, error) {
 	return addr, nil
 }
 
-// removeDevice on success removes the device ID from the bridge and return nil,
+// RemoveDevice on success removes the device ID from the bridge and return nil,
 // otherwise an error is returned
-func (b *Bridge) removeDevice(ID string) error {
+func (b *Bridge) RemoveDevice(ID string) error {
 	// check if the device was hot plugged in the bridge
 	for addr, devID := range b.Address {
 		if devID == ID {

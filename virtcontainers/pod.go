@@ -378,9 +378,9 @@ func (podConfig *PodConfig) valid() bool {
 		return false
 	}
 
-	if _, err := newHypervisor(podConfig.HypervisorType); err != nil {
-		podConfig.HypervisorType = QemuHypervisor
-	}
+	// HACK: This forces the plugin to be used.
+	podConfig.HypervisorType = PluginHypervisor
+	podConfig.HypervisorConfig.PluginPath = "$GOPATH/src/github.com/kata-containers/runtime/plugins/hypervisor/qemu/qemu.so"
 
 	return true
 }
@@ -476,6 +476,32 @@ type Pod struct {
 // ID returns the pod identifier string.
 func (p *Pod) ID() string {
 	return p.id
+}
+
+// RunStoragePath returns the pod runtime storage path corresponding to this
+// specific pod.
+func (p *Pod) RunStoragePath() string {
+	return filepath.Join(runStoragePath, p.id)
+}
+
+// Config returns the pod configuration.
+func (p *Pod) Config() *PodConfig {
+	return p.config
+}
+
+// FetchHypervisorState fetches the hypervisor state related to this pod.
+func (p *Pod) FetchHypervisorState() (HypervisorState, error) {
+	state := HypervisorState{}
+	if err := p.storage.fetchHypervisorState(p.id, &state); err != nil {
+		return HypervisorState{}, err
+	}
+
+	return state, nil
+}
+
+// StoreHypervisorState stores the hypervisor state related to this pod.
+func (p *Pod) StoreHypervisorState(state HypervisorState) error {
+	return p.storage.storeHypervisorState(p.id, state)
 }
 
 // Logger returns a logrus logger appropriate for logging Pod messages

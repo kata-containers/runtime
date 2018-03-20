@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-package virtcontainers
+package main
 
 import (
 	"context"
@@ -24,10 +24,32 @@ import (
 	"strings"
 	"time"
 
+	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/containers/virtcontainers/pkg/uuid"
 	govmmQemu "github.com/intel/govmm/qemu"
-	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/sirupsen/logrus"
 )
+
+const (
+	procMemInfo = "/proc/meminfo"
+	procCPUInfo = "/proc/cpuinfo"
+)
+
+// controlSocket is the pod control socket.
+// It is an hypervisor resource, and for example qemu's control
+// socket is the QMP one.
+const controlSocket = "ctl"
+
+// monitorSocket is the pod monitoring socket.
+// It is an hypervisor resource, and is a qmp socket in the qemu case.
+// This is a socket that any monitoring entity will listen to in order
+// to understand if the VM is still alive or not.
+const monitorSocket = "mon"
+
+var virtLog = logrus.FieldLogger(logrus.New())
+
+// In some architectures the maximum number of vCPUs depends on the number of physical cores.
+var defaultMaxQemuVCPUs = maxQemuVCPUs()
 
 type qmpChannel struct {
 	ctx  context.Context
@@ -35,32 +57,18 @@ type qmpChannel struct {
 	qmp  *govmmQemu.QMP
 }
 
-// CPUDevice represents a CPU device which was hot-added in a running VM
-type CPUDevice struct {
-	// ID is used to identify this CPU in the hypervisor options.
-	ID string
-}
-
-// QemuState keeps Qemu's state
-type QemuState struct {
-	Bridges []Bridge
-	// HotpluggedCPUs is the list of CPUs that were hot-added
-	HotpluggedVCPUs []CPUDevice
-	UUID            string
-}
-
 // qemu is an Hypervisor interface implementation for the Linux qemu hypervisor.
 type qemu struct {
-	config HypervisorConfig
+	config vc.HypervisorConfig
 
 	qmpMonitorCh qmpChannel
 	qmpControlCh qmpChannel
 
 	qemuConfig govmmQemu.Config
 
-	pod *Pod
+	pod *vc.Pod
 
-	state QemuState
+	state vc.HypervisorState
 
 	arch qemuArch
 }
@@ -72,7 +80,7 @@ const qmpSockPathSizeLimit = 107
 const defaultConsole = "console.sock"
 
 // agnostic list of kernel parameters
-var defaultKernelParameters = []Param{
+var defaultKernelParameters = []vc.Param{
 	{"panic", "1"},
 	{"initcall_debug", ""},
 }
@@ -135,13 +143,18 @@ func (q *qemu) kernelParameters() string {
 	// params are added here, they will take priority over the defaults.
 	params = append(params, q.config.KernelParams...)
 
-	paramsStr := SerializeParams(params, "=")
+	paramsStr := vc.SerializeParams(params, "=")
 
 	return strings.Join(paramsStr, " ")
 }
 
-// Adds all capabilities supported by qemu implementation of hypervisor interface
-func (q *qemu) capabilities() Capabilities {
+func GetHypervisorPlugin() vc.HypervisorPlugin {
+	return &qemu{}
+}
+
+// Capabilities adds all capabilities supported by qemu implementation of
+// hypervisor interface.
+func (q *qemu) Capabilities() vc.Capabilities {
 	return q.arch.capabilities()
 }
 
@@ -166,30 +179,31 @@ func (q *qemu) qemuPath() (string, error) {
 	return p, nil
 }
 
-// init intializes the Qemu structure.
-func (q *qemu) init(pod *Pod) error {
-	valid, err := pod.config.HypervisorConfig.Valid()
+// Init intializes the Qemu structure.
+func (q *qemu) Init(pod *vc.Pod) error {
+	valid, err := pod.Config().HypervisorConfig.Valid()
 	if valid == false || err != nil {
 		return err
 	}
 
-	q.config = pod.config.HypervisorConfig
+	q.config = pod.Config().HypervisorConfig
 	q.pod = pod
 	q.arch = newQemuArch(q.config.HypervisorMachineType)
 
-	if err = pod.storage.fetchHypervisorState(pod.id, &q.state); err != nil {
+	q.state, err = pod.FetchHypervisorState()
+	if err != nil {
 		q.Logger().Debug("Creating bridges")
 		q.state.Bridges = q.arch.bridges(q.config.DefaultBridges)
 
 		q.Logger().Debug("Creating UUID")
 		q.state.UUID = uuid.Generate().String()
 
-		if err = pod.storage.storeHypervisorState(pod.id, q.state); err != nil {
+		if err = pod.StoreHypervisorState(q.state); err != nil {
 			return err
 		}
 	}
 
-	nested, err := RunningOnVMM(procCPUInfo)
+	nested, err := vc.RunningOnVMM(procCPUInfo)
 	if err != nil {
 		return err
 	}
@@ -208,8 +222,8 @@ func (q *qemu) cpuTopology() govmmQemu.SMP {
 	return q.arch.cpuTopology(q.config.DefaultVCPUs)
 }
 
-func (q *qemu) memoryTopology(podConfig PodConfig) (govmmQemu.Memory, error) {
-	hostMemKb, err := GetHostMemorySizeKb(procMemInfo)
+func (q *qemu) memoryTopology(podConfig vc.PodConfig) (govmmQemu.Memory, error) {
+	hostMemKb, err := vc.GetHostMemorySizeKb(procMemInfo)
 	if err != nil {
 		return govmmQemu.Memory{}, fmt.Errorf("Unable to read memory info: %s", err)
 	}
@@ -228,7 +242,7 @@ func (q *qemu) memoryTopology(podConfig PodConfig) (govmmQemu.Memory, error) {
 }
 
 func (q *qemu) qmpSocketPath(socketName string) (string, error) {
-	parentDirPath := filepath.Join(runStoragePath, q.pod.id)
+	parentDirPath := q.pod.RunStoragePath()
 	if len(parentDirPath) > qmpSockPathSizeLimit {
 		return "", fmt.Errorf("Parent directory path %q is too long "+
 			"(%d characters), could not add any path for the QMP socket",
@@ -244,8 +258,8 @@ func (q *qemu) qmpSocketPath(socketName string) (string, error) {
 	return path, nil
 }
 
-// createPod is the Hypervisor pod creation implementation for govmmQemu.
-func (q *qemu) createPod(podConfig PodConfig) error {
+// CreatePod is the Hypervisor pod creation implementation for govmmQemu.
+func (q *qemu) CreatePod(podConfig vc.PodConfig) error {
 	var devices []govmmQemu.Device
 
 	machine, err := q.arch.machine()
@@ -334,7 +348,7 @@ func (q *qemu) createPod(podConfig PodConfig) error {
 	}
 
 	devices = q.arch.append9PVolumes(devices, podConfig.Volumes)
-	devices = q.arch.appendConsole(devices, q.getPodConsole(podConfig.ID))
+	devices = q.arch.appendConsole(devices, q.GetPodConsole(podConfig.ID))
 
 	imagePath, err := q.config.ImageAssetPath()
 	if err != nil {
@@ -391,11 +405,11 @@ func (q *qemu) createPod(podConfig PodConfig) error {
 	return nil
 }
 
-// startPod will start the Pod's VM.
-func (q *qemu) startPod() error {
+// StartPod will start the Pod's VM.
+func (q *qemu) StartPod() error {
 	if q.config.Debug {
 		params := q.arch.kernelParameters(q.config.Debug)
-		strParams := SerializeParams(params, "=")
+		strParams := vc.SerializeParams(params, "=")
 		formatted := strings.Join(strParams, " ")
 
 		// The name of this field matches a similar one generated by
@@ -413,8 +427,8 @@ func (q *qemu) startPod() error {
 	return nil
 }
 
-// waitPod will wait for the Pod's VM to be up and running.
-func (q *qemu) waitPod(timeout int) error {
+// WaitPod will wait for the Pod's VM to be up and running.
+func (q *qemu) WaitPod(timeout int) error {
 	defer func(qemu *qemu) {
 		if q.qmpMonitorCh.qmp != nil {
 			q.qmpMonitorCh.qmp.Shutdown()
@@ -463,8 +477,8 @@ func (q *qemu) waitPod(timeout int) error {
 	return nil
 }
 
-// stopPod will stop the Pod's VM.
-func (q *qemu) stopPod() error {
+// StopPod will stop the Pod's VM.
+func (q *qemu) StopPod() error {
 	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
 	disconnectCh := make(chan struct{})
 
@@ -572,7 +586,7 @@ func (q *qemu) removeDeviceFromBridge(ID string) error {
 	return err
 }
 
-func (q *qemu) hotplugBlockDevice(drive Drive, op operation) error {
+func (q *qemu) hotplugBlockDevice(drive vc.Drive, op operation) error {
 	defer func(qemu *qemu) {
 		if q.qmpMonitorCh.qmp != nil {
 			q.qmpMonitorCh.qmp.Shutdown()
@@ -610,7 +624,7 @@ func (q *qemu) hotplugBlockDevice(drive Drive, op operation) error {
 			bus := scsiControllerID + ".0"
 
 			// Get SCSI-id and LUN based on the order of attaching drives.
-			scsiID, lun, err := GetSCSIIdLun(drive.Index)
+			scsiID, lun, err := vc.GetSCSIIdLun(drive.Index)
 			if err != nil {
 				return err
 			}
@@ -632,12 +646,12 @@ func (q *qemu) hotplugBlockDevice(drive Drive, op operation) error {
 	return nil
 }
 
-func (q *qemu) hotplugDevice(devInfo interface{}, devType DeviceType, op operation) error {
+func (q *qemu) hotplugDevice(devInfo interface{}, devType vc.DeviceType, op operation) error {
 	switch devType {
-	case BlockDev:
-		drive := devInfo.(Drive)
+	case vc.BlockDev:
+		drive := devInfo.(vc.Drive)
 		return q.hotplugBlockDevice(drive, op)
-	case CPUDev:
+	case vc.CPUDev:
 		vcpus := devInfo.(uint32)
 		return q.hotplugCPUs(vcpus, op)
 	default:
@@ -645,20 +659,20 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType DeviceType, op operati
 	}
 }
 
-func (q *qemu) hotplugAddDevice(devInfo interface{}, devType DeviceType) error {
+func (q *qemu) HotplugAddDevice(devInfo interface{}, devType vc.DeviceType) error {
 	if err := q.hotplugDevice(devInfo, devType, addDevice); err != nil {
 		return err
 	}
 
-	return q.pod.storage.storeHypervisorState(q.pod.id, q.state)
+	return q.pod.StoreHypervisorState(q.state)
 }
 
-func (q *qemu) hotplugRemoveDevice(devInfo interface{}, devType DeviceType) error {
+func (q *qemu) HotplugRemoveDevice(devInfo interface{}, devType vc.DeviceType) error {
 	if err := q.hotplugDevice(devInfo, devType, removeDevice); err != nil {
 		return err
 	}
 
-	return q.pod.storage.storeHypervisorState(q.pod.id, q.state)
+	return q.pod.StoreHypervisorState(q.state)
 }
 
 func (q *qemu) hotplugCPUs(vcpus uint32, op operation) error {
@@ -721,16 +735,16 @@ func (q *qemu) hotplugAddCPUs(amount uint32) error {
 		}
 
 		// a new vCPU was added, update list of hotplugged vCPUs and check if all vCPUs were added
-		q.state.HotpluggedVCPUs = append(q.state.HotpluggedVCPUs, CPUDevice{cpuID})
+		q.state.HotpluggedVCPUs = append(q.state.HotpluggedVCPUs, vc.CPUDevice{cpuID})
 		hotpluggedVCPUs++
 		if hotpluggedVCPUs == amount {
 			// All vCPUs were hotplugged
-			return q.pod.storage.storeHypervisorState(q.pod.id, q.state)
+			return q.pod.StoreHypervisorState(q.state)
 		}
 	}
 
 	// All vCPUs were NOT hotplugged
-	if err := q.pod.storage.storeHypervisorState(q.pod.id, q.state); err != nil {
+	if err := q.pod.StoreHypervisorState(q.state); err != nil {
 		q.Logger().Errorf("failed to save hypervisor state after hotplug %d vCPUs: %v", hotpluggedVCPUs, err)
 	}
 
@@ -756,37 +770,37 @@ func (q *qemu) hotplugRemoveCPUs(amount uint32) error {
 		q.state.HotpluggedVCPUs = q.state.HotpluggedVCPUs[:len(q.state.HotpluggedVCPUs)-1]
 	}
 
-	return q.pod.storage.storeHypervisorState(q.pod.id, q.state)
+	return q.pod.StoreHypervisorState(q.state)
 }
 
-func (q *qemu) pausePod() error {
+func (q *qemu) PausePod() error {
 	return q.togglePausePod(true)
 }
 
-func (q *qemu) resumePod() error {
+func (q *qemu) ResumePod() error {
 	return q.togglePausePod(false)
 }
 
-// addDevice will add extra devices to Qemu command line.
-func (q *qemu) addDevice(devInfo interface{}, devType DeviceType) error {
+// AddDevice will add extra devices to Qemu command line.
+func (q *qemu) AddDevice(devInfo interface{}, devType vc.DeviceType) error {
 	switch v := devInfo.(type) {
-	case Volume:
+	case vc.Volume:
 		q.qemuConfig.Devices = q.arch.append9PVolume(q.qemuConfig.Devices, v)
-	case Socket:
+	case vc.Socket:
 		q.qemuConfig.Devices = q.arch.appendSocket(q.qemuConfig.Devices, v)
-	case Endpoint:
+	case vc.Endpoint:
 		q.qemuConfig.Devices = q.arch.appendNetwork(q.qemuConfig.Devices, v)
-	case Drive:
+	case vc.Drive:
 		q.qemuConfig.Devices = q.arch.appendBlockDevice(q.qemuConfig.Devices, v)
 
 	//vhostUserDevice is an interface, hence the pointer for Net, SCSI and Blk:
-	case VhostUserNetDevice:
+	case vc.VhostUserNetDevice:
 		q.qemuConfig.Devices = q.arch.appendVhostUserDevice(q.qemuConfig.Devices, &v)
-	case VhostUserSCSIDevice:
+	case vc.VhostUserSCSIDevice:
 		q.qemuConfig.Devices = q.arch.appendVhostUserDevice(q.qemuConfig.Devices, &v)
-	case VhostUserBlkDevice:
+	case vc.VhostUserBlkDevice:
 		q.qemuConfig.Devices = q.arch.appendVhostUserDevice(q.qemuConfig.Devices, &v)
-	case VFIODevice:
+	case vc.VFIODevice:
 		q.qemuConfig.Devices = q.arch.appendVFIODevice(q.qemuConfig.Devices, v)
 	default:
 		break
@@ -795,8 +809,8 @@ func (q *qemu) addDevice(devInfo interface{}, devType DeviceType) error {
 	return nil
 }
 
-// getPodConsole builds the path of the console where we can read
+// GetPodConsole builds the path of the console where we can read
 // logs coming from the pod.
-func (q *qemu) getPodConsole(podID string) string {
-	return filepath.Join(runStoragePath, podID, defaultConsole)
+func (q *qemu) GetPodConsole(podID string) string {
+	return filepath.Join(q.pod.RunStoragePath(), defaultConsole)
 }

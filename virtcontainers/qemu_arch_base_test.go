@@ -395,7 +395,7 @@ func TestQemuArchBaseAppendSocket(t *testing.T) {
 }
 
 func TestQemuArchBaseAppendBlockDevice(t *testing.T) {
-	id := "blockDevTest"
+	id := "BlockDevTest"
 	file := "/root"
 	format := "raw"
 

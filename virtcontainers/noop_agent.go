@@ -36,8 +36,8 @@ func (n *noopAgent) createPod(pod *Pod) error {
 }
 
 // capabilities returns empty capabilities, i.e no capabilties are supported.
-func (n *noopAgent) capabilities() capabilities {
-	return capabilities{}
+func (n *noopAgent) capabilities() Capabilities {
+	return Capabilities{}
 }
 
 // exec is the Noop agent command execution implementation. It does nothing.

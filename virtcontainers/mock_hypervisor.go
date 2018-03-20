@@ -20,7 +20,7 @@ type mockHypervisor struct {
 }
 
 func (m *mockHypervisor) init(pod *Pod) error {
-	valid, err := pod.config.HypervisorConfig.valid()
+	valid, err := pod.config.HypervisorConfig.Valid()
 	if valid == false || err != nil {
 		return err
 	}
@@ -28,8 +28,8 @@ func (m *mockHypervisor) init(pod *Pod) error {
 	return nil
 }
 
-func (m *mockHypervisor) capabilities() capabilities {
-	return capabilities{}
+func (m *mockHypervisor) capabilities() Capabilities {
+	return Capabilities{}
 }
 
 func (m *mockHypervisor) createPod(podConfig PodConfig) error {
@@ -56,15 +56,15 @@ func (m *mockHypervisor) resumePod() error {
 	return nil
 }
 
-func (m *mockHypervisor) addDevice(devInfo interface{}, devType deviceType) error {
+func (m *mockHypervisor) addDevice(devInfo interface{}, devType DeviceType) error {
 	return nil
 }
 
-func (m *mockHypervisor) hotplugAddDevice(devInfo interface{}, devType deviceType) error {
+func (m *mockHypervisor) hotplugAddDevice(devInfo interface{}, devType DeviceType) error {
 	return nil
 }
 
-func (m *mockHypervisor) hotplugRemoveDevice(devInfo interface{}, devType deviceType) error {
+func (m *mockHypervisor) hotplugRemoveDevice(devInfo interface{}, devType DeviceType) error {
 	return nil
 }
 

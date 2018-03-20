@@ -34,6 +34,9 @@ const (
 
 	// MockHypervisor is a mock hypervisor for testing purposes
 	MockHypervisor HypervisorType = "mock"
+
+	// PluginHypervisor is a plugin hypervisor for proprietary hypervisors.
+	PluginHypervisor HypervisorType = "plugin"
 )
 
 const (
@@ -54,39 +57,39 @@ const (
 // In some architectures the maximum number of vCPUs depends on the number of physical cores.
 var defaultMaxQemuVCPUs = maxQemuVCPUs()
 
-// deviceType describes a virtualized device type.
-type deviceType int
+// DeviceType describes a virtualized device type.
+type DeviceType int
 
 const (
 	// ImgDev is the image device type.
-	imgDev deviceType = iota
+	ImgDev DeviceType = iota
 
 	// FsDev is the filesystem device type.
-	fsDev
+	FsDev
 
 	// NetDev is the network device type.
-	netDev
+	NetDev
 
 	// SerialDev is the serial device type.
-	serialDev
+	SerialDev
 
 	// BlockDev is the block device type.
-	blockDev
+	BlockDev
 
 	// ConsoleDev is the console device type.
-	consoleDev
+	ConsoleDev
 
 	// SerialPortDev is the serial port device type.
-	serialPortDev
+	SerialPortDev
 
 	// VFIODevice is VFIO device type
-	vfioDev
+	VfioDev
 
-	// vhostuserDev is a Vhost-user device type
-	vhostuserDev
+	// VhostuserDev is a Vhost-user device type
+	VhostuserDev
 
 	// CPUDevice is CPU device type
-	cpuDev
+	CPUDev
 )
 
 // Set sets an hypervisor type based on the input string.
@@ -97,6 +100,9 @@ func (hType *HypervisorType) Set(value string) error {
 		return nil
 	case "mock":
 		*hType = MockHypervisor
+		return nil
+	case "plugin":
+		*hType = PluginHypervisor
 		return nil
 	default:
 		return fmt.Errorf("Unknown hypervisor type %s", value)
@@ -110,6 +116,8 @@ func (hType *HypervisorType) String() string {
 		return string(QemuHypervisor)
 	case MockHypervisor:
 		return string(MockHypervisor)
+	case PluginHypervisor:
+		return string(PluginHypervisor)
 	default:
 		return ""
 	}
@@ -122,13 +130,15 @@ func newHypervisor(hType HypervisorType) (hypervisor, error) {
 		return &qemu{}, nil
 	case MockHypervisor:
 		return &mockHypervisor{}, nil
+	case PluginHypervisor:
+		return &pluginHypervisor{}, nil
 	default:
 		return nil, fmt.Errorf("Unknown hypervisor type %s", hType)
 	}
 }
 
 //Generic function for creating a named-id for passing on the hypervisor commandline
-func makeNameID(namedType string, id string) string {
+func MakeNameID(namedType string, id string) string {
 	nameID := fmt.Sprintf("%s-%s", namedType, id)
 	if len(nameID) > maxDevIDSize {
 		nameID = string(nameID[:maxDevIDSize])
@@ -145,6 +155,9 @@ type Param struct {
 
 // HypervisorConfig is the hypervisor configuration.
 type HypervisorConfig struct {
+	// PluginPath is the hypervisor implementation plugin path.
+	PluginPath string
+
 	// KernelPath is the guest kernel host path.
 	KernelPath string
 
@@ -220,7 +233,15 @@ type HypervisorConfig struct {
 	customAssets map[assetType]*asset
 }
 
-func (conf *HypervisorConfig) valid() (bool, error) {
+// HypervisorState keeps hypervisor's state.
+type HypervisorState struct {
+	Bridges []Bridge
+	// HotpluggedCPUs is the list of CPUs that were hot-added
+	HotpluggedVCPUs []CPUDevice
+	UUID            string
+}
+
+func (conf *HypervisorConfig) Valid() (bool, error) {
 	if conf.KernelPath == "" {
 		return false, fmt.Errorf("Missing kernel path")
 	}
@@ -402,7 +423,7 @@ func DeserializeParams(parameters []string) []Param {
 	return params
 }
 
-func getHostMemorySizeKb(memInfoPath string) (uint64, error) {
+func GetHostMemorySizeKb(memInfoPath string) (uint64, error) {
 	f, err := os.Open(memInfoPath)
 	if err != nil {
 		return 0, err
@@ -492,9 +513,26 @@ type hypervisor interface {
 	stopPod() error
 	pausePod() error
 	resumePod() error
-	addDevice(devInfo interface{}, devType deviceType) error
-	hotplugAddDevice(devInfo interface{}, devType deviceType) error
-	hotplugRemoveDevice(devInfo interface{}, devType deviceType) error
+	addDevice(devInfo interface{}, devType DeviceType) error
+	hotplugAddDevice(devInfo interface{}, devType DeviceType) error
+	hotplugRemoveDevice(devInfo interface{}, devType DeviceType) error
 	getPodConsole(podID string) string
-	capabilities() capabilities
+	capabilities() Capabilities
+}
+
+// HypervisorPlugin is the external hypervisor interface allowing proprietary
+// hypervisor implementations through dynamic library plugins.
+type HypervisorPlugin interface {
+	Init(pod *Pod) error
+	CreatePod(podConfig PodConfig) error
+	StartPod() error
+	WaitPod(timeout int) error
+	StopPod() error
+	PausePod() error
+	ResumePod() error
+	AddDevice(devInfo interface{}, devType DeviceType) error
+	HotplugAddDevice(devInfo interface{}, devType DeviceType) error
+	HotplugRemoveDevice(devInfo interface{}, devType DeviceType) error
+	GetPodConsole(podID string) string
+	Capabilities() Capabilities
 }

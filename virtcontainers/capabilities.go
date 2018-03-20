@@ -17,32 +17,32 @@
 package virtcontainers
 
 const (
-	blockDeviceSupport = 1 << iota
-	blockDeviceHotplugSupport
+	BlockDeviceSupport = 1 << iota
+	BlockDeviceHotplugSupport
 )
 
-type capabilities struct {
+type Capabilities struct {
 	flags uint
 }
 
-func (caps *capabilities) isBlockDeviceSupported() bool {
-	if caps.flags&blockDeviceSupport != 0 {
+func (caps *Capabilities) isBlockDeviceSupported() bool {
+	if caps.flags&BlockDeviceSupport != 0 {
 		return true
 	}
 	return false
 }
 
-func (caps *capabilities) setBlockDeviceSupport() {
-	caps.flags = caps.flags | blockDeviceSupport
+func (caps *Capabilities) setBlockDeviceSupport() {
+	caps.flags = caps.flags | BlockDeviceSupport
 }
 
-func (caps *capabilities) isBlockDeviceHotplugSupported() bool {
-	if caps.flags&blockDeviceHotplugSupport != 0 {
+func (caps *Capabilities) isBlockDeviceHotplugSupported() bool {
+	if caps.flags&BlockDeviceHotplugSupport != 0 {
 		return true
 	}
 	return false
 }
 
-func (caps *capabilities) setBlockDeviceHotplugSupport() {
-	caps.flags |= blockDeviceHotplugSupport
+func (caps *Capabilities) SetBlockDeviceHotplugSupport() {
+	caps.flags |= BlockDeviceHotplugSupport
 }

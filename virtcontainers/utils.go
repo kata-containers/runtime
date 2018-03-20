@@ -46,7 +46,7 @@ func fileCopy(srcPath, dstPath string) error {
 	return cmd.Run()
 }
 
-func generateRandomBytes(n int) ([]byte, error) {
+func GenerateRandomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 
