@@ -8,6 +8,7 @@
 /cli/config/configuration.toml
 /virtcontainers/hack/virtc/virtc
 /virtcontainers/hook/mock/hook
+/virtcontainers/netmon/kata-netmon
 /virtcontainers/shim/mock/shim
 /virtcontainers/shim/mock/cc-shim/cc-shim
 /virtcontainers/shim/mock/kata-shim/kata-shim
