@@ -200,12 +200,18 @@ define SHOW_ARCH
   $(shell printf "\\t%s%s\\\n" "$(1)" $(if $(filter $(ARCH),$(1))," (default)",""))
 endef
 
-all: runtime
+all: vc runtime
 
 runtime: $(TARGET_OUTPUT) $(CONFIG)
 .DEFAULT: default
 
 build: default
+
+vc:
+	make -C virtcontainers
+
+install-vc:
+	make -C virtcontainers install
 
 define GENERATED_CODE
 // WARNING: This file is auto-generated - DO NOT EDIT!
@@ -309,6 +315,7 @@ $(TARGET_OUTPUT): $(EXTRA_DEPS) $(SOURCES) $(GENERATED_GO_FILES) $(GENERATED_FIL
 	coverage \
 	default \
 	install \
+	install-vc \
 	show-header \
 	show-summary \
 	show-variables
