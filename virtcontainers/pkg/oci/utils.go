@@ -456,7 +456,11 @@ func addAssetAnnotations(ocispec CompatOCISpec, config *vc.SandboxConfig) {
 
 // SandboxConfig converts an OCI compatible runtime configuration file
 // to a virtcontainers sandbox configuration structure.
-func SandboxConfig(ocispec CompatOCISpec, runtime RuntimeConfig, bundlePath, cid, console string, detach bool) (vc.SandboxConfig, error) {
+func SandboxConfig(runtime RuntimeConfig, bundlePath, cid, console string, detach bool) (vc.SandboxConfig, error) {
+	ocispec, err := ParseConfigJSON(bundlePath)
+	if err != nil {
+		return vc.SandboxConfig{}, err
+	}
 	containerConfig, err := ContainerConfig(ocispec, bundlePath, cid, console, detach)
 	if err != nil {
 		return vc.SandboxConfig{}, err
@@ -468,11 +472,6 @@ func SandboxConfig(ocispec CompatOCISpec, runtime RuntimeConfig, bundlePath, cid
 	}
 
 	resources, err := vmConfig(ocispec, runtime)
-	if err != nil {
-		return vc.SandboxConfig{}, err
-	}
-
-	ociSpecJSON, err := json.Marshal(ocispec)
 	if err != nil {
 		return vc.SandboxConfig{}, err
 	}
@@ -504,7 +503,6 @@ func SandboxConfig(ocispec CompatOCISpec, runtime RuntimeConfig, bundlePath, cid
 		Containers: []vc.ContainerConfig{containerConfig},
 
 		Annotations: map[string]string{
-			vcAnnotations.ConfigJSONKey: string(ociSpecJSON),
 			vcAnnotations.BundlePathKey: bundlePath,
 		},
 	}
@@ -517,12 +515,6 @@ func SandboxConfig(ocispec CompatOCISpec, runtime RuntimeConfig, bundlePath, cid
 // ContainerConfig converts an OCI compatible runtime configuration
 // file to a virtcontainers container configuration structure.
 func ContainerConfig(ocispec CompatOCISpec, bundlePath, cid, console string, detach bool) (vc.ContainerConfig, error) {
-
-	ociSpecJSON, err := json.Marshal(ocispec)
-	if err != nil {
-		return vc.ContainerConfig{}, err
-	}
-
 	rootfs := ocispec.Root.Path
 	if !filepath.IsAbs(rootfs) {
 		rootfs = filepath.Join(bundlePath, ocispec.Root.Path)
@@ -574,7 +566,6 @@ func ContainerConfig(ocispec CompatOCISpec, bundlePath, cid, console string, det
 		ReadonlyRootfs: ocispec.Spec.Root.Readonly,
 		Cmd:            cmd,
 		Annotations: map[string]string{
-			vcAnnotations.ConfigJSONKey: string(ociSpecJSON),
 			vcAnnotations.BundlePathKey: bundlePath,
 		},
 		Mounts:      containerMounts(ocispec),
@@ -658,15 +649,10 @@ func EnvVars(envs []string) ([]vc.EnvVar, error) {
 // GetOCIConfig returns an OCI spec configuration from the annotation
 // stored into the container status.
 func GetOCIConfig(status vc.ContainerStatus) (CompatOCISpec, error) {
-	ociConfigStr, ok := status.Annotations[vcAnnotations.ConfigJSONKey]
+	bundlePath, ok := status.Annotations[vcAnnotations.BundlePathKey]
 	if !ok {
-		return CompatOCISpec{}, fmt.Errorf("Annotation[%s] not found", vcAnnotations.ConfigJSONKey)
+		return CompatOCISpec{}, fmt.Errorf("Annotation[%s] not found", vcAnnotations.BundlePathKey)
 	}
 
-	var ociSpec CompatOCISpec
-	if err := json.Unmarshal([]byte(ociConfigStr), &ociSpec); err != nil {
-		return CompatOCISpec{}, err
-	}
-
-	return ociSpec, nil
+	return ParseConfigJSON(bundlePath)
 }

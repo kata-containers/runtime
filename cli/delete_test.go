@@ -161,8 +161,6 @@ func TestDeleteSandbox(t *testing.T) {
 	}
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
 		return []vc.SandboxStatus{
@@ -173,7 +171,7 @@ func TestDeleteSandbox(t *testing.T) {
 						ID: sandbox.ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-							vcAnnotations.ConfigJSONKey:    configJSON,
+							vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 						},
 						State: vc.State{
 							State: "ready",
@@ -188,7 +186,7 @@ func TestDeleteSandbox(t *testing.T) {
 		testingImpl.ListSandboxFunc = nil
 	}()
 
-	err = delete(sandbox.ID(), false)
+	err := delete(sandbox.ID(), false)
 	assert.Error(err)
 	assert.True(vcmock.IsMockError(err))
 
@@ -224,9 +222,6 @@ func TestDeleteInvalidContainerType(t *testing.T) {
 	}
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
-
 	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
 		return []vc.SandboxStatus{
 			{
@@ -236,7 +231,7 @@ func TestDeleteInvalidContainerType(t *testing.T) {
 						ID: sandbox.ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: "InvalidType",
-							vcAnnotations.ConfigJSONKey:    configJSON,
+							vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 						},
 						State: vc.State{
 							State: "created",
@@ -252,7 +247,7 @@ func TestDeleteInvalidContainerType(t *testing.T) {
 	}()
 
 	// Delete an invalid container type
-	err = delete(sandbox.ID(), false)
+	err := delete(sandbox.ID(), false)
 	assert.Error(err)
 	assert.False(vcmock.IsMockError(err))
 }
@@ -265,8 +260,6 @@ func TestDeleteSandboxRunning(t *testing.T) {
 	}
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
 		return []vc.SandboxStatus{
@@ -277,7 +270,7 @@ func TestDeleteSandboxRunning(t *testing.T) {
 						ID: sandbox.ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-							vcAnnotations.ConfigJSONKey:    configJSON,
+							vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 						},
 						State: vc.State{
 							State: "running",
@@ -293,7 +286,7 @@ func TestDeleteSandboxRunning(t *testing.T) {
 	}()
 
 	// Delete on a running sandbox should fail
-	err = delete(sandbox.ID(), false)
+	err := delete(sandbox.ID(), false)
 	assert.Error(err)
 	assert.False(vcmock.IsMockError(err))
 
@@ -337,8 +330,6 @@ func TestDeleteRunningContainer(t *testing.T) {
 	}
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
 		return []vc.SandboxStatus{
@@ -349,7 +340,7 @@ func TestDeleteRunningContainer(t *testing.T) {
 						ID: sandbox.MockContainers[0].ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    configJSON,
+							vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 						},
 						State: vc.State{
 							State: "running",
@@ -365,7 +356,7 @@ func TestDeleteRunningContainer(t *testing.T) {
 	}()
 
 	// Delete on a running container should fail.
-	err = delete(sandbox.MockContainers[0].ID(), false)
+	err := delete(sandbox.MockContainers[0].ID(), false)
 	assert.Error(err)
 	assert.False(vcmock.IsMockError(err))
 
@@ -410,8 +401,6 @@ func TestDeleteContainer(t *testing.T) {
 	}
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
 		return []vc.SandboxStatus{
@@ -422,7 +411,7 @@ func TestDeleteContainer(t *testing.T) {
 						ID: sandbox.MockContainers[0].ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    configJSON,
+							vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 						},
 						State: vc.State{
 							State: "ready",
@@ -437,7 +426,7 @@ func TestDeleteContainer(t *testing.T) {
 		testingImpl.ListSandboxFunc = nil
 	}()
 
-	err = delete(sandbox.MockContainers[0].ID(), false)
+	err := delete(sandbox.MockContainers[0].ID(), false)
 	assert.Error(err)
 	assert.True(vcmock.IsMockError(err))
 
@@ -502,8 +491,6 @@ func TestDeleteCLIFunctionSuccess(t *testing.T) {
 	}
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
 		return []vc.SandboxStatus{
@@ -514,7 +501,7 @@ func TestDeleteCLIFunctionSuccess(t *testing.T) {
 						ID: sandbox.ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-							vcAnnotations.ConfigJSONKey:    configJSON,
+							vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 						},
 						State: vc.State{
 							State: "ready",
@@ -547,7 +534,7 @@ func TestDeleteCLIFunctionSuccess(t *testing.T) {
 	fn, ok := deleteCLICommand.Action.(func(context *cli.Context) error)
 	assert.True(ok)
 
-	err = fn(ctx)
+	err := fn(ctx)
 	assert.Error(err)
 	assert.False(vcmock.IsMockError(err))
 

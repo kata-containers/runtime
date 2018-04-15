@@ -910,7 +910,9 @@ func TestCreateSandboxConfigFail(t *testing.T) {
 		Quota: &quota,
 	}
 
-	_, err = createSandbox(spec, runtimeConfig, testContainerID, bundlePath, testConsole, true)
+	err = writeOCIConfigFile(spec, ociConfigFile)
+	assert.NoError(err)
+	_, err = createSandbox(runtimeConfig, testContainerID, bundlePath, testConsole, true)
 	assert.Error(err)
 	assert.False(vcmock.IsMockError(err))
 }
@@ -942,10 +944,10 @@ func TestCreateCreateSandboxFail(t *testing.T) {
 	ociConfigFile := filepath.Join(bundlePath, "config.json")
 	assert.True(fileExists(ociConfigFile))
 
-	spec, err := readOCIConfigFile(ociConfigFile)
+	_, err = readOCIConfigFile(ociConfigFile)
 	assert.NoError(err)
 
-	_, err = createSandbox(spec, runtimeConfig, testContainerID, bundlePath, testConsole, true)
+	_, err = createSandbox(runtimeConfig, testContainerID, bundlePath, testConsole, true)
 	assert.Error(err)
 	assert.True(vcmock.IsMockError(err))
 }
@@ -987,7 +989,7 @@ func TestCreateCreateContainerContainerConfigFail(t *testing.T) {
 	assert.NoError(err)
 
 	for _, disableOutput := range []bool{true, false} {
-		_, err = createContainer(spec, testContainerID, bundlePath, testConsole, disableOutput)
+		_, err = createContainer(testContainerID, bundlePath, testConsole, disableOutput)
 		assert.Error(err)
 		assert.False(vcmock.IsMockError(err))
 		assert.True(strings.Contains(err.Error(), containerType))
@@ -1031,7 +1033,7 @@ func TestCreateCreateContainerFail(t *testing.T) {
 	assert.NoError(err)
 
 	for _, disableOutput := range []bool{true, false} {
-		_, err = createContainer(spec, testContainerID, bundlePath, testConsole, disableOutput)
+		_, err = createContainer(testContainerID, bundlePath, testConsole, disableOutput)
 		assert.Error(err)
 		assert.True(vcmock.IsMockError(err))
 	}
@@ -1079,7 +1081,7 @@ func TestCreateCreateContainer(t *testing.T) {
 	assert.NoError(err)
 
 	for _, disableOutput := range []bool{true, false} {
-		_, err = createContainer(spec, testContainerID, bundlePath, testConsole, disableOutput)
+		_, err = createContainer(testContainerID, bundlePath, testConsole, disableOutput)
 		assert.NoError(err)
 	}
 }

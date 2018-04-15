@@ -82,12 +82,10 @@ func TestExecuteErrors(t *testing.T) {
 
 	// Container state undefined
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	annotations = map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-		vcAnnotations.ConfigJSONKey:    configJSON,
+		vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 	}
 
 	containerState := vc.State{}
@@ -140,12 +138,10 @@ func TestExecuteErrorReadingProcessJson(t *testing.T) {
 	ctx := cli.NewContext(cli.NewApp(), flagSet, nil)
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-		vcAnnotations.ConfigJSONKey:    configJSON,
+		vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 	}
 
 	state := vc.State{
@@ -184,12 +180,10 @@ func TestExecuteErrorOpeningConsole(t *testing.T) {
 	ctx := cli.NewContext(cli.NewApp(), flagSet, nil)
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-		vcAnnotations.ConfigJSONKey:    configJSON,
+		vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 	}
 
 	state := vc.State{
@@ -246,12 +240,10 @@ func TestExecuteWithFlags(t *testing.T) {
 	ctx := cli.NewContext(cli.NewApp(), flagSet, nil)
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-		vcAnnotations.ConfigJSONKey:    configJSON,
+		vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 	}
 
 	state := vc.State{
@@ -330,12 +322,10 @@ func TestExecuteWithFlagsDetached(t *testing.T) {
 	ctx := cli.NewContext(cli.NewApp(), flagSet, nil)
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-		vcAnnotations.ConfigJSONKey:    configJSON,
+		vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 	}
 
 	state := vc.State{
@@ -404,12 +394,10 @@ func TestExecuteWithInvalidProcessJson(t *testing.T) {
 	ctx := cli.NewContext(cli.NewApp(), flagSet, nil)
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-		vcAnnotations.ConfigJSONKey:    configJSON,
+		vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 	}
 
 	state := vc.State{
@@ -451,12 +439,10 @@ func TestExecuteWithValidProcessJson(t *testing.T) {
 	ctx := cli.NewContext(cli.NewApp(), flagSet, nil)
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-		vcAnnotations.ConfigJSONKey:    configJSON,
+		vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 	}
 
 	state := vc.State{
@@ -543,12 +529,10 @@ func TestExecuteWithInvalidEnvironment(t *testing.T) {
 	ctx := cli.NewContext(cli.NewApp(), flagSet, nil)
 
 	configPath := testConfigSetup(t)
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
 
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-		vcAnnotations.ConfigJSONKey:    configJSON,
+		vcAnnotations.BundlePathKey:    filepath.Dir(configPath),
 	}
 
 	state := vc.State{
