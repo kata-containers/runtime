@@ -45,6 +45,11 @@ func (n *noopAgent) exec(sandbox *Sandbox, c Container, cmd Cmd) (*Process, erro
 	return nil, nil
 }
 
+// hotSetupNetwork is the Noop agent Pod hot seting up network implementation. It does nothing.
+func (n *noopAgent) hotSetupNetwork(_ Endpoint) error {
+	return nil
+}
+
 // startSandbox is the Noop agent Sandbox starting implementation. It does nothing.
 func (n *noopAgent) startSandbox(sandbox Sandbox) error {
 	return nil

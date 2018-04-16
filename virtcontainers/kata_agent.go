@@ -318,6 +318,82 @@ func (k *kataAgent) exec(sandbox *Sandbox, c Container, cmd Cmd) (*Process, erro
 		k.state.URL, cmd, []ns.NSType{}, enterNSList)
 }
 
+func (k *kataAgent) generateInterface(endpoint Endpoint) *grpc.Interface {
+	var ipAddresses []*grpc.IPAddress
+	for _, addr := range endpoint.Properties().Addrs {
+		// Skip IPv6 because not supported
+		if addr.IP.To4() == nil {
+			// Skip IPv6 because not supported
+			k.Logger().WithFields(logrus.Fields{
+				"unsupported-address-type": "ipv6",
+				"address":                  addr,
+			}).Warn("unsupported address")
+			continue
+		}
+		// Skip localhost interface
+		if addr.IP.IsLoopback() {
+			continue
+		}
+		netMask, _ := addr.Mask.Size()
+		ipAddress := grpc.IPAddress{
+			Family:  grpc.IPFamily_v4,
+			Address: addr.IP.String(),
+			Mask:    fmt.Sprintf("%d", netMask),
+		}
+		ipAddresses = append(ipAddresses, &ipAddress)
+	}
+	return &grpc.Interface{
+		IPAddresses: ipAddresses,
+		Device:      endpoint.Name(),
+		Name:        endpoint.Name(),
+		Mtu:         uint64(endpoint.Properties().Iface.MTU),
+		HwAddr:      endpoint.HardwareAddr(),
+	}
+}
+
+func (k *kataAgent) generateRoutes(endpoint Endpoint) []*grpc.Route {
+	var routes []*grpc.Route
+	for _, route := range endpoint.Properties().Routes {
+		var r grpc.Route
+
+		if route.Dst != nil {
+			r.Dest = route.Dst.String()
+
+			if route.Dst.IP.To4() == nil {
+				// Skip IPv6 because not supported
+				k.Logger().WithFields(logrus.Fields{
+					"unsupported-route-type": "ipv6",
+					"destination":            r.Dest,
+				}).Warn("unsupported route")
+				continue
+			}
+		}
+
+		if route.Gw != nil {
+			gateway := route.Gw.String()
+
+			if route.Gw.To4() == nil {
+				// Skip IPv6 because is is not supported
+				k.Logger().WithFields(logrus.Fields{
+					"unsupported-route-type": "ipv6",
+					"gateway":                gateway,
+				}).Warn("unsupported route")
+				continue
+			}
+			r.Gateway = gateway
+		}
+
+		if route.Src != nil {
+			r.Source = route.Src.String()
+		}
+
+		r.Device = endpoint.Name()
+		r.Scope = uint32(route.Scope)
+		routes = append(routes, &r)
+	}
+	return routes
+}
+
 func (k *kataAgent) generateInterfacesAndRoutes(networkNS NetworkNamespace) ([]*grpc.Interface, []*grpc.Route, error) {
 
 	if networkNS.NetNsPath == "" {
@@ -328,81 +404,67 @@ func (k *kataAgent) generateInterfacesAndRoutes(networkNS NetworkNamespace) ([]*
 	var ifaces []*grpc.Interface
 
 	for _, endpoint := range networkNS.Endpoints {
-
-		var ipAddresses []*grpc.IPAddress
-		for _, addr := range endpoint.Properties().Addrs {
-			// Skip IPv6 because not supported
-			if addr.IP.To4() == nil {
-				// Skip IPv6 because not supported
-				k.Logger().WithFields(logrus.Fields{
-					"unsupported-address-type": "ipv6",
-					"address":                  addr,
-				}).Warn("unsupported address")
-				continue
-			}
-			// Skip localhost interface
-			if addr.IP.IsLoopback() {
-				continue
-			}
-			netMask, _ := addr.Mask.Size()
-			ipAddress := grpc.IPAddress{
-				Family:  grpc.IPFamily_v4,
-				Address: addr.IP.String(),
-				Mask:    fmt.Sprintf("%d", netMask),
-			}
-			ipAddresses = append(ipAddresses, &ipAddress)
-		}
-		ifc := grpc.Interface{
-			IPAddresses: ipAddresses,
-			Device:      endpoint.Name(),
-			Name:        endpoint.Name(),
-			Mtu:         uint64(endpoint.Properties().Iface.MTU),
-			HwAddr:      endpoint.HardwareAddr(),
-		}
-
-		ifaces = append(ifaces, &ifc)
-
-		for _, route := range endpoint.Properties().Routes {
-			var r grpc.Route
-
-			if route.Dst != nil {
-				r.Dest = route.Dst.String()
-
-				if route.Dst.IP.To4() == nil {
-					// Skip IPv6 because not supported
-					k.Logger().WithFields(logrus.Fields{
-						"unsupported-route-type": "ipv6",
-						"destination":            r.Dest,
-					}).Warn("unsupported route")
-					continue
-				}
-			}
-
-			if route.Gw != nil {
-				gateway := route.Gw.String()
-
-				if route.Gw.To4() == nil {
-					// Skip IPv6 because is is not supported
-					k.Logger().WithFields(logrus.Fields{
-						"unsupported-route-type": "ipv6",
-						"gateway":                gateway,
-					}).Warn("unsupported route")
-					continue
-				}
-				r.Gateway = gateway
-			}
-
-			if route.Src != nil {
-				r.Source = route.Src.String()
-			}
-
-			r.Device = endpoint.Name()
-			r.Scope = uint32(route.Scope)
-			routes = append(routes, &r)
-
-		}
+		ifaces = append(ifaces, k.generateInterface(endpoint))
+		routes = append(routes, k.generateRoutes(endpoint)...)
 	}
 	return ifaces, routes, nil
+}
+
+func (k *kataAgent) setupNetworkInterfaces(interfaces []*grpc.Interface) error {
+	for _, ifc := range interfaces {
+		// send update interface request
+		ifcReq := &grpc.UpdateInterfaceRequest{
+			Interface: ifc,
+		}
+		resultingInterface, err := k.sendReq(ifcReq)
+		if err != nil {
+			k.Logger().WithFields(logrus.Fields{
+				"interface-requested": fmt.Sprintf("%+v", ifc),
+				"resulting-interface": fmt.Sprintf("%+v", resultingInterface),
+			}).WithError(err).Error("update interface request failed")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (k *kataAgent) setupNetworkRoutes(routes []*grpc.Route) error {
+	if routes != nil {
+		routesReq := &grpc.UpdateRoutesRequest{
+			Routes: &grpc.Routes{
+				Routes: routes,
+			},
+		}
+
+		resultingRoutes, err := k.sendReq(routesReq)
+		if err != nil {
+			k.Logger().WithFields(logrus.Fields{
+				"routes-requested": fmt.Sprintf("%+v", routes),
+				"resulting-routes": fmt.Sprintf("%+v", resultingRoutes),
+			}).WithError(err).Error("update routes request failed")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (k *kataAgent) hotSetupNetwork(endpoint Endpoint) error {
+	if endpoint == nil {
+		fmt.Errorf("endpoint can not be nil.")
+	}
+
+	interfaces := []*grpc.Interface{k.generateInterface(endpoint)}
+	routes := k.generateRoutes(endpoint)
+	if err := k.setupNetworkInterfaces(interfaces); err != nil {
+		return err
+	}
+	if err := k.setupNetworkRoutes(routes); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (k *kataAgent) startSandbox(sandbox Sandbox) error {
@@ -453,36 +515,11 @@ func (k *kataAgent) startSandbox(sandbox Sandbox) error {
 	if err != nil {
 		return err
 	}
-	for _, ifc := range interfaces {
-		// send update interface request
-		ifcReq := &grpc.UpdateInterfaceRequest{
-			Interface: ifc,
-		}
-		resultingInterface, err := k.sendReq(ifcReq)
-		if err != nil {
-			k.Logger().WithFields(logrus.Fields{
-				"interface-requested": fmt.Sprintf("%+v", ifc),
-				"resulting-interface": fmt.Sprintf("%+v", resultingInterface),
-			}).WithError(err).Error("update interface request failed")
-			return err
-		}
+	if err := k.setupNetworkInterfaces(interfaces); err != nil {
+		return err
 	}
-
-	if routes != nil {
-		routesReq := &grpc.UpdateRoutesRequest{
-			Routes: &grpc.Routes{
-				Routes: routes,
-			},
-		}
-
-		resultingRoutes, err := k.sendReq(routesReq)
-		if err != nil {
-			k.Logger().WithFields(logrus.Fields{
-				"routes-requested": fmt.Sprintf("%+v", routes),
-				"resulting-routes": fmt.Sprintf("%+v", resultingRoutes),
-			}).WithError(err).Error("update routes request failed")
-			return err
-		}
+	if err := k.setupNetworkRoutes(routes); err != nil {
+		return err
 	}
 
 	// We mount the shared directory in a predefined location
