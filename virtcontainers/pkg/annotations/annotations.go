@@ -6,7 +6,7 @@
 package annotations
 
 const (
-	vcAnnotationsPrefix = "com.github.containers.virtcontainers."
+	vcAnnotationsPrefix = "com.github.katacontainers.runtime.virtcontainers."
 
 	// KernelPath is a sandbox annotation for passing a per container path pointing at the kernel needed to boot the container VM.
 	KernelPath = vcAnnotationsPrefix + "KernelPath"
@@ -40,9 +40,6 @@ const (
 
 	// AssetHashType is the hash type used for assets verification
 	AssetHashType = vcAnnotationsPrefix + "AssetHashType"
-
-	// ConfigJSONKey is the annotation key to fetch the OCI configuration.
-	ConfigJSONKey = vcAnnotationsPrefix + "pkg.oci.config"
 
 	// BundlePathKey is the annotation key to fetch the OCI configuration file path.
 	BundlePathKey = vcAnnotationsPrefix + "pkg.oci.bundle_path"

@@ -151,7 +151,6 @@ type runContainerData struct {
 	pidFilePath   string
 	consolePath   string
 	bundlePath    string
-	configJSON    string
 	sandbox       *vcmock.Sandbox
 	runtimeConfig oci.RuntimeConfig
 	process       *os.Process
@@ -183,9 +182,6 @@ func testRunContainerSetup(t *testing.T) runContainerData {
 	err = makeOCIBundle(bundlePath)
 	assert.NoError(err)
 
-	// config json path
-	configPath := filepath.Join(bundlePath, specConfig)
-
 	// sandbox id and container id must be the same otherwise delete will not works
 	sandbox := &vcmock.Sandbox{
 		MockID: testContainerID,
@@ -203,14 +199,10 @@ func testRunContainerSetup(t *testing.T) runContainerData {
 	runtimeConfig, err := newTestRuntimeConfig(tmpdir, consolePath, true)
 	assert.NoError(err)
 
-	configJSON, err := readOCIConfigJSON(configPath)
-	assert.NoError(err)
-
 	return runContainerData{
 		pidFilePath:   pidFilePath,
 		consolePath:   consolePath,
 		bundlePath:    bundlePath,
-		configJSON:    configJSON,
 		sandbox:       sandbox,
 		runtimeConfig: runtimeConfig,
 		process:       cmd.Process,
@@ -252,7 +244,7 @@ func TestRunContainerSuccessful(t *testing.T) {
 						ID: d.sandbox.ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
+							vcAnnotations.BundlePathKey:    d.bundlePath,
 						},
 					},
 				},
@@ -328,7 +320,7 @@ func TestRunContainerDetachSuccessful(t *testing.T) {
 						ID: d.sandbox.ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
+							vcAnnotations.BundlePathKey:    d.bundlePath,
 						},
 					},
 				},
@@ -401,7 +393,7 @@ func TestRunContainerDeleteFail(t *testing.T) {
 						ID: d.sandbox.ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
+							vcAnnotations.BundlePathKey:    d.bundlePath,
 						},
 					},
 				},
@@ -477,7 +469,7 @@ func TestRunContainerWaitFail(t *testing.T) {
 						ID: d.sandbox.ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
+							vcAnnotations.BundlePathKey:    d.bundlePath,
 						},
 					},
 				},
@@ -561,7 +553,7 @@ func TestRunContainerStartFail(t *testing.T) {
 						ID: d.sandbox.ID(),
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
+							vcAnnotations.BundlePathKey:    d.bundlePath,
 						},
 					},
 				},
@@ -616,6 +608,7 @@ func TestRunContainerStartFailNoContainers(t *testing.T) {
 						ID: testContainerID,
 						Annotations: map[string]string{
 							vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
+							vcAnnotations.BundlePathKey:    d.bundlePath,
 						},
 					},
 				},

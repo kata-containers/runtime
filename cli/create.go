@@ -106,12 +106,12 @@ func create(containerID, bundlePath, console, pidFilePath string, detach bool,
 
 	switch containerType {
 	case vc.PodSandbox:
-		process, err = createSandbox(ociSpec, runtimeConfig, containerID, bundlePath, console, disableOutput)
+		process, err = createSandbox(runtimeConfig, containerID, bundlePath, console, disableOutput)
 		if err != nil {
 			return err
 		}
 	case vc.PodContainer:
-		process, err = createContainer(ociSpec, containerID, bundlePath, console, disableOutput)
+		process, err = createContainer(containerID, bundlePath, console, disableOutput)
 		if err != nil {
 			return err
 		}
@@ -216,7 +216,7 @@ func setKernelParams(containerID string, runtimeConfig *oci.RuntimeConfig) error
 	return nil
 }
 
-func createSandbox(ociSpec oci.CompatOCISpec, runtimeConfig oci.RuntimeConfig,
+func createSandbox(runtimeConfig oci.RuntimeConfig,
 	containerID, bundlePath, console string, disableOutput bool) (vc.Process, error) {
 
 	err := setKernelParams(containerID, &runtimeConfig)
@@ -224,7 +224,7 @@ func createSandbox(ociSpec oci.CompatOCISpec, runtimeConfig oci.RuntimeConfig,
 		return vc.Process{}, err
 	}
 
-	sandboxConfig, err := oci.SandboxConfig(ociSpec, runtimeConfig, bundlePath, containerID, console, disableOutput)
+	sandboxConfig, err := oci.SandboxConfig(runtimeConfig, bundlePath, containerID, console, disableOutput)
 	if err != nil {
 		return vc.Process{}, err
 	}
@@ -242,8 +242,11 @@ func createSandbox(ociSpec oci.CompatOCISpec, runtimeConfig oci.RuntimeConfig,
 	return containers[0].Process(), nil
 }
 
-func createContainer(ociSpec oci.CompatOCISpec, containerID, bundlePath,
-	console string, disableOutput bool) (vc.Process, error) {
+func createContainer(containerID, bundlePath, console string, disableOutput bool) (vc.Process, error) {
+	ociSpec, err := oci.ParseConfigJSON(bundlePath)
+	if err != nil {
+		return vc.Process{}, err
+	}
 
 	contConfig, err := oci.ContainerConfig(ociSpec, bundlePath, containerID, console, disableOutput)
 	if err != nil {

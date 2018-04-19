@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -31,7 +32,7 @@ var (
 	defaultKataDeviceID         = "channel0"
 	defaultKataID               = "charch0"
 	errorMissingProxy           = errors.New("Missing proxy pointer")
-	errorMissingOCISpec         = errors.New("Missing OCI specification")
+	errorMissingOCIBundlePath   = errors.New("Missing OCI bundle path")
 	kataHostSharedDir           = "/run/kata-containers/shared/sandboxes/"
 	kataGuestSharedDir          = "/run/kata-containers/shared/containers/"
 	mountGuest9pTag             = "kataShared"
@@ -651,9 +652,9 @@ func (k *kataAgent) rollbackFailingContainerCreation(c *Container) {
 }
 
 func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process, err error) {
-	ociSpecJSON, ok := c.config.Annotations[vcAnnotations.ConfigJSONKey]
+	bundlePath, ok := c.config.Annotations[vcAnnotations.BundlePathKey]
 	if !ok {
-		return nil, errorMissingOCISpec
+		return nil, errorMissingOCIBundlePath
 	}
 
 	var ctrStorages []*grpc.Storage
@@ -731,8 +732,8 @@ func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process,
 		}
 	}
 
-	ociSpec := &specs.Spec{}
-	if err = json.Unmarshal([]byte(ociSpecJSON), ociSpec); err != nil {
+	ociSpec, err := ParseConfigJSON(bundlePath)
+	if err != nil {
 		return nil, err
 	}
 
@@ -972,4 +973,23 @@ func (k *kataAgent) sendReq(request interface{}) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("Unknown gRPC type %T", req)
 	}
+}
+
+// ParseConfigJSON unmarshals the config.json file.
+// TODO: this is duplicate with virtcontainers/pkg/oci/utilsgo:ParseConfigJSON
+// but we can't use that function because there will be cycle dependency problem
+// better find a way to eliminate duplicate codes @weizhang555
+func ParseConfigJSON(bundlePath string) (*specs.Spec, error) {
+	configPath := filepath.Join(bundlePath, "config.json")
+	configByte, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var ocispec specs.Spec
+	if err := json.Unmarshal(configByte, &ocispec); err != nil {
+		return nil, err
+	}
+
+	return &ocispec, nil
 }

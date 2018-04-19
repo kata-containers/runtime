@@ -125,7 +125,7 @@ func TestMinimalSandboxConfig(t *testing.T) {
 	if err := json.Unmarshal([]byte(minimalConfig), &minimalOCISpec); err != nil {
 		t.Fatal(err)
 	}
-	ociSpecJSON, err := json.Marshal(minimalOCISpec)
+	_, err = json.Marshal(minimalOCISpec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,6 @@ func TestMinimalSandboxConfig(t *testing.T) {
 		ReadonlyRootfs: true,
 		Cmd:            expectedCmd,
 		Annotations: map[string]string{
-			vcAnnotations.ConfigJSONKey:    string(ociSpecJSON),
 			vcAnnotations.BundlePathKey:    tempBundlePath,
 			vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
 		},
@@ -176,17 +175,16 @@ func TestMinimalSandboxConfig(t *testing.T) {
 		Containers: []vc.ContainerConfig{expectedContainerConfig},
 
 		Annotations: map[string]string{
-			vcAnnotations.ConfigJSONKey: string(ociSpecJSON),
 			vcAnnotations.BundlePathKey: tempBundlePath,
 		},
 	}
 
-	ociSpec, err := ParseConfigJSON(tempBundlePath)
+	_, err = ParseConfigJSON(tempBundlePath)
 	if err != nil {
 		t.Fatalf("Could not parse config.json: %v", err)
 	}
 
-	sandboxConfig, err := SandboxConfig(ociSpec, runtimeConfig, tempBundlePath, containerID, consolePath, false)
+	sandboxConfig, err := SandboxConfig(runtimeConfig, tempBundlePath, containerID, consolePath, false)
 	if err != nil {
 		t.Fatalf("Could not create Sandbox configuration %v", err)
 	}
@@ -288,7 +286,6 @@ func TestStatusToOCIStateSuccessfulWithReadyState(t *testing.T) {
 	}
 
 	containerAnnotations := map[string]string{
-		vcAnnotations.ConfigJSONKey: minimalConfig,
 		vcAnnotations.BundlePathKey: tempBundlePath,
 	}
 
@@ -324,7 +321,6 @@ func TestStatusToOCIStateSuccessfulWithRunningState(t *testing.T) {
 	}
 
 	containerAnnotations := map[string]string{
-		vcAnnotations.ConfigJSONKey: minimalConfig,
 		vcAnnotations.BundlePathKey: tempBundlePath,
 	}
 
@@ -359,7 +355,6 @@ func TestStatusToOCIStateSuccessfulWithStoppedState(t *testing.T) {
 	}
 
 	containerAnnotations := map[string]string{
-		vcAnnotations.ConfigJSONKey: minimalConfig,
 		vcAnnotations.BundlePathKey: tempBundlePath,
 	}
 
@@ -390,7 +385,6 @@ func TestStatusToOCIStateSuccessfulWithNoState(t *testing.T) {
 	testRootFs := "testRootFs"
 
 	containerAnnotations := map[string]string{
-		vcAnnotations.ConfigJSONKey: minimalConfig,
 		vcAnnotations.BundlePathKey: tempBundlePath,
 	}
 

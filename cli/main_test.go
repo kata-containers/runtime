@@ -131,24 +131,9 @@ func resetCLIGlobals() {
 func runUnitTests(m *testing.M) {
 	ret := m.Run()
 
-	os.RemoveAll(testDir)
+	//os.RemoveAll(testDir)
 
 	os.Exit(ret)
-}
-
-// Read fail that should contain a CompatOCISpec and
-// return its JSON representation on success
-func readOCIConfigJSON(configFile string) (string, error) {
-	bundlePath := filepath.Dir(configFile)
-	ociSpec, err := oci.ParseConfigJSON(bundlePath)
-	if err != nil {
-		return "", nil
-	}
-	ociSpecJSON, err := json.Marshal(ociSpec)
-	if err != nil {
-		return "", err
-	}
-	return string(ociSpecJSON), err
 }
 
 // TestMain is the common main function used by ALL the test functions
