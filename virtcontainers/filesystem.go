@@ -48,6 +48,9 @@ const (
 
 	// devicesFileType represents a device file type
 	devicesFileType
+
+	// containersMapFileType represents a containers map file type
+	containersMapFileType
 )
 
 // configFile is the file name used for every JSON sandbox configuration.
@@ -76,6 +79,9 @@ const mountsFile = "mounts.json"
 // devicesFile is the file name storing a container's devices.
 const devicesFile = "devices.json"
 
+// containersMapFile is the file name storing a map of containers/sandboxes.
+const containersMapFile = "containers_map.json"
+
 // dirMode is the permission bits used for creating a directory
 const dirMode = os.FileMode(0750) | os.ModeDir
 
@@ -101,6 +107,11 @@ type resourceStorage interface {
 	// for the actual resource and the URI base.
 	containerURI(sandboxID, containerID string, resource sandboxResource) (string, string, error)
 	sandboxURI(sandboxID string, resource sandboxResource) (string, string, error)
+	globalSandboxURI(resource sandboxResource) (string, string, error)
+
+	// Global resources
+	fetchContainersMap(ctrsMap *map[string][]string) error
+	storeContainersMap(ctrsMap map[string][]string) error
 
 	// Sandbox resources
 	storeSandboxResource(sandboxID string, resource sandboxResource, data interface{}) error
@@ -427,6 +438,33 @@ func (fs *filesystem) sandboxURI(sandboxID string, resource sandboxResource) (st
 	return fs.resourceURI(true, sandboxID, "", resource)
 }
 
+func (fs *filesystem) globalSandboxURI(resource sandboxResource) (string, string, error) {
+	var dirPath string
+
+	switch resource {
+	case lockFileType, containersMapFileType:
+		dirPath = runStoragePath
+		break
+	default:
+		return "", "", errInvalidResource
+	}
+
+	var filename string
+
+	switch resource {
+	case lockFileType:
+		filename = lockFileName
+		break
+	case containersMapFileType:
+		filename = containersMapFile
+		break
+	default:
+		return "", "", errInvalidResource
+	}
+
+	return filepath.Join(dirPath, filename), dirPath, nil
+}
+
 // commonResourceChecks performs basic checks common to both setting and
 // getting a sandboxResource.
 func (fs *filesystem) commonResourceChecks(sandboxSpecific bool, sandboxID, containerID string, resource sandboxResource) error {
@@ -617,6 +655,35 @@ func (fs *filesystem) fetchAgentState(sandboxID string, state interface{}) error
 	return fs.fetchResource(true, sandboxID, "", agentFileType, state)
 }
 
+func (fs *filesystem) fetchContainersMap(ctrsMap *map[string][]string) error {
+	resource := containersMapFileType
+
+	filePath, _, err := fs.globalSandboxURI(resource)
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		f, err := os.Create(filePath)
+		if err != nil {
+			return err
+		}
+		f.Close()
+
+		m := make(map[string][]string)
+		if err := fs.storeContainersMap(m); err != nil {
+			return err
+		}
+	}
+
+	fileData, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(fileData, ctrsMap)
+}
+
 func (fs *filesystem) storeSandboxNetwork(sandboxID string, networkNS NetworkNamespace) error {
 	return fs.storeSandboxResource(sandboxID, networkFileType, networkNS)
 }
@@ -637,6 +704,17 @@ func (fs *filesystem) storeAgentState(sandboxID string, state interface{}) error
 	}
 
 	return fs.storeFile(agentFile, state)
+}
+
+func (fs *filesystem) storeContainersMap(ctrsMap map[string][]string) error {
+	resource := containersMapFileType
+
+	filePath, _, err := fs.globalSandboxURI(resource)
+	if err != nil {
+		return err
+	}
+
+	return fs.storeFile(filePath, ctrsMap)
 }
 
 func (fs *filesystem) deleteSandboxResources(sandboxID string, resources []sandboxResource) error {
