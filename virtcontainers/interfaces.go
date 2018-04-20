@@ -44,6 +44,7 @@ type VCSandbox interface {
 	GetContainer(containerID string) VCContainer
 	ID() string
 	SetAnnotations(annotations map[string]string) error
+	PreAddStorage(containerID string) error
 }
 
 // VCContainer is the Container interface
