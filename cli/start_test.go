@@ -24,20 +24,20 @@ func TestStartInvalidArgs(t *testing.T) {
 	assert.Error(err)
 	assert.False(vcmock.IsMockError(err))
 
-	// Mock Listsandbox error
+	// Mock ContainerSandboxList error
 	_, err = start(testContainerID)
 	assert.Error(err)
 	assert.True(vcmock.IsMockError(err))
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{}, nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
-	// Container missing in ListSandbox
+	// Container missing in ContainerSandboxList
 	_, err = start(testContainerID)
 	assert.Error(err)
 	assert.False(vcmock.IsMockError(err))
@@ -50,24 +50,22 @@ func TestStartSandbox(t *testing.T) {
 		MockID: testSandboxID,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{
-			{
-				ID: sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: sandbox.ID(),
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-						},
-					},
-				},
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return vc.ContainerStatus{
+			ID: sandbox.ID(),
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
 			},
 		}, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	_, err := start(sandbox.ID())
@@ -93,22 +91,20 @@ func TestStartMissingAnnotation(t *testing.T) {
 		MockID: testSandboxID,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{
-			{
-				ID: sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID:          sandbox.ID(),
-						Annotations: map[string]string{},
-					},
-				},
-			},
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return vc.ContainerStatus{
+			ID:          sandbox.ID(),
+			Annotations: map[string]string{},
 		}, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	_, err := start(sandbox.ID())
@@ -130,24 +126,22 @@ func TestStartContainerSucessFailure(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{
-			{
-				ID: sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: testContainerID,
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-						},
-					},
-				},
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return vc.ContainerStatus{
+			ID: sandbox.ID(),
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
 			},
 		}, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	_, err := start(testContainerID)
@@ -205,18 +199,15 @@ func TestStartCLIFunctionSuccess(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{
-			{
-				ID: sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: testContainerID,
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-						},
-					},
-				},
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return vc.ContainerStatus{
+			ID: testContainerID,
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
 			},
 		}, nil
 	}
@@ -226,7 +217,8 @@ func TestStartCLIFunctionSuccess(t *testing.T) {
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 		testingImpl.StartContainerFunc = nil
 	}()
 

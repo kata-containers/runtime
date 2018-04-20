@@ -74,14 +74,14 @@ func TestRunInvalidArgs(t *testing.T) {
 		return sandbox, nil
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{}, nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{}, false, nil
 	}
 
 	defer func() {
 		testingImpl.CreateSandboxFunc = nil
 		testingImpl.StartSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	// temporal dir to place container files
@@ -237,25 +237,26 @@ func TestRunContainerSuccessful(t *testing.T) {
 		return d.sandbox, nil
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		if !flagCreate {
+			return []string{}, false, nil
+		}
+
+		return []string{d.sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
 		// return an empty list on create
 		if !flagCreate {
-			return []vc.SandboxStatus{}, nil
+			return vc.ContainerStatus{}, nil
 		}
 
 		// return a sandboxStatus with the container status
-		return []vc.SandboxStatus{
-			{
-				ID: d.sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: d.sandbox.ID(),
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
-						},
-					},
-				},
+		return vc.ContainerStatus{
+			ID: d.sandbox.ID(),
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
+				vcAnnotations.ConfigJSONKey:    d.configJSON,
 			},
 		}, nil
 	}
@@ -279,7 +280,8 @@ func TestRunContainerSuccessful(t *testing.T) {
 	defer func() {
 		testingImpl.CreateSandboxFunc = nil
 		testingImpl.StartSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 		testingImpl.StartContainerFunc = nil
 		testingImpl.DeleteSandboxFunc = nil
 		testingImpl.DeleteContainerFunc = nil
@@ -313,25 +315,26 @@ func TestRunContainerDetachSuccessful(t *testing.T) {
 		return d.sandbox, nil
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		if !flagCreate {
+			return []string{}, false, nil
+		}
+
+		return []string{d.sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
 		// return an empty list on create
 		if !flagCreate {
-			return []vc.SandboxStatus{}, nil
+			return vc.ContainerStatus{}, nil
 		}
 
 		// return a sandboxStatus with the container status
-		return []vc.SandboxStatus{
-			{
-				ID: d.sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: d.sandbox.ID(),
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
-						},
-					},
-				},
+		return vc.ContainerStatus{
+			ID: d.sandbox.ID(),
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
+				vcAnnotations.ConfigJSONKey:    d.configJSON,
 			},
 		}, nil
 	}
@@ -355,7 +358,8 @@ func TestRunContainerDetachSuccessful(t *testing.T) {
 	defer func() {
 		testingImpl.CreateSandboxFunc = nil
 		testingImpl.StartSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 		testingImpl.StartContainerFunc = nil
 		testingImpl.DeleteSandboxFunc = nil
 		testingImpl.DeleteContainerFunc = nil
@@ -386,25 +390,26 @@ func TestRunContainerDeleteFail(t *testing.T) {
 		return d.sandbox, nil
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		if !flagCreate {
+			return []string{}, false, nil
+		}
+
+		return []string{d.sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
 		// return an empty list on create
 		if !flagCreate {
-			return []vc.SandboxStatus{}, nil
+			return vc.ContainerStatus{}, nil
 		}
 
 		// return a sandboxStatus with the container status
-		return []vc.SandboxStatus{
-			{
-				ID: d.sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: d.sandbox.ID(),
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
-						},
-					},
-				},
+		return vc.ContainerStatus{
+			ID: d.sandbox.ID(),
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
+				vcAnnotations.ConfigJSONKey:    d.configJSON,
 			},
 		}, nil
 	}
@@ -430,7 +435,8 @@ func TestRunContainerDeleteFail(t *testing.T) {
 	defer func() {
 		testingImpl.CreateSandboxFunc = nil
 		testingImpl.StartSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 		testingImpl.StartContainerFunc = nil
 		testingImpl.DeleteSandboxFunc = nil
 		testingImpl.DeleteContainerFunc = nil
@@ -462,25 +468,26 @@ func TestRunContainerWaitFail(t *testing.T) {
 		return d.sandbox, nil
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		if !flagCreate {
+			return []string{}, false, nil
+		}
+
+		return []string{d.sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
 		// return an empty list on create
 		if !flagCreate {
-			return []vc.SandboxStatus{}, nil
+			return vc.ContainerStatus{}, nil
 		}
 
 		// return a sandboxStatus with the container status
-		return []vc.SandboxStatus{
-			{
-				ID: d.sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: d.sandbox.ID(),
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
-						},
-					},
-				},
+		return vc.ContainerStatus{
+			ID: d.sandbox.ID(),
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
+				vcAnnotations.ConfigJSONKey:    d.configJSON,
 			},
 		}, nil
 	}
@@ -509,7 +516,8 @@ func TestRunContainerWaitFail(t *testing.T) {
 	defer func() {
 		testingImpl.CreateSandboxFunc = nil
 		testingImpl.StartSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 		testingImpl.StartContainerFunc = nil
 		testingImpl.DeleteSandboxFunc = nil
 		testingImpl.DeleteContainerFunc = nil
@@ -546,25 +554,26 @@ func TestRunContainerStartFail(t *testing.T) {
 		return nil, fmt.Errorf("StartSandbox")
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		if !flagCreate {
+			return []string{}, false, nil
+		}
+
+		return []string{d.sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
 		// return an empty list on create
 		if !flagCreate {
-			return []vc.SandboxStatus{}, nil
+			return vc.ContainerStatus{}, nil
 		}
 
 		// return a sandboxStatus with the container status
-		return []vc.SandboxStatus{
-			{
-				ID: d.sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: d.sandbox.ID(),
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-							vcAnnotations.ConfigJSONKey:    d.configJSON,
-						},
-					},
-				},
+		return vc.ContainerStatus{
+			ID: d.sandbox.ID(),
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
+				vcAnnotations.ConfigJSONKey:    d.configJSON,
 			},
 		}, nil
 	}
@@ -572,7 +581,8 @@ func TestRunContainerStartFail(t *testing.T) {
 	defer func() {
 		testingImpl.CreateSandboxFunc = nil
 		testingImpl.StartSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	err = run(d.sandbox.ID(), d.bundlePath, d.consolePath, "", d.pidFilePath, false, d.runtimeConfig)
@@ -582,10 +592,8 @@ func TestRunContainerStartFail(t *testing.T) {
 	assert.False(ok, "error should not be a cli.ExitError: %s", err)
 }
 
-func TestRunContainerStartFailNoContainers(t *testing.T) {
+func TestRunContainerStartFailExistingContainer(t *testing.T) {
 	assert := assert.New(t)
-
-	listCallCount := 0
 
 	d := testRunContainerSetup(t)
 	defer os.RemoveAll(d.tmpDir)
@@ -601,24 +609,16 @@ func TestRunContainerStartFailNoContainers(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		listCallCount++
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{sandbox.ID()}, true, nil
+	}
 
-		if listCallCount == 1 {
-			return []vc.SandboxStatus{}, nil
-		}
-
-		return []vc.SandboxStatus{
-			{
-				ID: sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: testContainerID,
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-						},
-					},
-				},
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		// return the container status
+		return vc.ContainerStatus{
+			ID: testContainerID,
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
 			},
 		}, nil
 	}
@@ -635,7 +635,8 @@ func TestRunContainerStartFailNoContainers(t *testing.T) {
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 		testingImpl.CreateSandboxFunc = nil
 		testingImpl.StartSandboxFunc = nil
 	}()

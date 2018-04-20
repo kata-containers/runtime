@@ -47,23 +47,28 @@ func getContainerInfo(containerID string) (vc.ContainerStatus, string, error) {
 		return vc.ContainerStatus{}, "", fmt.Errorf("Missing container ID")
 	}
 
-	sandboxStatusList, err := vci.ListSandbox()
+	sandboxList, exist, err := vci.ContainerSandboxList(containerID)
+	if err != nil {
+		return vc.ContainerStatus{}, "", err
+	}
+	if !exist {
+		// Not finding a container should not trigger an error as
+		// getContainerInfo is used for checking the existence and
+		// the absence of a container ID.
+		return vc.ContainerStatus{}, "", nil
+	}
+
+	if len(sandboxList) != 1 {
+		return vc.ContainerStatus{}, "", fmt.Errorf("A unique sandbox ID should match container ID (%v)", containerID)
+	}
+	sandboxID := sandboxList[0]
+
+	ctrStatus, err := vci.StatusContainer(sandboxID, containerID)
 	if err != nil {
 		return vc.ContainerStatus{}, "", err
 	}
 
-	for _, sandboxStatus := range sandboxStatusList {
-		for _, containerStatus := range sandboxStatus.ContainersStatus {
-			if containerStatus.ID == containerID {
-				return containerStatus, sandboxStatus.ID, nil
-			}
-		}
-	}
-
-	// Not finding a container should not trigger an error as
-	// getContainerInfo is used for checking the existence and
-	// the absence of a container ID.
-	return vc.ContainerStatus{}, "", nil
+	return ctrStatus, sandboxID, nil
 }
 
 func getExistingContainerInfo(containerID string) (vc.ContainerStatus, string, error) {

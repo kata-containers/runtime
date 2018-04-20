@@ -305,14 +305,14 @@ func TestCreateInvalidArgs(t *testing.T) {
 		return sandbox, nil
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	defer func() {
 		testingImpl.CreateSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	tmpdir, err := ioutil.TempDir("", "")
@@ -355,13 +355,13 @@ func TestCreateInvalidArgs(t *testing.T) {
 func TestCreateInvalidConfigJSON(t *testing.T) {
 	assert := assert.New(t)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	tmpdir, err := ioutil.TempDir("", "")
@@ -399,13 +399,13 @@ func TestCreateInvalidConfigJSON(t *testing.T) {
 func TestCreateInvalidContainerType(t *testing.T) {
 	assert := assert.New(t)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	tmpdir, err := ioutil.TempDir("", "")
@@ -446,13 +446,13 @@ func TestCreateInvalidContainerType(t *testing.T) {
 func TestCreateContainerInvalid(t *testing.T) {
 	assert := assert.New(t)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	tmpdir, err := ioutil.TempDir("", "")
@@ -501,9 +501,9 @@ func TestCreateProcessCgroupsPathSuccessful(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	testingImpl.CreateSandboxFunc = func(sandboxConfig vc.SandboxConfig) (vc.VCSandbox, error) {
@@ -511,7 +511,7 @@ func TestCreateProcessCgroupsPathSuccessful(t *testing.T) {
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 		testingImpl.CreateSandboxFunc = nil
 	}()
 
@@ -596,9 +596,9 @@ func TestCreateCreateCgroupsFilesFail(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	testingImpl.CreateSandboxFunc = func(sandboxConfig vc.SandboxConfig) (vc.VCSandbox, error) {
@@ -606,7 +606,7 @@ func TestCreateCreateCgroupsFilesFail(t *testing.T) {
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 		testingImpl.CreateSandboxFunc = nil
 	}()
 
@@ -681,9 +681,9 @@ func TestCreateCreateCreatePidFileFail(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	testingImpl.CreateSandboxFunc = func(sandboxConfig vc.SandboxConfig) (vc.VCSandbox, error) {
@@ -691,7 +691,7 @@ func TestCreateCreateCreatePidFileFail(t *testing.T) {
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 		testingImpl.CreateSandboxFunc = nil
 	}()
 
@@ -752,9 +752,9 @@ func TestCreate(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	testingImpl.CreateSandboxFunc = func(sandboxConfig vc.SandboxConfig) (vc.VCSandbox, error) {
@@ -762,7 +762,7 @@ func TestCreate(t *testing.T) {
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 		testingImpl.CreateSandboxFunc = nil
 	}()
 
@@ -810,13 +810,13 @@ func TestCreate(t *testing.T) {
 func TestCreateInvalidKernelParams(t *testing.T) {
 	assert := assert.New(t)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	tmpdir, err := ioutil.TempDir("", "")
@@ -871,13 +871,13 @@ func TestCreateInvalidKernelParams(t *testing.T) {
 func TestCreateSandboxConfigFail(t *testing.T) {
 	assert := assert.New(t)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	tmpdir, err := ioutil.TempDir("", "")
@@ -918,13 +918,13 @@ func TestCreateSandboxConfigFail(t *testing.T) {
 func TestCreateCreateSandboxFail(t *testing.T) {
 	assert := assert.New(t)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	tmpdir, err := ioutil.TempDir("", "")
@@ -953,13 +953,13 @@ func TestCreateCreateSandboxFail(t *testing.T) {
 func TestCreateCreateContainerContainerConfigFail(t *testing.T) {
 	assert := assert.New(t)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	tmpdir, err := ioutil.TempDir("", "")
@@ -997,13 +997,13 @@ func TestCreateCreateContainerContainerConfigFail(t *testing.T) {
 func TestCreateCreateContainerFail(t *testing.T) {
 	assert := assert.New(t)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	tmpdir, err := ioutil.TempDir("", "")
@@ -1040,9 +1040,9 @@ func TestCreateCreateContainerFail(t *testing.T) {
 func TestCreateCreateContainer(t *testing.T) {
 	assert := assert.New(t)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
 		// No pre-existing sandboxes
-		return []vc.SandboxStatus{}, nil
+		return []string{}, false, nil
 	}
 
 	testingImpl.CreateContainerFunc = func(sandboxID string, containerConfig vc.ContainerConfig) (vc.VCSandbox, vc.VCContainer, error) {
@@ -1050,7 +1050,7 @@ func TestCreateCreateContainer(t *testing.T) {
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 		testingImpl.CreateContainerFunc = nil
 	}()
 

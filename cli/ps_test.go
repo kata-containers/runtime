@@ -47,25 +47,22 @@ func TestPSFailure(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		// return a sandboxStatus with the container status
-		return []vc.SandboxStatus{
-			{
-				ID: sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: sandbox.ID(),
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-						},
-					},
-				},
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return vc.ContainerStatus{
+			ID: sandbox.ID(),
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
 			},
 		}, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	// inexistent container
@@ -91,22 +88,18 @@ func TestPSSuccessful(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		// return a sandboxStatus with the container status
-		return []vc.SandboxStatus{
-			{
-				ID: sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						State: vc.State{
-							State: vc.StateRunning,
-						},
-						ID: sandbox.ID(),
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
-						},
-					},
-				},
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return vc.ContainerStatus{
+			State: vc.State{
+				State: vc.StateRunning,
+			},
+			ID: sandbox.ID(),
+			Annotations: map[string]string{
+				vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
 			},
 		}, nil
 	}
@@ -116,7 +109,8 @@ func TestPSSuccessful(t *testing.T) {
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 		testingImpl.ProcessListContainerFunc = nil
 	}()
 

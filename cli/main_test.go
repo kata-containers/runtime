@@ -438,19 +438,11 @@ func writeOCIConfigFile(spec oci.CompatOCISpec, configPath string) error {
 	return ioutil.WriteFile(configPath, bytes, testFileMode)
 }
 
-func newSingleContainerSandboxStatusList(sandboxID, containerID string, sandboxState, containerState vc.State, annotations map[string]string) []vc.SandboxStatus {
-	return []vc.SandboxStatus{
-		{
-			ID:    sandboxID,
-			State: sandboxState,
-			ContainersStatus: []vc.ContainerStatus{
-				{
-					ID:          containerID,
-					State:       containerState,
-					Annotations: annotations,
-				},
-			},
-		},
+func newSingleContainerStatus(containerID string, containerState vc.State, annotations map[string]string) vc.ContainerStatus {
+	return vc.ContainerStatus{
+		ID:          containerID,
+		State:       containerState,
+		Annotations: annotations,
 	}
 }
 
