@@ -359,6 +359,11 @@ type SandboxConfig struct {
 	// Annotations keys must be unique strings and must be name-spaced
 	// with e.g. reverse domain notation (org.clearlinux.key).
 	Annotations map[string]string
+
+	// Stateless means the caller is a long living process which will keep
+	// track of changes. For performances reasons, it makes sense not to
+	// store informations from virtcontainers.
+	Stateless bool
 }
 
 // valid checks that the sandbox configuration is valid.
