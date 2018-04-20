@@ -639,3 +639,25 @@ func ProcessListContainer(sandboxID, containerID string, options ProcessListOpti
 
 	return c.processList(options)
 }
+
+// ContainerSandboxList returns the list of sandboxes IDs for all
+// the sandboxes including the provided container ID.
+// It also provides the information about the container ID being part
+// of the containers map.
+func ContainerSandboxList(containerID string) ([]string, bool, error) {
+	if containerID == "" {
+		return nil, false, errNeedContainerID
+	}
+
+	ctrsMap, err := fetchContainersMap()
+	if err != nil {
+		return nil, false, err
+	}
+
+	sandboxList, exist := ctrsMap[containerID]
+	if !exist {
+		return nil, false, nil
+	}
+
+	return sandboxList, true, nil
+}

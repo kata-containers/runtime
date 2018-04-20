@@ -186,3 +186,12 @@ func (m *VCMock) ProcessListContainer(sandboxID, containerID string, options vc.
 
 	return nil, fmt.Errorf("%s: %s (%+v): sandboxID: %v, containerID: %v", mockErrorPrefix, getSelf(), m, sandboxID, containerID)
 }
+
+// ContainerSandboxList implements the VC function of the same name.
+func (m *VCMock) ContainerSandboxList(containerID string) ([]string, bool, error) {
+	if m.ContainerSandboxListFunc != nil {
+		return m.ContainerSandboxListFunc(containerID)
+	}
+
+	return nil, false, fmt.Errorf("%s: %s (%+v): containerID: %v", mockErrorPrefix, getSelf(), m, containerID)
+}

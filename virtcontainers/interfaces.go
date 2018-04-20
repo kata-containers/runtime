@@ -33,6 +33,8 @@ type VC interface {
 	StatusContainer(sandboxID, containerID string) (ContainerStatus, error)
 	StopContainer(sandboxID, containerID string) (VCContainer, error)
 	ProcessListContainer(sandboxID, containerID string, options ProcessListOptions) (ProcessList, error)
+
+	ContainerSandboxList(containerID string) ([]string, bool, error)
 }
 
 // VCSandbox is the Sandbox interface
