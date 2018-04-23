@@ -32,12 +32,19 @@ func TestPauseCLIFunctionSuccessful(t *testing.T) {
 	}
 
 	testingImpl.PauseSandboxFunc = testPauseSandboxFuncReturnNil
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, map[string]string{}), nil
+
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
 	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, map[string]string{}), nil
+	}
+
 	defer func() {
 		testingImpl.PauseSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	set := flag.NewFlagSet("", 0)
@@ -50,12 +57,14 @@ func TestPauseCLIFunctionContainerNotExistFailure(t *testing.T) {
 	assert := assert.New(t)
 
 	testingImpl.PauseSandboxFunc = testPauseSandboxFuncReturnNil
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{}, nil
+
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{}, false, nil
 	}
+
 	defer func() {
 		testingImpl.PauseSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	set := flag.NewFlagSet("", 0)
@@ -71,11 +80,17 @@ func TestPauseCLIFunctionPauseSandboxFailure(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, map[string]string{}), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
 	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, map[string]string{}), nil
+	}
+
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	set := flag.NewFlagSet("", 0)
@@ -92,12 +107,19 @@ func TestResumeCLIFunctionSuccessful(t *testing.T) {
 	}
 
 	testingImpl.ResumeSandboxFunc = testResumeSandboxFuncReturnNil
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, map[string]string{}), nil
+
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
 	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, map[string]string{}), nil
+	}
+
 	defer func() {
 		testingImpl.ResumeSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	set := flag.NewFlagSet("", 0)
@@ -110,12 +132,14 @@ func TestResumeCLIFunctionContainerNotExistFailure(t *testing.T) {
 	assert := assert.New(t)
 
 	testingImpl.ResumeSandboxFunc = testResumeSandboxFuncReturnNil
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{}, nil
+
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{}, false, nil
 	}
+
 	defer func() {
 		testingImpl.ResumeSandboxFunc = nil
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	set := flag.NewFlagSet("", 0)
@@ -131,11 +155,17 @@ func TestResumeCLIFunctionPauseSandboxFailure(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, map[string]string{}), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
 	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, map[string]string{}), nil
+	}
+
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	set := flag.NewFlagSet("", 0)

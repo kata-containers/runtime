@@ -568,3 +568,30 @@ func TestVCMockProcessListContainer(t *testing.T) {
 	assert.Error(err)
 	assert.True(IsMockError(err))
 }
+
+func TestVCMockContainerSandboxList(t *testing.T) {
+	assert := assert.New(t)
+
+	m := &VCMock{}
+	assert.Nil(m.ContainerSandboxListFunc)
+
+	_, _, err := m.ContainerSandboxList(testContainerID)
+	assert.Error(err)
+	assert.True(IsMockError(err))
+
+	m.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+
+	sandboxList, exist, err := m.ContainerSandboxList(testContainerID)
+	assert.NoError(err)
+	assert.Equal(exist, true)
+	assert.Equal(sandboxList, []string{testSandboxID})
+
+	// reset
+	m.ContainerSandboxListFunc = nil
+
+	_, _, err = m.ContainerSandboxList(testContainerID)
+	assert.Error(err)
+	assert.True(IsMockError(err))
+}

@@ -54,4 +54,5 @@ type VCMock struct {
 	StatusContainerFunc      func(sandboxID, containerID string) (vc.ContainerStatus, error)
 	StopContainerFunc        func(sandboxID, containerID string) (vc.VCContainer, error)
 	ProcessListContainerFunc func(sandboxID, containerID string, options vc.ProcessListOptions) (vc.ProcessList, error)
+	ContainerSandboxListFunc func(containerID string) ([]string, bool, error)
 }

@@ -6,6 +6,7 @@
 package virtcontainers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -1976,6 +1977,59 @@ func TestProcessListContainer(t *testing.T) {
 	_, err = ProcessListContainer(pImpl.id, contID, options)
 	// Sandbox not running, impossible to ps the container
 	assert.Error(err)
+}
+
+func TestContainerSandboxListEmptyContainerIDFailure(t *testing.T) {
+	assert := assert.New(t)
+
+	_, _, err := ContainerSandboxList("")
+	assert.Error(err)
+	assert.Equal(err, errNeedContainerID)
+}
+
+func testContainerSandboxList(t *testing.T, ctrID string, ctrsMap map[string][]string, expected []string, exist bool) {
+	assert := assert.New(t)
+
+	path := filepath.Join(runStoragePath, containersMapFile)
+	err := os.RemoveAll(path)
+	assert.Nil(err)
+
+	f, err := os.Create(path)
+	assert.Nil(err)
+	defer os.RemoveAll(path)
+	defer f.Close()
+
+	jsonOut, err := json.Marshal(ctrsMap)
+	assert.Nil(err)
+
+	_, err = f.Write(jsonOut)
+	assert.Nil(err)
+
+	sbList, ok, err := ContainerSandboxList(ctrID)
+	assert.Nil(err)
+	if exist {
+		assert.True(ok)
+	} else {
+		assert.False(ok)
+	}
+	assert.True(reflect.DeepEqual(sbList, expected), "Got %v\nExpecting %v", sbList, expected)
+}
+
+func TestContainerSandboxListSuccessful(t *testing.T) {
+	ctrID := "12345"
+	sandboxID := "67890"
+	ctrsMap := make(map[string][]string)
+	sandboxList := []string{sandboxID}
+	ctrsMap[ctrID] = sandboxList
+
+	testContainerSandboxList(t, ctrID, ctrsMap, sandboxList, true)
+}
+
+func TestContainerSandboxListEmptyMapSuccessful(t *testing.T) {
+	ctrID := "12345"
+	ctrsMap := make(map[string][]string)
+
+	testContainerSandboxList(t, ctrID, ctrsMap, nil, false)
 }
 
 /*

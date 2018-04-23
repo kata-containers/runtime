@@ -537,6 +537,13 @@ func createContainer(sandbox *Sandbox, contConfig ContainerConfig) (c *Container
 		return
 	}
 
+	// Update containers map if stateful flag.
+	if !c.sandbox.config.Stateless {
+		if err = addToContainersMap(contConfig.ID, sandbox.id); err != nil {
+			return
+		}
+	}
+
 	return c, nil
 }
 
@@ -551,7 +558,18 @@ func (c *Container) delete() error {
 		return err
 	}
 
-	return c.sandbox.storage.deleteContainerResources(c.sandboxID, c.id, nil)
+	if err := c.sandbox.storage.deleteContainerResources(c.sandboxID, c.id, nil); err != nil {
+		return err
+	}
+
+	// Update containers map if stateful flag.
+	if !c.sandbox.config.Stateless {
+		if err := delFromContainersMap(c.id, c.sandbox.id); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // checkSandboxRunning validates the container state.

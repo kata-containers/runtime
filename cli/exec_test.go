@@ -68,12 +68,17 @@ func TestExecuteErrors(t *testing.T) {
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, vc.State{}, vc.State{}, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, vc.State{}, annotations), nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	err = execute(ctx)
@@ -91,8 +96,11 @@ func TestExecuteErrors(t *testing.T) {
 	}
 
 	containerState := vc.State{}
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, vc.State{}, containerState, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, containerState, annotations), nil
 	}
 
 	err = execute(ctx)
@@ -103,8 +111,11 @@ func TestExecuteErrors(t *testing.T) {
 	containerState = vc.State{
 		State: vc.StatePaused,
 	}
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, vc.State{}, containerState, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, containerState, annotations), nil
 	}
 
 	err = execute(ctx)
@@ -115,8 +126,11 @@ func TestExecuteErrors(t *testing.T) {
 	containerState = vc.State{
 		State: vc.StateStopped,
 	}
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, vc.State{}, containerState, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, containerState, annotations), nil
 	}
 
 	err = execute(ctx)
@@ -152,12 +166,17 @@ func TestExecuteErrorReadingProcessJson(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, annotations), nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	// Note: flags can only be tested with the CLI command function
@@ -196,12 +215,17 @@ func TestExecuteErrorOpeningConsole(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, annotations), nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	// Note: flags can only be tested with the CLI command function
@@ -258,12 +282,17 @@ func TestExecuteWithFlags(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, annotations), nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	fn, ok := execCLICommand.Action.(func(context *cli.Context) error)
@@ -342,12 +371,17 @@ func TestExecuteWithFlagsDetached(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, annotations), nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	testingImpl.EnterContainerFunc = func(sandboxID, containerID string, cmd vc.Cmd) (vc.VCSandbox, vc.VCContainer, *vc.Process, error) {
@@ -416,12 +450,17 @@ func TestExecuteWithInvalidProcessJson(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, annotations), nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	fn, ok := execCLICommand.Action.(func(context *cli.Context) error)
@@ -463,12 +502,17 @@ func TestExecuteWithValidProcessJson(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, annotations), nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	processJSON := `{
@@ -555,12 +599,17 @@ func TestExecuteWithInvalidEnvironment(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return newSingleContainerSandboxStatusList(testSandboxID, testContainerID, state, state, annotations), nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{testSandboxID}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, annotations), nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	processJSON := `{

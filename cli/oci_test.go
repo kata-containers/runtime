@@ -87,57 +87,23 @@ func TestGetContainerInfo(t *testing.T) {
 		},
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{
-			{
-				ID:               sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{containerStatus},
-			},
-		}, nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{sandbox.ID()}, true, nil
+	}
+
+	testingImpl.StatusContainerFunc = func(sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return containerStatus, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
+		testingImpl.StatusContainerFunc = nil
 	}()
 
 	status, sandboxID, err := getContainerInfo(testContainerID)
 	assert.NoError(err)
 	assert.Equal(sandboxID, sandbox.ID())
 	assert.Equal(status, containerStatus)
-}
-
-func TestGetContainerInfoMismatch(t *testing.T) {
-	assert := assert.New(t)
-
-	sandbox := &vcmock.Sandbox{
-		MockID: testSandboxID,
-	}
-
-	containerID := testContainerID + testContainerID
-
-	containerStatus := vc.ContainerStatus{
-		ID: containerID,
-		Annotations: map[string]string{
-			vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-		},
-	}
-
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{
-			{
-				ID:               sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{containerStatus},
-			},
-		}, nil
-	}
-
-	defer func() {
-		testingImpl.ListSandboxFunc = nil
-	}()
-
-	_, sandboxID, err := getContainerInfo(testContainerID)
-	assert.NoError(err)
-	assert.Equal(sandboxID, "")
 }
 
 func TestValidCreateParamsContainerIDEmptyFailure(t *testing.T) {
@@ -159,75 +125,20 @@ func TestGetExistingContainerInfoContainerIDEmptyFailure(t *testing.T) {
 func TestValidCreateParamsContainerIDNotUnique(t *testing.T) {
 	assert := assert.New(t)
 
-	containerID := testContainerID + testContainerID
-
 	sandbox := &vcmock.Sandbox{
 		MockID: testSandboxID,
 	}
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{
-			{
-				ID: sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					// 2 containers with same ID
-					{
-						ID: containerID,
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-						},
-					},
-					{
-						ID: containerID,
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-						},
-					},
-				},
-			},
-		}, nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{sandbox.ID(), sandbox.ID()}, true, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	_, err := validCreateParams(testContainerID, "")
 
-	assert.Error(err)
-	assert.False(vcmock.IsMockError(err))
-}
-
-func TestValidCreateParamsContainerIDNotUnique2(t *testing.T) {
-	assert := assert.New(t)
-
-	containerID := testContainerID + testContainerID
-
-	sandbox := &vcmock.Sandbox{
-		MockID: testSandboxID,
-	}
-
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{
-			{
-				ID: sandbox.ID(),
-				ContainersStatus: []vc.ContainerStatus{
-					{
-						ID: containerID,
-						Annotations: map[string]string{
-							vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
-						},
-					},
-				},
-			},
-		}, nil
-	}
-
-	defer func() {
-		testingImpl.ListSandboxFunc = nil
-	}()
-
-	_, err := validCreateParams(testContainerID, "")
 	assert.Error(err)
 	assert.False(vcmock.IsMockError(err))
 }
@@ -241,12 +152,12 @@ func TestValidCreateParamsInvalidBundle(t *testing.T) {
 
 	bundlePath := filepath.Join(tmpdir, "bundle")
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{}, nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	_, err = validCreateParams(testContainerID, bundlePath)
@@ -266,12 +177,12 @@ func TestValidCreateParamsBundleIsAFile(t *testing.T) {
 	err = createEmptyFile(bundlePath)
 	assert.NoError(err)
 
-	testingImpl.ListSandboxFunc = func() ([]vc.SandboxStatus, error) {
-		return []vc.SandboxStatus{}, nil
+	testingImpl.ContainerSandboxListFunc = func(containerID string) ([]string, bool, error) {
+		return []string{}, false, nil
 	}
 
 	defer func() {
-		testingImpl.ListSandboxFunc = nil
+		testingImpl.ContainerSandboxListFunc = nil
 	}()
 
 	_, err = validCreateParams(testContainerID, bundlePath)

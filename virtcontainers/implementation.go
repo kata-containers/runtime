@@ -108,3 +108,8 @@ func (impl *VCImpl) KillContainer(sandboxID, containerID string, signal syscall.
 func (impl *VCImpl) ProcessListContainer(sandboxID, containerID string, options ProcessListOptions) (ProcessList, error) {
 	return ProcessListContainer(sandboxID, containerID, options)
 }
+
+// ContainerSandboxList implements the VC function of the same name.
+func (impl *VCImpl) ContainerSandboxList(containerID string) ([]string, bool, error) {
+	return ContainerSandboxList(containerID)
+}
