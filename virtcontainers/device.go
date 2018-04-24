@@ -41,8 +41,8 @@ const (
 
 // Device is the virtcontainers device interface.
 type Device interface {
-	attach(hypervisor, *Container) error
-	detach(hypervisor) error
+	attach(hypervisor, *Sandbox) error
+	detach(hypervisor, *Sandbox) error
 	deviceType() string
 }
 
@@ -101,7 +101,7 @@ func newVFIODevice(devInfo DeviceInfo) *VFIODevice {
 	}
 }
 
-func (device *VFIODevice) attach(h hypervisor, c *Container) error {
+func (device *VFIODevice) attach(h hypervisor, s *Sandbox) error {
 	vfioGroup := filepath.Base(device.DeviceInfo.HostPath)
 	iommuDevicesPath := filepath.Join(sysIOMMUPath, vfioGroup, "devices")
 
@@ -138,10 +138,16 @@ func (device *VFIODevice) attach(h hypervisor, c *Container) error {
 		}).Info("Device group attached")
 	}
 
+	s.deviceLock.Lock()
+	s.devices[device.DeviceInfo.ID] = device
+	s.deviceLock.Unlock()
 	return nil
 }
 
-func (device *VFIODevice) detach(h hypervisor) error {
+func (device *VFIODevice) detach(h hypervisor, s *Sandbox) error {
+	s.deviceLock.Lock()
+	delete(s.devices, device.DeviceInfo.ID)
+	s.deviceLock.Unlock()
 	return nil
 }
 
@@ -227,7 +233,7 @@ func (vhostUserBlkDevice *VhostUserBlkDevice) Type() string {
 
 // vhostUserAttach handles the common logic among all of the vhost-user device's
 // attach functions
-func vhostUserAttach(device VhostUserDevice, h hypervisor, c *Container) (err error) {
+func vhostUserAttach(device VhostUserDevice, h hypervisor) (err error) {
 	// generate a unique ID to be used for hypervisor commandline fields
 	randBytes, err := generateRandomBytes(8)
 	if err != nil {
@@ -243,11 +249,20 @@ func vhostUserAttach(device VhostUserDevice, h hypervisor, c *Container) (err er
 //
 // VhostUserNetDevice's implementation of the device interface:
 //
-func (vhostUserNetDevice *VhostUserNetDevice) attach(h hypervisor, c *Container) (err error) {
-	return vhostUserAttach(vhostUserNetDevice, h, c)
+func (vhostUserNetDevice *VhostUserNetDevice) attach(h hypervisor, s *Sandbox) (err error) {
+	if err = vhostUserAttach(vhostUserNetDevice, h); err != nil {
+		return err
+	}
+	s.deviceLock.Lock()
+	s.devices[vhostUserNetDevice.DeviceInfo.ID] = vhostUserNetDevice
+	s.deviceLock.Unlock()
+	return nil
 }
 
-func (vhostUserNetDevice *VhostUserNetDevice) detach(h hypervisor) error {
+func (vhostUserNetDevice *VhostUserNetDevice) detach(h hypervisor, s *Sandbox) error {
+	s.deviceLock.Lock()
+	s.devices[vhostUserNetDevice.DeviceInfo.ID] = vhostUserNetDevice
+	s.deviceLock.Unlock()
 	return nil
 }
 
@@ -258,11 +273,20 @@ func (vhostUserNetDevice *VhostUserNetDevice) deviceType() string {
 //
 // VhostUserBlkDevice's implementation of the device interface:
 //
-func (vhostUserBlkDevice *VhostUserBlkDevice) attach(h hypervisor, c *Container) (err error) {
-	return vhostUserAttach(vhostUserBlkDevice, h, c)
+func (vhostUserBlkDevice *VhostUserBlkDevice) attach(h hypervisor, s *Sandbox) (err error) {
+	if err = vhostUserAttach(vhostUserBlkDevice, h); err != nil {
+		return err
+	}
+	s.deviceLock.Lock()
+	s.devices[vhostUserBlkDevice.DeviceInfo.ID] = vhostUserBlkDevice
+	s.deviceLock.Unlock()
+	return nil
 }
 
-func (vhostUserBlkDevice *VhostUserBlkDevice) detach(h hypervisor) error {
+func (vhostUserBlkDevice *VhostUserBlkDevice) detach(h hypervisor, s *Sandbox) error {
+	s.deviceLock.Lock()
+	delete(s.devices, vhostUserBlkDevice.DeviceInfo.ID)
+	s.deviceLock.Unlock()
 	return nil
 }
 
@@ -273,11 +297,20 @@ func (vhostUserBlkDevice *VhostUserBlkDevice) deviceType() string {
 //
 // VhostUserSCSIDevice's implementation of the device interface:
 //
-func (vhostUserSCSIDevice *VhostUserSCSIDevice) attach(h hypervisor, c *Container) (err error) {
-	return vhostUserAttach(vhostUserSCSIDevice, h, c)
+func (vhostUserSCSIDevice *VhostUserSCSIDevice) attach(h hypervisor, s *Sandbox) (err error) {
+	if err = vhostUserAttach(vhostUserSCSIDevice, h); err != nil {
+		return err
+	}
+	s.deviceLock.Lock()
+	s.devices[vhostUserSCSIDevice.DeviceInfo.ID] = vhostUserSCSIDevice
+	s.deviceLock.Unlock()
+	return nil
 }
 
-func (vhostUserSCSIDevice *VhostUserSCSIDevice) detach(h hypervisor) error {
+func (vhostUserSCSIDevice *VhostUserSCSIDevice) detach(h hypervisor, s *Sandbox) error {
+	s.deviceLock.Lock()
+	delete(s.devices, vhostUserSCSIDevice.DeviceInfo.ID)
+	s.deviceLock.Unlock()
 	return nil
 }
 
@@ -343,7 +376,7 @@ func newBlockDevice(devInfo DeviceInfo) *BlockDevice {
 	}
 }
 
-func (device *BlockDevice) attach(h hypervisor, c *Container) (err error) {
+func (device *BlockDevice) attach(h hypervisor, s *Sandbox) (err error) {
 	randBytes, err := generateRandomBytes(8)
 	if err != nil {
 		return err
@@ -354,11 +387,11 @@ func (device *BlockDevice) attach(h hypervisor, c *Container) (err error) {
 	// Increment the block index for the sandbox. This is used to determine the name
 	// for the block device in the case where the block device is used as container
 	// rootfs and the predicted block device name needs to be provided to the agent.
-	index, err := c.sandbox.getAndSetSandboxBlockIndex()
+	index, err := s.getAndSetSandboxBlockIndex()
 
 	defer func() {
 		if err != nil {
-			c.sandbox.decrementSandboxBlockIndex()
+			s.decrementSandboxBlockIndex()
 		}
 	}()
 
@@ -386,7 +419,7 @@ func (device *BlockDevice) attach(h hypervisor, c *Container) (err error) {
 
 	device.DeviceInfo.Hotplugged = true
 
-	if c.sandbox.config.HypervisorConfig.BlockDeviceDriver == VirtioBlock {
+	if s.config.HypervisorConfig.BlockDeviceDriver == VirtioBlock {
 		device.VirtPath = filepath.Join("/dev", driveName)
 	} else {
 		scsiAddr, err := getSCSIAddress(index)
@@ -397,10 +430,13 @@ func (device *BlockDevice) attach(h hypervisor, c *Container) (err error) {
 		device.SCSIAddr = scsiAddr
 	}
 
+	s.deviceLock.Lock()
+	s.devices[device.DeviceInfo.ID] = device
+	s.deviceLock.Unlock()
 	return nil
 }
 
-func (device BlockDevice) detach(h hypervisor) error {
+func (device *BlockDevice) detach(h hypervisor, s *Sandbox) error {
 	if device.DeviceInfo.Hotplugged {
 		deviceLogger().WithField("device", device.DeviceInfo.HostPath).Info("Unplugging block device")
 
@@ -414,6 +450,9 @@ func (device BlockDevice) detach(h hypervisor) error {
 		}
 
 	}
+	s.deviceLock.Lock()
+	delete(s.devices, device.DeviceInfo.ID)
+	s.deviceLock.Unlock()
 	return nil
 }
 
@@ -434,11 +473,11 @@ func newGenericDevice(devInfo DeviceInfo) *GenericDevice {
 	}
 }
 
-func (device *GenericDevice) attach(h hypervisor, c *Container) error {
+func (device *GenericDevice) attach(h hypervisor, s *Sandbox) error {
 	return nil
 }
 
-func (device *GenericDevice) detach(h hypervisor) error {
+func (device *GenericDevice) detach(h hypervisor, s *Sandbox) error {
 	return nil
 }
 

@@ -446,6 +446,9 @@ type Sandbox struct {
 
 	volumes []Volume
 
+	devices    map[string]Device
+	deviceLock sync.RWMutex
+
 	containers []*Container
 
 	runPath    string
@@ -517,6 +520,62 @@ func (s *Sandbox) GetAllContainers() []VCContainer {
 	}
 
 	return ifa
+}
+
+// PreAddStorage can be called before CreateContainer,
+// so that we can do hotplug block device in parallel to boost
+// container creating process.
+func (s *Sandbox) PreAddStorage(containerID string) error {
+	vcc := s.GetContainer(containerID)
+	if s == nil {
+		return errContainerNotFound
+	}
+
+	c, ok := vcc.(*Container)
+	if !ok {
+		return fmt.Errorf("can't convert VCContainer to *Container")
+	}
+	// add container's rootfs
+	if err := s.preAddRoot(c); err != nil {
+		return err
+	}
+
+	// TODO: is device passthrough need to be done here?
+	// c.attachDevices()
+
+	// add container's mount
+	for idx, m := range c.mounts {
+		if isSystemMount(m.Destination) || m.Type != "bind" || m.Destination == "/dev/shm" {
+			continue
+		}
+		// Check if mount is a block device file. If it is, the block device will be attached to the host
+		// instead of passing this as a shared mount.
+		isBlk, err := c.isBlockDevice(m.Source)
+		if err != nil {
+			return err
+		}
+		if isBlk {
+			if err = c.attachDeviceForMount(&c.mounts[idx], false); err != nil &&
+				err != errBlockAlreadyAttached {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Sandbox) preAddRoot(vcc VCContainer) error {
+	// if container's rootfs is block based, we can plug it before container's starting
+	c, ok := vcc.(*Container)
+	if !ok {
+		return fmt.Errorf("can't convert VCContainer to *Container")
+	}
+	if c.checkBlockDeviceSupport() {
+		if err := c.hotplugDrive(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetContainer returns the container named by the containerID.
@@ -624,6 +683,7 @@ func newSandbox(sandboxConfig SandboxConfig) (*Sandbox, error) {
 		network:         network,
 		config:          &sandboxConfig,
 		volumes:         sandboxConfig.Volumes,
+		devices:         make(map[string]Device),
 		runPath:         filepath.Join(runStoragePath, sandboxConfig.ID),
 		configPath:      filepath.Join(configStoragePath, sandboxConfig.ID),
 		state:           State{},

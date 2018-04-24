@@ -516,6 +516,7 @@ func (k *kataAgent) stopSandbox(sandbox Sandbox) error {
 func (k *kataAgent) replaceOCIMountSource(spec *specs.Spec, guestMounts []Mount) error {
 	ociMounts := spec.Mounts
 
+	// FIXME: this is bug, we can mount to several destination
 	for index, m := range ociMounts {
 		for _, guestMount := range guestMounts {
 			if guestMount.Destination != m.Destination {

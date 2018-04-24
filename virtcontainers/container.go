@@ -7,6 +7,7 @@ package virtcontainers
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+)
+
+var (
+	errBlockAlreadyAttached = errors.New("block device is already attached")
 )
 
 // Process gathers data related to a container process.
@@ -282,6 +287,63 @@ func (c *Container) createContainersDirs() error {
 	return nil
 }
 
+// check if devPath is a block device
+func (c *Container) isBlockDevice(devPath string) (bool, error) {
+	var stat unix.Stat_t
+	if err := unix.Stat(devPath, &stat); err != nil {
+		return false, err
+	}
+
+	return stat.Mode&unix.S_IFBLK == unix.S_IFBLK, nil
+}
+
+// attachDeviceForMount will plug block device to VM
+// please make sure the function param "m" is block based.
+func (c *Container) attachDeviceForMount(m *Mount, force bool) error {
+	if m.BlockDevice != nil && !force {
+		// block is already attached before
+		return errBlockAlreadyAttached
+	}
+
+	// Check if mount is a block device file. If it is, the block device will be attached to the host
+	// instead of passing this as a shared mount.
+	if c.checkBlockDeviceSupport() {
+		// check if this block is already pluged before
+		c.sandbox.deviceLock.RLock()
+		for k, dev := range c.sandbox.devices {
+			if dev.deviceType == DeviceBlock {
+				blockDev := dev.(*BlockDevice)
+				if blockDev.DeviceInfo.HostPath == m.Source &&
+					blockDev.DeviceInfo.Destination == m.Destination &&
+					blockDev.DevType == "b" {
+					// block is already plugged
+					m.BlockDevice = blockDev
+					c.sandbox.deviceLock.RUnlock()
+					return nil
+				}
+			}
+		}
+		c.sandbox.deviceLock.RUnlock()
+
+		b := &BlockDevice{
+			DeviceType: DeviceBlock,
+			DeviceInfo: DeviceInfo{
+				HostPath:      m.Source,
+				ContainerPath: m.Destination,
+				DevType:       "b",
+			},
+		}
+
+		// Attach this block device, all other devices passed in the config have been attached at this point
+		if err := b.attach(c.sandbox.hypervisor, c.sandbox); err != nil {
+			return err
+		}
+
+		m.BlockDevice = b
+	}
+	return nil
+}
+
 // mountSharedDirMounts handles bind-mounts by bindmounting to the host shared
 // directory which is mounted through 9pfs in the VM.
 // It also updates the container mount list with the HostPath info, and store
@@ -301,29 +363,16 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 			continue
 		}
 
-		var stat unix.Stat_t
-		if err := unix.Stat(m.Source, &stat); err != nil {
-			return nil, err
-		}
-
 		// Check if mount is a block device file. If it is, the block device will be attached to the host
 		// instead of passing this as a shared mount.
-		if c.checkBlockDeviceSupport() && stat.Mode&unix.S_IFBLK == unix.S_IFBLK {
-			b := &BlockDevice{
-				DeviceType: DeviceBlock,
-				DeviceInfo: DeviceInfo{
-					HostPath:      m.Source,
-					ContainerPath: m.Destination,
-					DevType:       "b",
-				},
-			}
-
-			// Attach this block device, all other devices passed in the config have been attached at this point
-			if err := b.attach(c.sandbox.hypervisor, c); err != nil {
+		isBlk, err := c.isBlockDevice(m.Source)
+		if err != nil {
+			return nil, err
+		}
+		if isBlk {
+			if err = c.attachDeviceForMount(&c.mounts[idx], false); err != nil && err != errBlockAlreadyAttached {
 				return nil, err
 			}
-
-			c.mounts[idx].BlockDevice = b
 			continue
 		}
 
@@ -334,6 +383,7 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 			continue
 		}
 
+		// TODO: small risk of collision!
 		randBytes, err := generateRandomBytes(8)
 		if err != nil {
 			return nil, err
@@ -728,6 +778,12 @@ func (c *Container) processList(options ProcessListOptions) (ProcessList, error)
 }
 
 func (c *Container) hotplugDrive() error {
+	if c.isDriveUsed() && c.state.HotpluggedDrive {
+		// return nil and log if container's rootfs is already plugged
+		// this could happen when container's rootfs is pre-added.
+		c.Logger().Info("rootfs device is already plugged")
+		return nil
+	}
 	dev, err := getDeviceForPath(c.rootFs)
 
 	if err == errMountPointNotFound {
@@ -821,7 +877,7 @@ func (c *Container) removeDrive() (err error) {
 
 func (c *Container) attachDevices() error {
 	for _, device := range c.devices {
-		if err := device.attach(c.sandbox.hypervisor, c); err != nil {
+		if err := device.attach(c.sandbox.hypervisor, c.sandbox); err != nil {
 			return err
 		}
 	}
@@ -831,7 +887,7 @@ func (c *Container) attachDevices() error {
 
 func (c *Container) detachDevices() error {
 	for _, device := range c.devices {
-		if err := device.detach(c.sandbox.hypervisor); err != nil {
+		if err := device.detach(c.sandbox.hypervisor, c.sandbox); err != nil {
 			return err
 		}
 	}

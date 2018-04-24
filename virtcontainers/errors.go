@@ -11,10 +11,11 @@ import (
 
 // common error objects used for argument checking
 var (
-	errNeedSandbox     = errors.New("Sandbox must be specified")
-	errNeedSandboxID   = errors.New("Sandbox ID cannot be empty")
-	errNeedContainerID = errors.New("Container ID cannot be empty")
-	errNeedFile        = errors.New("File cannot be empty")
-	errNeedState       = errors.New("State cannot be empty")
-	errInvalidResource = errors.New("Invalid sandbox resource")
+	errNeedSandbox       = errors.New("Sandbox must be specified")
+	errNeedSandboxID     = errors.New("Sandbox ID cannot be empty")
+	errNeedContainerID   = errors.New("Container ID cannot be empty")
+	errNeedFile          = errors.New("File cannot be empty")
+	errNeedState         = errors.New("State cannot be empty")
+	errInvalidResource   = errors.New("Invalid sandbox resource")
+	errContainerNotFound = errors.New("container not found")
 )
