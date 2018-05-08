@@ -336,6 +336,10 @@ func (h *hyper) exec(sandbox *Sandbox, c Container, cmd Cmd) (*Process, error) {
 	return process, nil
 }
 
+func (h *hyper) hotSetupNetwork(_ Endpoint) error {
+	return fmt.Errorf("hyper don't support hot seting up network.")
+}
+
 // startSandbox is the agent Sandbox starting implementation for hyperstart.
 func (h *hyper) startSandbox(sandbox *Sandbox) error {
 	// Start the proxy here

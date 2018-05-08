@@ -102,7 +102,8 @@ type DNSInfo struct {
 }
 
 // NetlinkIface describes fully a network interface.
-type NetlinkIface struct {
+type
+NetlinkIface struct {
 	netlink.LinkAttrs
 	Type string
 }
@@ -151,6 +152,7 @@ type Endpoint interface {
 	SetProperties(NetworkInfo)
 	Attach(hypervisor) error
 	Detach() error
+	HotAttach(hypervisor) error
 }
 
 // VirtualEndpoint gathers a network pair and its properties.
@@ -232,6 +234,20 @@ func (endpoint *VirtualEndpoint) Detach() error {
 	return xconnectVMNetwork(&(endpoint.NetPair), false)
 }
 
+func (endpoint *VirtualEndpoint) HotAttach(h hypervisor) error {
+	networkLogger().Info("Hot Attaching virtual endpoint")
+	if err := xconnectVMNetwork(&(endpoint.NetPair), true); err != nil {
+		networkLogger().WithError(err).Error("Error bridging virtual ep")
+		return err
+	}
+
+	if err := h.hotplugAddDevice(endpoint, netDev); err != nil {
+		networkLogger().WithError(err).Error("Error attach virtual ep")
+		return err
+	}
+	return nil
+}
+
 // Properties returns the properties of the interface.
 func (endpoint *VhostUserEndpoint) Properties() NetworkInfo {
 	return endpoint.EndpointProperties
@@ -281,6 +297,10 @@ func (endpoint *VhostUserEndpoint) Attach(h hypervisor) error {
 func (endpoint *VhostUserEndpoint) Detach() error {
 	networkLogger().Info("Detaching vhostuser based endpoint")
 	return nil
+}
+
+func (endpoint *VhostUserEndpoint) HotAttach(h hypervisor) error {
+	return fmt.Errorf("VhostUserEndpoint don't support Hot attach.")
 }
 
 // Create a vhostuser endpoint
@@ -344,6 +364,10 @@ func (endpoint *PhysicalEndpoint) Detach() error {
 	// Bind back the physical network interface to host.
 	networkLogger().Info("Detaching physical endpoint")
 	return bindNICToHost(endpoint)
+}
+
+func (endpoint *PhysicalEndpoint) HotAttach(h hypervisor) error {
+	return fmt.Errorf("PhysicalEndpoint don't support Hot attach.")
 }
 
 // EndpointType identifies the type of the network endpoint.
@@ -1352,6 +1376,93 @@ func bindNICToVFIO(endpoint *PhysicalEndpoint) error {
 
 func bindNICToHost(endpoint *PhysicalEndpoint) error {
 	return bindDevicetoHost(endpoint.BDF, endpoint.Driver, endpoint.VendorDeviceID)
+}
+
+func addNetworkToSandbox(sandboxID, ifName string) error {
+	sandbox, err := fetchSandbox(sandboxID)
+	if err != nil {
+		return err
+	}
+
+	networkNS := sandbox.networkNS
+	netnsHandle, err := netns.GetFromPath(networkNS.NetNsPath)
+	if err != nil {
+		return err
+	}
+	defer netnsHandle.Close()
+
+	netlinkHandle, err := netlink.NewHandleAt(netnsHandle)
+	if err != nil {
+		return err
+	}
+	defer netlinkHandle.Delete()
+
+	link, err := netlinkHandle.LinkByName(ifName)
+	if err != nil {
+		return err
+	}
+
+	netInfo, err := networkInfoFromLink(netlinkHandle, link)
+	if err != nil {
+		return err
+	}
+
+	var endpoint Endpoint
+	if err := doNetNS(networkNS.NetNsPath, func(_ ns.NetNS) error {
+		// TODO: This is the incoming interface
+		// based on the incoming interface we should create
+		// an appropriate EndPoint based on interface type
+		// This should be a switch
+
+		// Check if interface is a physical interface. Do not create
+		// tap interface/bridge if it is.
+		isPhysical, err := isPhysicalIface(netInfo.Iface.Name)
+		if err != nil {
+			return err
+		}
+
+		if isPhysical {
+			cnmLogger().WithField("interface", netInfo.Iface.Name).Info("Physical network interface found")
+			endpoint, err = createPhysicalEndpoint(netInfo)
+		} else {
+			var socketPath string
+
+			// Check if this is a dummy interface which has a vhost-user socket associated with it
+			socketPath, err = vhostUserSocketPath(netInfo)
+			if err != nil {
+				return err
+			}
+
+			if socketPath != "" {
+				cnmLogger().WithField("interface", netInfo.Iface.Name).Info("VhostUser network interface found")
+				endpoint, err = createVhostUserEndpoint(netInfo, socketPath)
+			} else {
+				endpoint, err = createVirtualNetworkEndpoint(len(networkNS.Endpoints), netInfo.Iface.Name, NetXConnectMacVtapModel)
+			}
+		}
+
+		return err
+	}); err != nil {
+		return err
+	}
+
+	endpoint.SetProperties(netInfo)
+	if err :=endpoint.HotAttach(sandbox.hypervisor); err != nil {
+		return err
+	}
+
+	// Update the sandbox storage
+	networkNS.Endpoints = append(networkNS.Endpoints, endpoint)
+	if err := sandbox.storage.storeSandboxNetwork(sandboxID, networkNS); err != nil {
+		return err
+	}
+
+	// Setup network for vm
+	if err := sandbox.agent.hotSetupNetwork(endpoint); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // network is the virtcontainers network interface.

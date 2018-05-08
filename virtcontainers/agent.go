@@ -145,6 +145,9 @@ type agent interface {
 	// exec will tell the agent to run a command in an already running container.
 	exec(sandbox *Sandbox, c Container, cmd Cmd) (*Process, error)
 
+	// hotSetupNetwork will tell the agent to setup networt for an already exist VM.
+	hotSetupNetwork(Endpoint) error
+
 	// startSandbox will tell the agent to start all containers related to the Sandbox.
 	startSandbox(sandbox *Sandbox) error
 

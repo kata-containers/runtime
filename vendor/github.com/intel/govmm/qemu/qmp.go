@@ -727,6 +727,47 @@ func (q *QMP) ExecuteBlockdevDel(ctx context.Context, blockdevID string) error {
 	return q.executeCommand(ctx, "x-blockdev-del", args, nil)
 }
 
+func (q *QMP) ExecuteNetdevAdd(ctx context.Context, netdevID, ifname, downscript, script string) error {
+	// Add fds?
+
+	args := map[string]interface{}{
+		"type": "tap",
+		"id": netdevID,
+		"ifname": ifname,
+		"downscript": downscript,
+		"script": script,
+	}
+
+	return q.executeCommand(ctx, "netdev_add", args, nil)
+}
+
+func (q *QMP) ExecuteNetdevDel(ctx context.Context, blockdevID string) error {
+	args := map[string]interface{}{}
+	args["id"] = blockdevID
+	return q.executeCommand(ctx, "netdev_del", args, nil)
+}
+
+func (q *QMP) ExecuteNetPCIDeviceAdd(ctx context.Context, netdevID, devID, driver, macAddr, addr, bus string, fdNum int) error {
+	args := map[string]interface{}{
+		"id":     devID,
+		"driver": driver,
+		"netdev": netdevID,
+		"mac":    macAddr,
+		"addr":   addr,
+	}
+
+	//if fdNum > 0 {
+	//	vectors := fdNum*2 + 2
+	//	args["mq"] = "on"
+	//	args["vectors"] = fmt.Sprintf("%d", vectors)
+	//}
+
+	if bus != "" {
+		args["bus"] = bus
+	}
+	return q.executeCommand(ctx, "device_add", args, nil)
+}
+
 // ExecuteDeviceDel deletes guest portion of a QEMU device by sending a
 // device_del command.   devId is the identifier of the device to delete.
 // Typically it would match the devID parameter passed to an earlier call

@@ -662,6 +662,56 @@ func (q *qemu) hotplugBlockDevice(drive *Drive, op operation) error {
 	return nil
 }
 
+func (q *qemu) hotplugNetDevice(drive VirtualEndpoint, op operation) error {
+	defer func(qemu *qemu) {
+		if q.qmpMonitorCh.qmp != nil {
+			q.qmpMonitorCh.qmp.Shutdown()
+		}
+	}(q)
+
+	qmp, err := q.qmpSetup()
+	if err != nil {
+		return err
+	}
+
+	q.qmpMonitorCh.qmp = qmp
+
+	devID := "virtio-" + drive.NetPair.ID
+
+	if op == addDevice {
+
+		if err := q.qmpMonitorCh.qmp.ExecuteNetdevAdd(q.qmpMonitorCh.ctx, drive.NetPair.ID, drive.NetPair.TAPIface.Name, "no", "no"); err != nil {
+			return err
+		}
+
+		driver := "virtio-net-pci"
+		addr, bus, err := q.addDeviceToBridge(drive.NetPair.ID)
+		if err != nil {
+			return err
+		}
+
+		if err = q.qmpMonitorCh.qmp.ExecuteNetPCIDeviceAdd(q.qmpMonitorCh.ctx, drive.NetPair.ID, devID, driver, drive.NetPair.TAPIface.HardAddr, addr, bus, len(drive.NetPair.VMFds)); err != nil {
+			return err
+		}
+	} else {
+		if q.config.BlockDeviceDriver == VirtioBlock {
+			if err := q.removeDeviceFromBridge(drive.NetPair.ID); err != nil {
+				return err
+			}
+		}
+
+		if err := q.qmpMonitorCh.qmp.ExecuteDeviceDel(q.qmpMonitorCh.ctx, devID); err != nil {
+			return err
+		}
+
+		if err := q.qmpMonitorCh.qmp.ExecuteNetdevDel(q.qmpMonitorCh.ctx, drive.NetPair.ID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (q *qemu) hotplugVFIODevice(device VFIODevice, op operation) error {
 	defer func(qemu *qemu) {
 		if q.qmpMonitorCh.qmp != nil {
@@ -711,6 +761,9 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operati
 	case vfioDev:
 		device := devInfo.(VFIODevice)
 		return q.hotplugVFIODevice(device, op)
+	case netDev:
+		device := devInfo.(VirtualEndpoint)
+		return q.hotplugNetDevice(device, op)
 	default:
 		return fmt.Errorf("cannot hotplug device: unsupported device type '%v'", devType)
 	}
