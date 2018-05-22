@@ -38,7 +38,7 @@ const (
 
 var errNeedLinuxResource = errors.New("Linux resource cannot be empty")
 
-var cgroupsDirPath string
+var cgroupsRootPath string
 
 var procMountInfo = "/proc/self/mountinfo"
 
@@ -189,14 +189,14 @@ func processCgroupsPathForResource(ociSpec oci.CompatOCISpec, resource string, i
 	}
 
 	var err error
-	cgroupsDirPath, err = getCgroupsDirPath(procMountInfo)
+	cgroupsRootPath, err = getCgroupsRootPath(procMountInfo)
 	if err != nil {
-		return "", fmt.Errorf("get CgroupsDirPath error: %s", err)
+		return "", fmt.Errorf("get CgroupsRootPath error: %s", err)
 	}
 
 	// Relative cgroups path provided.
 	if filepath.IsAbs(ociSpec.Linux.CgroupsPath) == false {
-		return filepath.Join(cgroupsDirPath, resource, ociSpec.Linux.CgroupsPath), nil
+		return filepath.Join(cgroupsRootPath, resource, ociSpec.Linux.CgroupsPath), nil
 	}
 
 	// Absolute cgroups path provided.
@@ -214,7 +214,7 @@ func processCgroupsPathForResource(ociSpec oci.CompatOCISpec, resource string, i
 		// According to the OCI spec, an absolute path should be
 		// interpreted as relative to the system cgroup mount point
 		// when there is no cgroup mount point.
-		return filepath.Join(cgroupsDirPath, resource, ociSpec.Linux.CgroupsPath), nil
+		return filepath.Join(cgroupsRootPath, resource, ociSpec.Linux.CgroupsPath), nil
 	}
 
 	if cgroupMount.Destination == "" {
@@ -306,9 +306,9 @@ func noNeedForOutput(detach bool, tty bool) bool {
 	return true
 }
 
-func getCgroupsDirPath(mountInfoFile string) (string, error) {
-	if cgroupsDirPath != "" {
-		return cgroupsDirPath, nil
+func getCgroupsRootPath(mountInfoFile string) (string, error) {
+	if cgroupsRootPath != "" {
+		return cgroupsRootPath, nil
 	}
 
 	f, err := os.Open(mountInfoFile)
