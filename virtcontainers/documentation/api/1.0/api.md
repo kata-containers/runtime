@@ -96,9 +96,6 @@ type SandboxConfig struct {
 ```Go
 // Resources describes VM resources configuration.
 type Resources struct {
-	// VCPUs is the number of available virtual CPUs.
-	VCPUs uint
-
 	// Memory is the amount of available memory in MiB.
 	Memory uint
 }
@@ -902,7 +899,6 @@ func Example_createAndStartSandbox() {
 
 	// VM resources
 	vmConfig := vc.Resources{
-		VCPUs:  4,
 		Memory: 1024,
 	}
 
