@@ -451,6 +451,21 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 		hostname = hostname[:maxHostnameLen]
 	}
 
+	//check grpc server is serving
+	if err := k.connect(); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := k.client.Check(ctx, &grpc.CheckRequest{}); err != nil {
+		k.Logger().Error("grpc server check failed")
+
+		//kill kata-proxy to release resources
+		k.proxy.stop(sandbox, k.state.ProxyPid)
+		return err
+	}
+	k.disconnect()
 	//
 	// Setup network interfaces and routes
 	//
