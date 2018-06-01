@@ -60,6 +60,8 @@ type DeviceInfo struct {
 	// p - FIFO
 	// b - block(buffered) special file
 	// More info in mknod(1).
+	// also,
+	// e - ephemeral volume
 	DevType string
 
 	// Major, minor numbers for device.
