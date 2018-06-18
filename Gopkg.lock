@@ -120,8 +120,11 @@
   name = "github.com/opencontainers/runc"
   packages = [
     "libcontainer/configs",
+    "libcontainer/cgroups",
+    "libcontainer/cgroups/fs",
     "libcontainer/seccomp",
     "libcontainer/specconv",
+    "libcontainer/system",
     "libcontainer/utils"
   ]
   revision = "0351df1c5a66838d0c392b4ac4cf9450de844e2d"
