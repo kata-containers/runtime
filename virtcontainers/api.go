@@ -55,6 +55,11 @@ func createSandboxFromConfig(sandboxConfig SandboxConfig) (*Sandbox, error) {
 		return nil, err
 	}
 
+	// Setup host cgroups
+	if err := s.cgroups.addSandbox(s); err != nil {
+		return nil, err
+	}
+
 	// Create Containers
 	if err := s.createContainers(); err != nil {
 		return nil, err

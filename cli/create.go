@@ -117,26 +117,6 @@ func create(containerID, bundlePath, console, pidFilePath string, detach bool,
 		}
 	}
 
-	// config.json provides a cgroups path that has to be used to create "tasks"
-	// and "cgroups.procs" files. Those files have to be filled with a PID, which
-	// is shim's in our case. This is mandatory to make sure there is no one
-	// else (like Docker) trying to create those files on our behalf. We want to
-	// know those files location so that we can remove them when delete is called.
-	cgroupsPathList, err := processCgroupsPath(ociSpec, containerType.IsSandbox())
-	if err != nil {
-		return err
-	}
-
-	// cgroupsDirPath is CgroupsPath fetch from OCI spec
-	var cgroupsDirPath string
-	if ociSpec.Linux != nil {
-		cgroupsDirPath = ociSpec.Linux.CgroupsPath
-	}
-
-	if err := createCgroupsFiles(containerID, cgroupsDirPath, cgroupsPathList, process.Pid); err != nil {
-		return err
-	}
-
 	// Creation of PID file has to be the last thing done in the create
 	// because containerd considers the create complete after this file
 	// is created.

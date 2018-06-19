@@ -65,12 +65,6 @@ func delete(containerID string, force bool) error {
 		return err
 	}
 
-	// Retrieve OCI spec configuration.
-	ociSpec, err := oci.GetOCIConfig(status)
-	if err != nil {
-		return err
-	}
-
 	forceStop := false
 	if oci.StateToOCIState(status.State) == oci.StateRunning {
 		if !force {
@@ -93,19 +87,7 @@ func delete(containerID string, force bool) error {
 		return fmt.Errorf("Invalid container type found")
 	}
 
-	// In order to prevent any file descriptor leak related to cgroups files
-	// that have been previously created, we have to remove them before this
-	// function returns.
-	cgroupsPathList, err := processCgroupsPath(ociSpec, containerType.IsSandbox())
-	if err != nil {
-		return err
-	}
-
-	if err := delContainerIDMapping(containerID); err != nil {
-		return err
-	}
-
-	return removeCgroupsPath(containerID, cgroupsPathList)
+	return delContainerIDMapping(containerID)
 }
 
 func deleteSandbox(sandboxID string) error {

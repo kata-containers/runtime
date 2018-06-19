@@ -382,6 +382,7 @@ func ParseConfigJSON(bundlePath string) (CompatOCISpec, error) {
 		return CompatOCISpec{}, err
 	}
 	ocispec.Process.Capabilities = caps
+	ocispec.Spec.Process = &ocispec.Process.Process
 
 	return ocispec, nil
 }

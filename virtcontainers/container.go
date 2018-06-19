@@ -664,6 +664,10 @@ func createContainer(sandbox *Sandbox, contConfig ContainerConfig) (c *Container
 		sandbox.setSandboxPid(c.process.Pid)
 	}
 
+	if ann[annotations.ContainerTypeKey] == string(PodContainer) {
+		sandbox.cgroups.addContainer(c)
+	}
+
 	// Store the container process returned by the agent.
 	if err = c.storeProcess(); err != nil {
 		return
