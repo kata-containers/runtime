@@ -74,6 +74,9 @@ type State struct {
 	// Pid is the process id of the sandbox container which is the first
 	// container to be started.
 	Pid int `json:"pid"`
+
+	// CgroupPaths stores the cgroup local paths for sandbox
+	CgroupPaths map[string]string `json:"cgroup_paths"`
 }
 
 // valid checks that the sandbox state is valid.
@@ -463,6 +466,8 @@ type Sandbox struct {
 	wg *sync.WaitGroup
 
 	shmSize uint64
+
+	cgroups cgroupsManager
 }
 
 // ID returns the sandbox identifier string.
@@ -779,6 +784,10 @@ func newSandbox(sandboxConfig SandboxConfig) (*Sandbox, error) {
 		return nil, err
 	}
 
+	if err = s.cgroups.newManager(s); err != nil {
+		return nil, err
+	}
+
 	return s, nil
 }
 
@@ -887,6 +896,8 @@ func (s *Sandbox) Delete() error {
 			return err
 		}
 	}
+
+	s.cgroups.deleteSandbox(s)
 
 	globalSandboxList.removeSandbox(s.id)
 
