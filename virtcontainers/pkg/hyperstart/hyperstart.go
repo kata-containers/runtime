@@ -327,12 +327,8 @@ func ReadCtlMessage(conn net.Conn) (*DecodedMessage, error) {
 // hyperstart control serial link, use SendCtlMessage.
 func (h *Hyperstart) WriteCtlMessage(conn net.Conn, m *DecodedMessage) error {
 	length := len(m.Message) + CtlHdrSize
-	// XXX: Support sending messages by chunks to support messages over
-	// 10240 bytes. That limit is from hyperstart src/init.c,
-	// hyper_channel_ops, rbuf_size.
-	if length > 10240 {
-		return fmt.Errorf("message too long %d", length)
-	}
+	// Since hyper_ctlfd_read() can realloc buffer, we don't limit 10240
+	// message size.
 	msg := make([]byte, length)
 	binary.BigEndian.PutUint32(msg[:], m.Code)
 	binary.BigEndian.PutUint32(msg[CtlHdrLenOffset:], uint32(length))
