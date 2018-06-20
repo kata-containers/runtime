@@ -473,3 +473,14 @@ func TestVhostUserSocketPath(t *testing.T) {
 	}
 
 }
+
+func TestHaveVhostNetKernelModule(t *testing.T) {
+	vhostNetKernelModulePath = "/sys/module/ip_set"
+	vhostNetKernelModuleName = "ip_set"
+
+	t.Run("vhostNetKernelModuleName", func(t *testing.T) {
+		if !haveVhostNetKernelModule() {
+			t.Errorf("haveVhostNetKernelModule error = %v, wantErr true", err)
+		}
+	})
+}

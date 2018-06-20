@@ -430,7 +430,7 @@ func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint Endpoi
 				MACAddress:    ep.NetPair.TAPIface.HardAddr,
 				DownScript:    "no",
 				Script:        "no",
-				VHost:         true,
+				VHost:         haveVhostNetKernelModule(),
 				DisableModern: q.nestedRun,
 				FDs:           ep.NetPair.VMFds,
 				VhostFDs:      ep.NetPair.VhostFds,

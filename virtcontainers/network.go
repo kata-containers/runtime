@@ -28,6 +28,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
+	"os/exec"
 )
 
 // NetInterworkingModel defines the network model connecting
@@ -57,10 +58,28 @@ const (
 	// NetXConnectInvalidModel is the last item to check valid values by IsValid()
 	NetXConnectInvalidModel
 )
+var (
+	 vhostNetKernelModulePath  = "/sys/module/vhost_net"
+	 vhostNetKernelModuleName  = "vhost_net"
+)
 
 //IsValid checks if a model is valid
 func (n NetInterworkingModel) IsValid() bool {
 	return 0 <= int(n) && int(n) < int(NetXConnectInvalidModel)
+}
+
+// haveVhostNetKernelModule returns true if the vhost_net module exists
+// (either loaded or available to be loaded)
+func haveVhostNetKernelModule() bool {
+	// First, check to see if the vhost module is already loaded
+	if _, err := os.Stat(vhostNetKernelModulePath); !os.IsNotExist(err) {
+		return true
+	}
+
+	// Now, check if the module is unloaded, but available
+	cmd := exec.Command("modinfo", vhostNetKernelModuleName)
+	err := cmd.Run()
+	return err == nil
 }
 
 //SetModel change the model string value
@@ -744,6 +763,9 @@ func createMacvtapFds(linkIndex int, queues int) ([]*os.File, error) {
 
 func createVhostFds(numFds int) ([]*os.File, error) {
 	vhostDev := "/dev/vhost-net"
+	if !haveVhostNetKernelModule() {
+		return nil, nil
+	}
 	return createFds(vhostDev, numFds)
 }
 
