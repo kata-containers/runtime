@@ -13,3 +13,4 @@
 /virtcontainers/shim/mock/kata-shim/kata-shim
 /virtcontainers/utils/supportfiles
 /virtcontainers/profile.cov
+.idea/
