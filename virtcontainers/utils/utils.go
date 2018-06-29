@@ -12,6 +12,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/kata-containers/runtime/virtcontainers/device/config"
 )
 
 const cpBinaryName = "cp"
@@ -65,6 +67,18 @@ func ReverseString(s string) string {
 	}
 
 	return string(r)
+}
+
+// IsEphemeralDevice returns true if there exists an ephemeral
+// device in the configuration who's ContainerPath matches with
+// the mount source
+func IsEphemeralDevice(deviceInfos []config.DeviceInfo, source string) bool {
+	for _, devInfo := range deviceInfos {
+		if devInfo.DevType == "e" && devInfo.ContainerPath == source {
+			return true
+		}
+	}
+	return false
 }
 
 // CleanupFds closed bundles of open fds in batch

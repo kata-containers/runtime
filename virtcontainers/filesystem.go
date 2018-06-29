@@ -319,7 +319,6 @@ func (fs *filesystem) fetchDeviceFile(fileData []byte, devices *[]api.Device) er
 			}
 			tempDevices = append(tempDevices, &device)
 			l.Infof("Generic device unmarshalled [%v]", device)
-
 		default:
 			return fmt.Errorf("Unknown device type, could not unmarshal")
 		}

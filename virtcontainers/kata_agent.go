@@ -20,6 +20,7 @@ import (
 	kataclient "github.com/kata-containers/agent/protocols/client"
 	"github.com/kata-containers/agent/protocols/grpc"
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
+	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	ns "github.com/kata-containers/runtime/virtcontainers/pkg/nsenter"
@@ -52,6 +53,7 @@ var (
 	sharedDir9pOptions    = []string{"trans=virtio,version=9p2000.L", "nodev"}
 	shmDir                = "shm"
 	kataEphemeralDevType  = "ephemeral"
+	ephemeralPath         = filepath.Join(kataGuestSandboxDir, kataEphemeralDevType)
 )
 
 // KataAgentConfig is a structure storing information needed
@@ -784,11 +786,37 @@ func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process,
 		return nil, err
 	}
 
+	var devInfos []config.DeviceInfo
+	for _, devInfo := range c.config.DeviceInfos {
+		if devInfo.DevType == "e" {
+			filename := filepath.Join(ephemeralPath, filepath.Base(devInfo.ContainerPath))
+			epheStorage := &grpc.Storage{
+				Driver:     kataEphemeralDevType,
+				Source:     "tmpfs",
+				Fstype:     "tmpfs",
+				MountPoint: filename,
+			}
+			ctrStorages = append(ctrStorages, epheStorage)
+
+		} else {
+			devInfos = append(devInfos, devInfo)
+		}
+	}
+
 	// Handle container mounts
 	newMounts, err := c.mountSharedDirMounts(kataHostSharedDir, kataGuestSharedDir)
 	if err != nil {
 		return nil, err
 	}
+
+	// Modify the mount source for ephemeral volume
+	for idx, mnt := range ociSpec.Mounts {
+		if utils.IsEphemeralDevice(c.config.DeviceInfos, mnt.Source) {
+			ociSpec.Mounts[idx].Source = filepath.Join(ephemeralPath, filepath.Base(mnt.Source))
+		}
+	}
+
+	c.config.DeviceInfos = devInfos
 
 	// We replace all OCI mount sources that match our container mount
 	// with the right source path (The guest one).

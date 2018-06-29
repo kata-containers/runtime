@@ -418,6 +418,7 @@ func (c *Container) createContainersDirs() error {
 // available when we will need to unmount those mounts.
 func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) ([]Mount, error) {
 	var sharedDirMounts []Mount
+
 	for idx, m := range c.mounts {
 		if isSystemMount(m.Destination) || m.Type != "bind" {
 			continue
@@ -433,6 +434,17 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 		var stat unix.Stat_t
 		if err := unix.Stat(m.Source, &stat); err != nil {
 			return nil, err
+		}
+
+		// If there exists an ephemeral device corresponding
+		// to the given mount point we will skip the shared mounts
+		//
+		// We are not going to bind mount host ephemeral directory
+		// provided by k8s, instead at later stage we are going to
+		// create a tmpfs inside a VM and use it to bind mount to the
+		// containers of the pod.
+		if utils.IsEphemeralDevice(c.config.DeviceInfos, m.Source) {
+			continue
 		}
 
 		// Check if mount is a block device file. If it is, the block device will be attached to the host
@@ -476,7 +488,6 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 		if err := bindMount(m.Source, mountDest, false); err != nil {
 			return nil, err
 		}
-
 		// Save HostPath mount value into the mount list of the container.
 		c.mounts[idx].HostPath = mountDest
 

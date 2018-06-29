@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -107,7 +108,6 @@ func create(containerID, bundlePath, console, pidFilePath string, detach bool,
 	disableOutput := noNeedForOutput(detach, ociSpec.Process.Terminal)
 
 	var process vc.Process
-
 	switch containerType {
 	case vc.PodSandbox:
 		process, err = createSandbox(ociSpec, runtimeConfig, containerID, bundlePath, console, disableOutput)
@@ -263,6 +263,19 @@ func createContainer(ociSpec oci.CompatOCISpec, containerID, bundlePath,
 		return vc.Process{}, err
 	}
 
+	// Add the ephemeral device if ephemeral volume
+	// has to be attached to the container. For the given pod
+	// ephemeral volume is created only once backed by tmpfs
+	// inside the VM. For successive containers of the same
+	// pod the already existing volume is reused.
+	for _, mnt := range contConfig.Mounts {
+		if IsEphemeralStorage(mnt.Source) {
+			deviceInfo := config.DeviceInfo{}
+			deviceInfo.DevType = "e"
+			deviceInfo.ContainerPath = mnt.Source
+			contConfig.DeviceInfos = append(contConfig.DeviceInfos, deviceInfo)
+		}
+	}
 	_, c, err := vci.CreateContainer(sandboxID, contConfig)
 	if err != nil {
 		return vc.Process{}, err
