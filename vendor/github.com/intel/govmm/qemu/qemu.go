@@ -1511,6 +1511,13 @@ func (config *Config) appendIOThreads() {
 			config.qemuParams = append(config.qemuParams, fmt.Sprintf("iothread,id=%s", t.ID))
 		}
 	}
+
+	//-object rng -device virtio-rng-pci,rng=rng0,filename=/dev/urandom
+	config.qemuParams = append(config.qemuParams, "-object")
+	config.qemuParams = append(config.qemuParams, "rng-random,id=rng0,filename=/dev/urandom")
+	config.qemuParams = append(config.qemuParams, "-device")
+	config.qemuParams = append(config.qemuParams, "virtio-rng-pci,rng=rng0")
+
 }
 
 // LaunchQemu can be used to launch a new qemu instance.
