@@ -1473,3 +1473,18 @@ func (s *Sandbox) AddVhostUserDevice(devInfo api.VhostUserDevice, devType config
 	}
 	return fmt.Errorf("unsupported device type")
 }
+
+// Cleanup will clean up any dangling mounts created during a startup
+// procedure, as well as terminate the VM. This is used when a sandbox
+// failed during create.
+func (s *Sandbox) Cleanup() {
+	// stop VM
+	s.stop()
+	// unmount and delete mount dirs
+	bindUnmountAllRootfs(kataHostSharedDir, s)
+	os.RemoveAll(filepath.Join(kataHostSharedDir, s.id))
+	// delete any other sandbox dirs (e.g. in /run/vc/sbs)
+	s.storage.deleteSandboxResources(s.id, nil)
+	// delete from shared mem
+	globalSandboxList.removeSandbox(s.id)
+}

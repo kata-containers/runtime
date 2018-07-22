@@ -45,23 +45,30 @@ func createSandboxFromConfig(sandboxConfig SandboxConfig, factory Factory) (*San
 		return nil, err
 	}
 
+	defer func() {
+		if err != nil {
+			s.Logger().WithError(err).WithField("sandboxid", s.id).Error("Creating sandbox failed")
+			s.Cleanup()
+		}
+	}()
+
 	// Create the sandbox network
-	if err := s.createNetwork(); err != nil {
+	if err = s.createNetwork(); err != nil {
 		return nil, err
 	}
 
 	// Start the VM
-	if err := s.startVM(); err != nil {
+	if err = s.startVM(); err != nil {
 		return nil, err
 	}
 
 	// Create Containers
-	if err := s.createContainers(); err != nil {
+	if err = s.createContainers(); err != nil {
 		return nil, err
 	}
 
 	// The sandbox is completely created now, we can store it.
-	if err := s.storeSandbox(); err != nil {
+	if err = s.storeSandbox(); err != nil {
 		return nil, err
 	}
 
