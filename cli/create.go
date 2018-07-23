@@ -325,8 +325,13 @@ func createCgroupsFiles(containerID string, cgroupsDirPath string, cgroupsPathLi
 		}
 
 		if strings.Contains(cgroupsPath, "cpu") && cgroupsDirPath != "" {
-			parent := strings.TrimSuffix(cgroupsPath, cgroupsDirPath)
-			copyParentCPUSet(cgroupsPath, parent)
+			root, err := getCgroupsRootPath(procMountInfo)
+			if err != nil {
+				return err
+			}
+			if err := repeatCopy(cgroupsPath, root); err != nil {
+				return fmt.Errorf("Fail to copy cpuset from parent: %s", err)
+			}
 		}
 
 		tasksFilePath := filepath.Join(cgroupsPath, cgroupsTasksFile)
@@ -384,6 +389,34 @@ func createPIDFile(pidFilePath string, pid int) error {
 	}
 
 	return nil
+}
+
+// repeatCopy copies data from parent directory until
+// cpuset cgroup root to avoid parent has zero data.
+func repeatCopy(path, root string) error {
+	if !fileExists(filepath.Join(path, "cpuset.cpus")) || !fileExists(filepath.Join(path, "cpuset.mems")) {
+		return nil
+	}
+
+	parent := filepath.Dir(path)
+	if filepath.Clean(parent) == root {
+		return nil
+	}
+
+	// cgroup path get error, stop the loop
+	if parent == path {
+		return fmt.Errorf("cpu cgroup gets wrong path %s", path)
+	}
+
+	if err := repeatCopy(parent, root); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(path, cgroupsDirMode); err != nil {
+		return err
+	}
+
+	return copyParentCPUSet(path, parent)
 }
 
 // copyParentCPUSet copies the cpuset.cpus and cpuset.mems from the parent

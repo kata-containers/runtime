@@ -213,7 +213,7 @@ func TestProcessCgroupsPathEmptyResources(t *testing.T) {
 
 func TestProcessCgroupsPathRelativePathSuccessful(t *testing.T) {
 	relativeCgroupsPath := "relative/cgroups/path"
-	cgroupsDirPath = "/foo/runtime/base"
+	cgroupsRootPath = "/foo/runtime/base"
 
 	ociSpec := oci.CompatOCISpec{}
 
@@ -224,7 +224,7 @@ func TestProcessCgroupsPathRelativePathSuccessful(t *testing.T) {
 	for _, d := range cgroupTestData {
 		ociSpec.Linux.Resources = d.linuxSpec
 
-		p := filepath.Join(cgroupsDirPath, d.resource, relativeCgroupsPath)
+		p := filepath.Join(cgroupsRootPath, d.resource, relativeCgroupsPath)
 
 		testProcessCgroupsPath(t, ociSpec, []string{p})
 	}
@@ -232,7 +232,7 @@ func TestProcessCgroupsPathRelativePathSuccessful(t *testing.T) {
 
 func TestProcessCgroupsPathAbsoluteNoCgroupMountSuccessful(t *testing.T) {
 	absoluteCgroupsPath := "/absolute/cgroups/path"
-	cgroupsDirPath = "/foo/runtime/base"
+	cgroupsRootPath = "/foo/runtime/base"
 
 	ociSpec := oci.CompatOCISpec{}
 
@@ -243,7 +243,7 @@ func TestProcessCgroupsPathAbsoluteNoCgroupMountSuccessful(t *testing.T) {
 	for _, d := range cgroupTestData {
 		ociSpec.Linux.Resources = d.linuxSpec
 
-		p := filepath.Join(cgroupsDirPath, d.resource, absoluteCgroupsPath)
+		p := filepath.Join(cgroupsRootPath, d.resource, absoluteCgroupsPath)
 
 		testProcessCgroupsPath(t, ociSpec, []string{p})
 	}
@@ -422,12 +422,12 @@ func TestIsCgroupMounted(t *testing.T) {
 
 	assert.False(isCgroupMounted(os.TempDir()), "%s is not a cgroup", os.TempDir())
 
-	cgroupsDirPath = ""
-	cgroupRootPath, err := getCgroupsDirPath(procMountInfo)
+	cgroupsRootPath = ""
+	path, err := getCgroupsRootPath(procMountInfo)
 	if err != nil {
 		assert.NoError(err)
 	}
-	memoryCgroupPath := filepath.Join(cgroupRootPath, "memory")
+	memoryCgroupPath := filepath.Join(path, "memory")
 	if _, err := os.Stat(memoryCgroupPath); os.IsNotExist(err) {
 		t.Skipf("memory cgroup does not exist: %s", memoryCgroupPath)
 	}
@@ -494,15 +494,15 @@ func TestGetCgroupsDirPath(t *testing.T) {
 	file := filepath.Join(dir, "mountinfo")
 
 	//file does not exist, should error here
-	_, err = getCgroupsDirPath(file)
+	_, err = getCgroupsRootPath(file)
 	assert.Error(err)
 
 	for _, d := range data {
 		err := ioutil.WriteFile(file, []byte(d.contents), testFileMode)
 		assert.NoError(err)
 
-		cgroupsDirPath = ""
-		path, err := getCgroupsDirPath(file)
+		cgroupsRootPath = ""
+		path, err := getCgroupsRootPath(file)
 		if d.expectError {
 			assert.Error(err, fmt.Sprintf("got %q, test data: %+v", path, d))
 		} else {

@@ -631,14 +631,14 @@ func TestCreateCreateCgroupsFilesFail(t *testing.T) {
 	}
 
 	// Override
-	cgroupsDirPath = filepath.Join(tmpdir, "cgroups")
-	err = os.MkdirAll(cgroupsDirPath, testDirMode)
+	cgroupsRootPath = filepath.Join(tmpdir, "cgroups")
+	err = os.MkdirAll(cgroupsRootPath, testDirMode)
 	assert.NoError(err)
 
 	// Set a relative path
 	spec.Linux.CgroupsPath = "./a/relative/path"
 
-	dir := filepath.Join(cgroupsDirPath, "memory")
+	dir := filepath.Join(cgroupsRootPath, "memory")
 
 	// Stop directory from being created
 	err = os.MkdirAll(dir, os.FileMode(0000))
