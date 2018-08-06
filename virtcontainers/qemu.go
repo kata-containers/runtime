@@ -907,6 +907,9 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operati
 	case serialPortDev:
 		socket := devInfo.(Socket)
 		return nil, q.hotplugSocket(socket, op)
+	case vSockPCIDev:
+		vsock := devInfo.(kataVSOCK)
+		return nil, q.hotplugVSockPCI(vsock, op)
 	default:
 		return nil, fmt.Errorf("cannot hotplug device: unsupported device type '%v'", devType)
 	}
@@ -1267,6 +1270,38 @@ func (q *qemu) hotplugSocket(socket Socket, op operation) error {
 		return errors.New("Remove socket device is not supported")
 	default:
 		return fmt.Errorf("Unknown socket operation: %d", op)
+	}
+
+	return nil
+}
+
+func (q *qemu) hotplugVSockPCI(vsock kataVSOCK, op operation) error {
+	if err := q.qmpSetup(); err != nil {
+		return err
+	}
+
+	switch op {
+	case addDevice:
+		vhostfdname := fmt.Sprintf("vhostfd-%d", vsock.contextID)
+		if err := q.qmpMonitorCh.qmp.ExecuteGetFD(q.qmpMonitorCh.ctx, vhostfdname, vsock.vhostFd); err != nil {
+			return err
+		}
+
+		id := fmt.Sprintf("vsock-%d", vsock.contextID)
+		addr, bridge, err := q.addDeviceToBridge(id)
+		if err != nil {
+			return err
+		}
+
+		disableModern := q.arch.runningNested()
+		guestCID := fmt.Sprintf("%d", vsock.contextID)
+		if err := q.qmpMonitorCh.qmp.ExecutePCIVSockAdd(q.qmpMonitorCh.ctx, id, guestCID, vhostfdname, addr, bridge.ID, disableModern); err != nil {
+			return err
+		}
+	case removeDevice:
+		return errors.New("Remove vsock PCI is not supported")
+	default:
+		return fmt.Errorf("Unknown vsock operation: %d", op)
 	}
 
 	return nil
