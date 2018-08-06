@@ -24,6 +24,9 @@ type qemuArch interface {
 	// disableNestingChecks nesting checks will be ignored
 	disableNestingChecks()
 
+	// runningNested returns true if QEMU is running in a nested environment, otherwise false
+	runningNested() bool
+
 	// enableVhostNet vhost will be enabled
 	enableVhostNet()
 
@@ -181,6 +184,10 @@ func (q *qemuArchBase) enableNestingChecks() {
 
 func (q *qemuArchBase) disableNestingChecks() {
 	q.nestedRun = false
+}
+
+func (q *qemuArchBase) runningNested() bool {
+	return q.nestedRun
 }
 
 func (q *qemuArchBase) enableVhostNet() {
