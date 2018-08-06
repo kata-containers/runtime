@@ -904,6 +904,9 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operati
 	case netDev:
 		device := devInfo.(*VirtualEndpoint)
 		return nil, q.hotplugNetDevice(device, op)
+	case serialPortDev:
+		socket := devInfo.(Socket)
+		return nil, q.hotplugSocket(socket, op)
 	default:
 		return nil, fmt.Errorf("cannot hotplug device: unsupported device type '%v'", devType)
 	}
@@ -1244,4 +1247,27 @@ func genericMemoryTopology(memoryMb, hostMemoryMb uint64) govmmQemu.Memory {
 	}
 
 	return memory
+}
+
+func (q *qemu) hotplugSocket(socket Socket, op operation) error {
+	if err := q.qmpSetup(); err != nil {
+		return err
+	}
+
+	switch op {
+	case addDevice:
+		if err := q.qmpMonitorCh.qmp.ExecuteCharDevUnixSocketAdd(q.qmpMonitorCh.ctx, socket.ID, socket.HostPath, false, true); err != nil {
+			return err
+		}
+
+		if err := q.qmpMonitorCh.qmp.ExecuteVirtSerialPortAdd(q.qmpMonitorCh.ctx, socket.DeviceID, socket.Name, socket.ID); err != nil {
+			return err
+		}
+	case removeDevice:
+		return errors.New("Remove socket device is not supported")
+	default:
+		return fmt.Errorf("Unknown socket operation: %d", op)
+	}
+
+	return nil
 }
