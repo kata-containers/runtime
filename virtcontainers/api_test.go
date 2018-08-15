@@ -120,7 +120,7 @@ func newTestSandboxConfigHyperstartAgent() SandboxConfig {
 	return sandboxConfig
 }
 
-func newTestSandboxConfigHyperstartAgentCNMNetwork() SandboxConfig {
+func newTestSandboxConfigHyperstartAgentDefaultNetwork() SandboxConfig {
 	// Define the container command and bundle.
 	container := ContainerConfig{
 		ID:          containerID,
@@ -164,7 +164,7 @@ func newTestSandboxConfigHyperstartAgentCNMNetwork() SandboxConfig {
 		AgentType:   HyperstartAgent,
 		AgentConfig: agentConfig,
 
-		NetworkModel:  CNMNetworkModel,
+		NetworkModel:  DefaultNetworkModel,
 		NetworkConfig: netConfig,
 
 		Containers:  []ContainerConfig{container},
@@ -1352,14 +1352,14 @@ func TestStartStopContainerHyperstartAgentSuccessful(t *testing.T) {
 	bindUnmountAllRootfs(defaultSharedDir, pImpl)
 }
 
-func TestStartStopSandboxHyperstartAgentSuccessfulWithCNMNetwork(t *testing.T) {
+func TestStartStopSandboxHyperstartAgentSuccessfulWithDefaultNetwork(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
 	cleanUp()
 
-	config := newTestSandboxConfigHyperstartAgentCNMNetwork()
+	config := newTestSandboxConfigHyperstartAgentDefaultNetwork()
 
 	sockDir, err := testGenerateCCProxySockDir()
 	if err != nil {
@@ -2378,7 +2378,7 @@ func TestNetworkOperation(t *testing.T) {
 	defer deleteNetNS(netNSPath)
 
 	config := newTestSandboxConfigNoop()
-	config.NetworkModel = CNMNetworkModel
+	config.NetworkModel = DefaultNetworkModel
 	config.NetworkConfig = NetworkConfig{
 		NetNSPath: netNSPath,
 	}
