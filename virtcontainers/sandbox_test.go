@@ -1721,3 +1721,14 @@ func TestGetNetNs(t *testing.T) {
 	netNs = s.GetNetNs()
 	assert.Equal(t, netNs, expected)
 }
+
+func TestAddNetworkNoopNetwork(t *testing.T) {
+	s := &Sandbox{
+		network: &noopNetwork{},
+		agent:   &noopAgent{},
+		storage: &noopResourceStorage{},
+	}
+
+	err := s.addNetwork()
+	assert.Nil(t, err)
+}

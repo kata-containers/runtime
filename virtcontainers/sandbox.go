@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -945,7 +946,6 @@ func (s *Sandbox) Delete() error {
 func (s *Sandbox) createNetwork() error {
 	var netNsPath string
 	var netNsCreated bool
-	var networkNS NetworkNamespace
 	var err error
 
 	//rollback the NetNs when createNetwork failed
@@ -971,15 +971,40 @@ func (s *Sandbox) createNetwork() error {
 		return err
 	}
 
-	// Add the network
+	return err
+}
+
+func (s *Sandbox) addNetwork() error {
+	// Add the network.
 	if err := s.network.add(s); err != nil {
 		return err
 	}
 
-	// Store the network
-	err = s.storage.storeSandboxNetwork(s.id, networkNS)
+	// TODO: to be removed
+	time.Sleep(time.Second)
 
-	return err
+	// Store the updated network info (including the endpoints).
+	if err := s.storage.storeSandboxNetwork(s.id, s.networkNS); err != nil {
+		return err
+	}
+
+	// Update the network from the agent.
+	interfaces, routes, err := generateInterfacesAndRoutes(s.networkNS)
+	if err != nil {
+		return err
+	}
+
+	for _, iface := range interfaces {
+		if _, err := s.agent.updateInterface(iface); err != nil {
+			return err
+		}
+	}
+
+	if _, err := s.agent.updateRoutes(routes); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Sandbox) removeNetwork() error {

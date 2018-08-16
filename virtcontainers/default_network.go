@@ -69,7 +69,7 @@ func (n *defNetwork) add(s *Sandbox) error {
 
 	return doNetNS(s.networkNS.NetNsPath, func(_ ns.NetNS) error {
 		for _, endpoint := range s.networkNS.Endpoints {
-			if err := endpoint.Attach(s.hypervisor); err != nil {
+			if err := endpoint.HotAttach(s.hypervisor); err != nil {
 				return err
 			}
 		}

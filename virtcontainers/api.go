@@ -99,6 +99,11 @@ func createSandboxFromConfig(sandboxConfig SandboxConfig, factory Factory) (*San
 		return nil, err
 	}
 
+	// hotplug the network
+	if err := s.addNetwork(); err != nil {
+		return nil, err
+	}
+
 	return s, nil
 }
 
