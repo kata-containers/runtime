@@ -961,6 +961,9 @@ func (s *Sandbox) createNetwork() error {
 		return err
 	}
 
+	s.networkNS.NetNsPath = netNsPath
+	s.networkNS.NetNsCreated = netNsCreated
+
 	// Execute prestart hooks inside netns
 	if err := s.network.run(netNsPath, func() error {
 		return s.config.Hooks.preStartHooks(s)
@@ -969,11 +972,9 @@ func (s *Sandbox) createNetwork() error {
 	}
 
 	// Add the network
-	networkNS, err = s.network.add(s, s.config.NetworkConfig, netNsPath, netNsCreated)
-	if err != nil {
+	if err := s.network.add(s); err != nil {
 		return err
 	}
-	s.networkNS = networkNS
 
 	// Store the network
 	err = s.storage.storeSandboxNetwork(s.id, networkNS)
@@ -982,7 +983,7 @@ func (s *Sandbox) createNetwork() error {
 }
 
 func (s *Sandbox) removeNetwork() error {
-	return s.network.remove(s, s.networkNS, s.networkNS.NetNsCreated)
+	return s.network.remove(s)
 }
 
 func (s *Sandbox) generateNetInfo(inf *grpc.Interface) (NetworkInfo, error) {

@@ -1525,9 +1525,9 @@ type network interface {
 	run(networkNSPath string, cb func() error) error
 
 	// add adds all needed interfaces inside the network namespace.
-	add(sandbox *Sandbox, config NetworkConfig, netNsPath string, netNsCreated bool) (NetworkNamespace, error)
+	add(s *Sandbox) error
 
 	// remove unbridges and deletes TAP interfaces. It also removes virtual network
 	// interfaces and deletes the network namespace.
-	remove(sandbox *Sandbox, networkNS NetworkNamespace, netNsCreated bool) error
+	remove(s *Sandbox) error
 }

@@ -25,13 +25,13 @@ func (n *noopNetwork) run(networkNSPath string, cb func() error) error {
 
 // add adds all needed interfaces inside the network namespace the Noop network.
 // It does nothing.
-func (n *noopNetwork) add(sandbox *Sandbox, config NetworkConfig, netNsPath string, netNsCreated bool) (NetworkNamespace, error) {
-	return NetworkNamespace{}, nil
+func (n *noopNetwork) add(s *Sandbox) error {
+	return nil
 }
 
 // remove unbridges and deletes TAP interfaces. It also removes virtual network
 // interfaces and deletes the network namespace for the Noop network.
 // It does nothing.
-func (n *noopNetwork) remove(sandbox *Sandbox, networkNS NetworkNamespace, netNsCreated bool) error {
+func (n *noopNetwork) remove(s *Sandbox) error {
 	return nil
 }
