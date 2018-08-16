@@ -974,7 +974,9 @@ func (s *Sandbox) createNetwork() error {
 	return err
 }
 
-func (s *Sandbox) addNetwork() error {
+// SetupNetwork scans the netns related to the sandbox and do the proper
+// setup accordingly.
+func (s *Sandbox) SetupNetwork() error {
 	// Add the network.
 	if err := s.network.add(s); err != nil {
 		return err

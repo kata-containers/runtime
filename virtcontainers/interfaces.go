@@ -70,6 +70,7 @@ type VCSandbox interface {
 	Release() error
 	Monitor() (chan error, error)
 	Delete() error
+	SetupNetwork() error
 	Status() SandboxStatus
 	CreateContainer(contConfig ContainerConfig) (VCContainer, error)
 	DeleteContainer(contID string) (VCContainer, error)

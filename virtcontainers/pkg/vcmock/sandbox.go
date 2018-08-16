@@ -82,6 +82,11 @@ func (s *Sandbox) Delete() error {
 	return nil
 }
 
+// SetupNetwork implements the VCSandbox function of the same name.
+func (s *Sandbox) SetupNetwork() error {
+	return nil
+}
+
 // CreateContainer implements the VCSandbox function of the same name.
 func (s *Sandbox) CreateContainer(conf vc.ContainerConfig) (vc.VCContainer, error) {
 	return &Container{}, nil
