@@ -19,8 +19,8 @@ The sandbox API allows callers to [create](#createsandbox), [delete](#deletesand
 [resume](resumesandbox) and [list](#listsandbox) VM (Virtual Machine) based sandboxes.
 
 To initially create a sandbox, the API caller must prepare a
-[`SandboxConfig`](#sandboxconfig) and pass it to either [`CreateSandbox`](#createsandbox)
-or [`RunSandbox`](#runsandbox). Upon successful sandbox creation, the virtcontainers
+[`SandboxConfig`](#sandboxconfig) and pass it to either [`CreateSandbox`](#createsandbox).
+Upon successful sandbox creation, the virtcontainers
 API will return a [`VCSandbox`](#vcsandbox) interface back to the caller.
 
 The `VCSandbox` interface is a sandbox abstraction hiding the internal and private
@@ -472,7 +472,6 @@ type VCSandbox interface {
 * [DeleteSandbox](#deletesandbox)
 * [StartSandbox](#startsandbox)
 * [StopSandbox](#stopsandbox)
-* [RunSandbox](#runsandbox)
 * [ListSandbox](#listsandbox)
 * [StatusSandbox](#statussandbox)
 * [PauseSandbox](#pausesandbox)
@@ -506,13 +505,6 @@ func StartSandbox(sandboxID string) (VCSandbox, error)
 // StopSandbox will talk to the given agent to stop an existing sandbox
 // and destroy all containers within that sandbox.
 func StopSandbox(sandboxID string) (VCSandbox, error)
-```
-
-#### `RunSandbox`
-```Go
-// RunSandbox is the virtcontainers sandbox running entry point.
-// RunSandbox creates a sandbox and its containers and then it starts them.
-func RunSandbox(sandboxConfig SandboxConfig) (VCSandbox, error)
 ```
 
 #### `ListSandbox`
@@ -918,9 +910,14 @@ func Example_createAndStartSandbox() {
 		Containers: []vc.ContainerConfig{container},
 	}
 
-	_, err := vc.RunSandbox(sandboxConfig)
+	s, err := vc.CreateSandbox(sandboxConfig, nil)
 	if err != nil {
-		fmt.Printf("Could not run sandbox: %s", err)
+		fmt.Printf("Could not create sandbox: %s", err)
+	}
+
+	_, err = vc.StartSandbox(s.ID())
+	if err != nil {
+		fmt.Printf("Could not start sandbox: %s", err)
 	}
 
 	return

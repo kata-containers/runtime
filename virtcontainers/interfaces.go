@@ -27,7 +27,6 @@ type VC interface {
 	ListSandbox() ([]SandboxStatus, error)
 	PauseSandbox(sandboxID string) (VCSandbox, error)
 	ResumeSandbox(sandboxID string) (VCSandbox, error)
-	RunSandbox(sandboxConfig SandboxConfig) (VCSandbox, error)
 	StartSandbox(sandboxID string) (VCSandbox, error)
 	StatusSandbox(sandboxID string) (SandboxStatus, error)
 	StopSandbox(sandboxID string) (VCSandbox, error)

@@ -54,11 +54,6 @@ func (impl *VCImpl) StopSandbox(sandboxID string) (VCSandbox, error) {
 	return StopSandbox(sandboxID)
 }
 
-// RunSandbox implements the VC function of the same name.
-func (impl *VCImpl) RunSandbox(sandboxConfig SandboxConfig) (VCSandbox, error) {
-	return RunSandbox(sandboxConfig, impl.factory)
-}
-
 // ListSandbox implements the VC function of the same name.
 func (impl *VCImpl) ListSandbox() ([]SandboxStatus, error) {
 	return ListSandbox()

@@ -119,9 +119,6 @@ The function will fail if the Sandbox is running. In that case `StopSandbox()` h
 * `StartSandbox(sandboxID string)` starts an already created Sandbox.
 The Sandbox and all its containers are started.
 
-* `RunSandbox(sandboxConfig SandboxConfig)` creates and starts a Sandbox.
-This performs `CreateSandbox()` + `StartSandbox()`.
-
 * `StopSandbox(sandboxID string)` stops an already running Sandbox.
 The Sandbox and all its containers are stopped.
 

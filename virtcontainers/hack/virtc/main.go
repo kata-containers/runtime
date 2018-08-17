@@ -273,8 +273,6 @@ func checkRequiredSandboxArgs(context *cli.Context) error {
 	case "create":
 		fallthrough
 	case "list":
-		fallthrough
-	case "run":
 		// these commands don't require any arguments
 		return nil
 	}
@@ -311,20 +309,6 @@ func checkRequiredContainerArgs(context *cli.Context) error {
 	id := context.String("id")
 	if id == "" {
 		return errNeedContainerID
-	}
-
-	return nil
-}
-
-func runSandbox(context *cli.Context) error {
-	sandboxConfig, err := buildSandboxConfig(context)
-	if err != nil {
-		return fmt.Errorf("Could not build sandbox config: %s", err)
-	}
-
-	_, err = vc.RunSandbox(sandboxConfig, nil)
-	if err != nil {
-		return fmt.Errorf("Could not run sandbox: %s", err)
 	}
 
 	return nil
@@ -457,15 +441,6 @@ func statusSandbox(context *cli.Context) error {
 	w.Flush()
 
 	return nil
-}
-
-var runSandboxCommand = cli.Command{
-	Name:  "run",
-	Usage: "run a sandbox",
-	Flags: sandboxConfigFlags,
-	Action: func(context *cli.Context) error {
-		return checkSandboxArgs(context, runSandbox)
-	},
 }
 
 var createSandboxCommand = cli.Command{
@@ -883,7 +858,6 @@ func main() {
 				listSandboxesCommand,
 				pauseSandboxCommand,
 				resumeSandboxCommand,
-				runSandboxCommand,
 				startSandboxCommand,
 				stopSandboxCommand,
 				statusSandboxCommand,

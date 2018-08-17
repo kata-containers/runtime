@@ -243,24 +243,6 @@ func StopSandbox(sandboxID string) (VCSandbox, error) {
 	return s, nil
 }
 
-// RunSandbox is the virtcontainers sandbox running entry point.
-// RunSandbox creates a sandbox and its containers and then it starts them.
-func RunSandbox(sandboxConfig SandboxConfig, factory Factory) (VCSandbox, error) {
-	s, err := createSandboxFromConfig(sandboxConfig, factory)
-	if err != nil {
-		return nil, err
-	}
-	defer s.releaseStatelessSandbox()
-
-	lockFile, err := rwLockSandbox(s.id)
-	if err != nil {
-		return nil, err
-	}
-	defer unlockSandbox(lockFile)
-
-	return startSandbox(s)
-}
-
 // ListSandbox is the virtcontainers sandbox listing entry point.
 func ListSandbox() ([]SandboxStatus, error) {
 	dir, err := os.Open(configStoragePath)
