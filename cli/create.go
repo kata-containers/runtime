@@ -272,6 +272,10 @@ func createSandbox(ctx context.Context, ociSpec oci.CompatOCISpec, runtimeConfig
 		return vc.Process{}, err
 	}
 
+	if err := sandbox.SetupNetwork(); err != nil {
+		return vc.Process{}, err
+	}
+
 	sid := sandbox.ID()
 	kataLog = kataLog.WithField("sandbox", sid)
 	setExternalLoggers(kataLog)
