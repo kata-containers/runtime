@@ -272,6 +272,12 @@ func createSandbox(ctx context.Context, ociSpec oci.CompatOCISpec, runtimeConfig
 		return vc.Process{}, err
 	}
 
+	if err := enterNetNS(sandbox.GetNetNs(), func() error {
+		return preStartHooks(ociSpec, containerID, bundlePath)
+	}); err != nil {
+		return vc.Process{}, err
+	}
+
 	if err := sandbox.SetupNetwork(); err != nil {
 		return vc.Process{}, err
 	}

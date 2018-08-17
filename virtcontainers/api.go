@@ -196,11 +196,6 @@ func startSandbox(s *Sandbox) (*Sandbox, error) {
 		return nil, err
 	}
 
-	// Execute poststart hooks.
-	if err := s.config.Hooks.postStartHooks(s); err != nil {
-		return nil, err
-	}
-
 	return s, nil
 }
 
@@ -232,11 +227,6 @@ func StopSandbox(sandboxID string) (VCSandbox, error) {
 
 	// Remove the network.
 	if err := s.removeNetwork(); err != nil {
-		return nil, err
-	}
-
-	// Execute poststop hooks.
-	if err := s.config.Hooks.postStopHooks(s); err != nil {
 		return nil, err
 	}
 

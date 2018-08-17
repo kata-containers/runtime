@@ -1,0 +1,139 @@
+// Copyright (c) 2018 Intel Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"syscall"
+	"time"
+
+	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
+)
+
+// Logger returns a logrus logger appropriate for logging hook messages
+func hookLogger() *logrus.Entry {
+	return kataLog.WithField("subsystem", "hook")
+}
+
+func runHook(hook specs.Hook, cid, bundlePath string) error {
+	state := specs.State{
+		Pid:    os.Getpid(),
+		Bundle: bundlePath,
+		ID:     cid,
+	}
+
+	stateJSON, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd := &exec.Cmd{
+		Path:   hook.Path,
+		Args:   hook.Args,
+		Env:    hook.Env,
+		Stdin:  bytes.NewReader(stateJSON),
+		Stdout: &stdout,
+		Stderr: &stderr,
+	}
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	if hook.Timeout == nil {
+		if err := cmd.Wait(); err != nil {
+			return fmt.Errorf("%s: stdout: %s, stderr: %s", err, stdout.String(), stderr.String())
+		}
+	} else {
+		done := make(chan error, 1)
+		go func() {
+			done <- cmd.Wait()
+			close(done)
+		}()
+
+		select {
+		case err := <-done:
+			if err != nil {
+				return fmt.Errorf("%s: stdout: %s, stderr: %s", err, stdout.String(), stderr.String())
+			}
+		case <-time.After(time.Duration(*hook.Timeout) * time.Second):
+			if err := syscall.Kill(cmd.Process.Pid, syscall.SIGKILL); err != nil {
+				return err
+			}
+
+			return fmt.Errorf("Hook timeout")
+		}
+	}
+
+	return nil
+}
+
+func preStartHooks(spec oci.CompatOCISpec, cid, bundlePath string) error {
+	// If no hook available, nothing needs to be done.
+	if spec.Hooks == nil {
+		return nil
+	}
+
+	for _, hook := range spec.Hooks.Prestart {
+		if err := runHook(hook, cid, bundlePath); err != nil {
+			hookLogger().WithFields(logrus.Fields{
+				"hook-type": "pre-start",
+				"error":     err,
+			}).Error("hook error")
+
+			return err
+		}
+	}
+
+	return nil
+}
+
+func postStartHooks(spec oci.CompatOCISpec, cid, bundlePath string) error {
+	// If no hook available, nothing needs to be done.
+	if spec.Hooks == nil {
+		return nil
+	}
+
+	for _, hook := range spec.Hooks.Poststart {
+		if err := runHook(hook, cid, bundlePath); err != nil {
+			hookLogger().WithFields(logrus.Fields{
+				"hook-type": "post-start",
+				"error":     err,
+			}).Error("hook error")
+
+			return err
+		}
+	}
+
+	return nil
+}
+
+func postStopHooks(spec oci.CompatOCISpec, cid, bundlePath string) error {
+	// If no hook available, nothing needs to be done.
+	if spec.Hooks == nil {
+		return nil
+	}
+
+	for _, hook := range spec.Hooks.Poststop {
+		if err := runHook(hook, cid, bundlePath); err != nil {
+			hookLogger().WithFields(logrus.Fields{
+				"hook-type": "post-stop",
+				"error":     err,
+			}).Error("hook error")
+
+			return err
+		}
+	}
+
+	return nil
+}

@@ -12,6 +12,7 @@ import (
 	"os"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	vcAnnot "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
@@ -107,6 +108,10 @@ func delete(ctx context.Context, containerID string, force bool) error {
 
 	switch containerType {
 	case vc.PodSandbox:
+		if err := postStopHooks(ociSpec, sandboxID, status.Annotations[vcAnnot.BundlePathKey]); err != nil {
+			return err
+		}
+
 		if err := deleteSandbox(ctx, sandboxID); err != nil {
 			return err
 		}
