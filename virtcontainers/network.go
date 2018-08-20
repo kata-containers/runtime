@@ -338,7 +338,24 @@ func (endpoint *VhostUserEndpoint) Detach(netNsCreated bool, netNsPath string) e
 
 // HotAttach for vhostuser endpoint not supported yet
 func (endpoint *VhostUserEndpoint) HotAttach(h hypervisor) error {
-	return fmt.Errorf("VhostUserEndpoint does not support Hot attach")
+	networkLogger().WithField("endpoint-type", "vhostuser").Info("Attaching endpoint (hotplug)")
+
+	// Generate a unique ID to be used for hypervisor commandline fields
+	randBytes, err := utils.GenerateRandomBytes(8)
+	if err != nil {
+		return err
+	}
+	id := hex.EncodeToString(randBytes)
+
+	d := config.VhostUserDeviceAttrs{
+		ID:         id,
+		SocketPath: endpoint.SocketPath,
+		MacAddress: endpoint.HardAddr,
+		Type:       config.VhostUserNet,
+	}
+
+	_, err = h.hotplugAddDevice(d, vhostuserDev)
+	return err
 }
 
 // HotDetach for vhostuser endpoint not supported yet

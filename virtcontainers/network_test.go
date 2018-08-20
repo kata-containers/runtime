@@ -491,7 +491,7 @@ func TestVhostUserEndpoint_HotAttach(t *testing.T) {
 	h := &mockHypervisor{}
 
 	err := v.HotAttach(h)
-	assert.Error(err)
+	assert.NoError(err)
 }
 
 func TestVhostUserEndpoint_HotDetach(t *testing.T) {

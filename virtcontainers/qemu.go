@@ -841,6 +841,50 @@ func (q *qemu) hotplugNetDevice(drive VirtualEndpoint, op operation) error {
 	return nil
 }
 
+func (q *qemu) hotplugVhostUserDevice(attrs config.VhostUserDeviceAttrs, op operation) error {
+	switch attrs.Type {
+	case config.VhostUserNet:
+		return q.hotplugVhostUserNetDevice(attrs, op)
+	}
+
+	return fmt.Errorf("Hotplug of vhost-user type %v is not supported", attrs.Type)
+}
+
+func (q *qemu) hotplugVhostUserNetDevice(attrs config.VhostUserDeviceAttrs, op operation) error {
+	if op != addDevice {
+		return fmt.Errorf("Unplug of vhost-user-net not implemented")
+	}
+
+	if err := q.qmpSetup(); err != nil {
+		return err
+	}
+
+	charDevID := utils.MakeNameID("char", attrs.ID, maxDevIDSize)
+
+	// Add chardev specifying the appropriate socket.
+	if err := q.qmpMonitorCh.qmp.ExecuteCharDevUnixSocketAdd(q.qmpMonitorCh.ctx, charDevID, attrs.SocketPath, false, false); err != nil {
+		return err
+	}
+
+	netDevID := utils.MakeNameID("net", attrs.ID, maxDevIDSize)
+	netDevType := "vhost-user"
+
+	// Add netdev of type vhost-user.
+	if err := q.qmpMonitorCh.qmp.ExecuteNetdevChardevAdd(q.qmpMonitorCh.ctx, netDevType, netDevID, charDevID, defaultQueues); err != nil {
+		return err
+	}
+
+	addr, bridge, err := q.addDeviceToBridge(attrs.ID)
+	if err != nil {
+		return err
+	}
+
+	devID := utils.MakeNameID("virtio", attrs.ID, maxDevIDSize)
+
+	// Add virtio-net-pci device.
+	return q.qmpMonitorCh.qmp.ExecuteNetPCIDeviceAdd(q.qmpMonitorCh.ctx, netDevID, devID, attrs.MacAddress, addr, bridge.ID)
+}
+
 func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operation) (interface{}, error) {
 	switch devType {
 	case blockDev:
@@ -858,6 +902,9 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operati
 	case netDev:
 		device := devInfo.(VirtualEndpoint)
 		return nil, q.hotplugNetDevice(device, op)
+	case vhostuserDev:
+		device := devInfo.(config.VhostUserDeviceAttrs)
+		return nil, q.hotplugVhostUserDevice(device, op)
 	default:
 		return nil, fmt.Errorf("cannot hotplug device: unsupported device type '%v'", devType)
 	}
