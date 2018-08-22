@@ -27,7 +27,6 @@ type VC interface {
 	ListSandbox() ([]SandboxStatus, error)
 	PauseSandbox(sandboxID string) (VCSandbox, error)
 	ResumeSandbox(sandboxID string) (VCSandbox, error)
-	RunSandbox(sandboxConfig SandboxConfig) (VCSandbox, error)
 	StartSandbox(sandboxID string) (VCSandbox, error)
 	StatusSandbox(sandboxID string) (SandboxStatus, error)
 	StopSandbox(sandboxID string) (VCSandbox, error)
@@ -58,6 +57,7 @@ type VC interface {
 // (required since virtcontainers.Sandbox only contains private fields)
 type VCSandbox interface {
 	Annotations(key string) (string, error)
+	GetNetNs() string
 	GetAllContainers() []VCContainer
 	GetAnnotations() map[string]string
 	GetContainer(containerID string) VCContainer
@@ -69,6 +69,7 @@ type VCSandbox interface {
 	Release() error
 	Monitor() (chan error, error)
 	Delete() error
+	SetupNetwork() error
 	Status() SandboxStatus
 	CreateContainer(contConfig ContainerConfig) (VCContainer, error)
 	DeleteContainer(contID string) (VCContainer, error)

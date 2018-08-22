@@ -68,9 +68,14 @@ func Example_createAndStartSandbox() {
 		Containers: []vc.ContainerConfig{container},
 	}
 
-	_, err := vc.RunSandbox(sandboxConfig, nil)
+	s, err := vc.CreateSandbox(sandboxConfig, nil)
 	if err != nil {
-		fmt.Printf("Could not run sandbox: %s", err)
+		fmt.Printf("Could not create sandbox: %s", err)
+	}
+
+	_, err = vc.StartSandbox(s.ID())
+	if err != nil {
+		fmt.Printf("Could not start sandbox: %s", err)
 	}
 
 	return

@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	vcAnnot "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
@@ -78,7 +79,23 @@ func start(ctx context.Context, containerID string) (vc.VCSandbox, error) {
 	}
 
 	if containerType.IsSandbox() {
-		return vci.StartSandbox(sandboxID)
+		s, err := vci.StartSandbox(sandboxID)
+		if err != nil {
+			return nil, err
+		}
+
+		ociSpec, err := oci.GetOCIConfig(status)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := enterNetNS(s.GetNetNs(), func() error {
+			return postStartHooks(ociSpec, sandboxID, status.Annotations[vcAnnot.BundlePathKey])
+		}); err != nil {
+			return nil, err
+		}
+
+		return s, nil
 	}
 
 	c, err := vci.StartContainer(sandboxID, containerID)

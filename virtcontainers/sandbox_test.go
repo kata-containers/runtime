@@ -1705,3 +1705,30 @@ func TestPreAddDevice(t *testing.T) {
 	assert.Equal(t, len(mounts), 0,
 		"mounts should contain nothing because it only contains a block device")
 }
+
+func TestGetNetNs(t *testing.T) {
+	s := Sandbox{}
+
+	expected := ""
+	netNs := s.GetNetNs()
+	assert.Equal(t, netNs, expected)
+
+	expected = "/foo/bar/ns/net"
+	s.networkNS = NetworkNamespace{
+		NetNsPath: expected,
+	}
+
+	netNs = s.GetNetNs()
+	assert.Equal(t, netNs, expected)
+}
+
+func TestSetupNetworkNoopNetwork(t *testing.T) {
+	s := &Sandbox{
+		network: &noopNetwork{},
+		agent:   &noopAgent{},
+		storage: &noopResourceStorage{},
+	}
+
+	err := s.SetupNetwork()
+	assert.Nil(t, err)
+}

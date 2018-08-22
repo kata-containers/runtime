@@ -243,32 +243,6 @@ func TestVCMockResumeSandbox(t *testing.T) {
 	assert.True(IsMockError(err))
 }
 
-func TestVCMockRunSandbox(t *testing.T) {
-	assert := assert.New(t)
-
-	m := &VCMock{}
-	assert.Nil(m.RunSandboxFunc)
-
-	_, err := m.RunSandbox(vc.SandboxConfig{})
-	assert.Error(err)
-	assert.True(IsMockError(err))
-
-	m.RunSandboxFunc = func(sandboxConfig vc.SandboxConfig) (vc.VCSandbox, error) {
-		return &Sandbox{}, nil
-	}
-
-	sandbox, err := m.RunSandbox(vc.SandboxConfig{})
-	assert.NoError(err)
-	assert.Equal(sandbox, &Sandbox{})
-
-	// reset
-	m.RunSandboxFunc = nil
-
-	_, err = m.RunSandbox(vc.SandboxConfig{})
-	assert.Error(err)
-	assert.True(IsMockError(err))
-}
-
 func TestVCMockStartSandbox(t *testing.T) {
 	assert := assert.New(t)
 

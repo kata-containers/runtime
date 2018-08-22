@@ -196,11 +196,6 @@ func startSandbox(s *Sandbox) (*Sandbox, error) {
 		return nil, err
 	}
 
-	// Execute poststart hooks.
-	if err := s.config.Hooks.postStartHooks(s); err != nil {
-		return nil, err
-	}
-
 	return s, nil
 }
 
@@ -235,30 +230,7 @@ func StopSandbox(sandboxID string) (VCSandbox, error) {
 		return nil, err
 	}
 
-	// Execute poststop hooks.
-	if err := s.config.Hooks.postStopHooks(s); err != nil {
-		return nil, err
-	}
-
 	return s, nil
-}
-
-// RunSandbox is the virtcontainers sandbox running entry point.
-// RunSandbox creates a sandbox and its containers and then it starts them.
-func RunSandbox(sandboxConfig SandboxConfig, factory Factory) (VCSandbox, error) {
-	s, err := createSandboxFromConfig(sandboxConfig, factory)
-	if err != nil {
-		return nil, err
-	}
-	defer s.releaseStatelessSandbox()
-
-	lockFile, err := rwLockSandbox(s.id)
-	if err != nil {
-		return nil, err
-	}
-	defer unlockSandbox(lockFile)
-
-	return startSandbox(s)
 }
 
 // ListSandbox is the virtcontainers sandbox listing entry point.

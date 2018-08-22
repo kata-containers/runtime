@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -317,9 +318,6 @@ type SandboxConfig struct {
 
 	Hostname string
 
-	// Field specific to OCI specs, needed to setup all the hooks
-	Hooks Hooks
-
 	// VMConfig is the VM configuration to set for this sandbox.
 	VMConfig Resources
 
@@ -525,6 +523,11 @@ func (s *Sandbox) GetAnnotations() map[string]string {
 	defer s.annotationsLock.RUnlock()
 
 	return s.config.Annotations
+}
+
+// GetNetNs returns the network namespace of the current sandbox.
+func (s *Sandbox) GetNetNs() string {
+	return s.networkNS.NetNsPath
 }
 
 // GetAllContainers returns all containers.
@@ -940,7 +943,6 @@ func (s *Sandbox) Delete() error {
 func (s *Sandbox) createNetwork() error {
 	var netNsPath string
 	var netNsCreated bool
-	var networkNS NetworkNamespace
 	var err error
 
 	//rollback the NetNs when createNetwork failed
@@ -956,28 +958,49 @@ func (s *Sandbox) createNetwork() error {
 		return err
 	}
 
-	// Execute prestart hooks inside netns
-	if err := s.network.run(netNsPath, func() error {
-		return s.config.Hooks.preStartHooks(s)
-	}); err != nil {
+	s.networkNS.NetNsPath = netNsPath
+	s.networkNS.NetNsCreated = netNsCreated
+
+	return nil
+}
+
+// SetupNetwork scans the netns related to the sandbox and do the proper
+// setup accordingly.
+func (s *Sandbox) SetupNetwork() error {
+	// Add the network.
+	if err := s.network.add(s); err != nil {
 		return err
 	}
 
-	// Add the network
-	networkNS, err = s.network.add(s, s.config.NetworkConfig, netNsPath, netNsCreated)
+	// TODO: to be removed
+	time.Sleep(time.Second)
+
+	// Store the updated network info (including the endpoints).
+	if err := s.storage.storeSandboxNetwork(s.id, s.networkNS); err != nil {
+		return err
+	}
+
+	// Update the network from the agent.
+	interfaces, routes, err := generateInterfacesAndRoutes(s.networkNS)
 	if err != nil {
 		return err
 	}
-	s.networkNS = networkNS
 
-	// Store the network
-	err = s.storage.storeSandboxNetwork(s.id, networkNS)
+	for _, iface := range interfaces {
+		if _, err := s.agent.updateInterface(iface); err != nil {
+			return err
+		}
+	}
 
-	return err
+	if _, err := s.agent.updateRoutes(routes); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Sandbox) removeNetwork() error {
-	return s.network.remove(s, s.networkNS, s.networkNS.NetNsCreated)
+	return s.network.remove(s)
 }
 
 func (s *Sandbox) generateNetInfo(inf *grpc.Interface) (NetworkInfo, error) {

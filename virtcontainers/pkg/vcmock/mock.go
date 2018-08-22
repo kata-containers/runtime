@@ -90,15 +90,6 @@ func (m *VCMock) StopSandbox(sandboxID string) (vc.VCSandbox, error) {
 	return nil, fmt.Errorf("%s: %s (%+v): sandboxID: %v", mockErrorPrefix, getSelf(), m, sandboxID)
 }
 
-// RunSandbox implements the VC function of the same name.
-func (m *VCMock) RunSandbox(sandboxConfig vc.SandboxConfig) (vc.VCSandbox, error) {
-	if m.RunSandboxFunc != nil {
-		return m.RunSandboxFunc(sandboxConfig)
-	}
-
-	return nil, fmt.Errorf("%s: %s (%+v): sandboxConfig: %v", mockErrorPrefix, getSelf(), m, sandboxConfig)
-}
-
 // ListSandbox implements the VC function of the same name.
 func (m *VCMock) ListSandbox() ([]vc.SandboxStatus, error) {
 	if m.ListSandboxFunc != nil {
