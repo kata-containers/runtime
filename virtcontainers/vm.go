@@ -128,7 +128,7 @@ func NewVM(ctx context.Context, config VMConfig) (*VM, error) {
 	// 2. setup agent
 	agent := newAgent(config.AgentType)
 	vmSharePath := buildVMSharePath(id)
-	err = agent.configure(hypervisor, id, vmSharePath, isProxyBuiltIn(config.ProxyType), config.AgentConfig)
+	err = agent.configure(hypervisor, id, vmSharePath, isProxyBuiltIn(config.ProxyType), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -162,15 +162,10 @@ func NewVM(ctx context.Context, config VMConfig) (*VM, error) {
 	if err = agent.setProxy(nil, proxy, pid, url); err != nil {
 		return nil, err
 	}
-
 	// 5. check agent aliveness
 	// VMs booted from template are paused, do not check
 	if !config.HypervisorConfig.BootFromTemplate {
 		virtLog.WithField("vm", id).Info("check agent status")
-		err = agent.check()
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return &VM{
@@ -333,6 +328,9 @@ func (v *VM) assignSandbox(s *Sandbox) error {
 	}
 
 	s.hypervisor = v.hypervisor
+
+	// Use sanbox's agent since it points to the right communication channel.
+	v.agent = s.agent
 
 	return nil
 }

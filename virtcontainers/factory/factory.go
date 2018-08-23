@@ -30,7 +30,8 @@ type Config struct {
 }
 
 type factory struct {
-	base base.FactoryBase
+	base             base.FactoryBase
+	hypervisorConfig vc.HypervisorConfig
 }
 
 func trace(parent context.Context, name string) (opentracing.Span, context.Context) {
@@ -73,7 +74,7 @@ func NewFactory(ctx context.Context, config Config, fetchOnly bool) (vc.Factory,
 		b = cache.New(ctx, config.Cache, b)
 	}
 
-	return &factory{b}, nil
+	return &factory{base: b}, nil
 }
 
 // SetLogger sets the logger for the factory.
@@ -144,7 +145,7 @@ func (f *factory) GetVM(ctx context.Context, config vc.VMConfig) (*vc.VM, error)
 	span, _ := trace(ctx, "GetVM")
 	defer span.Finish()
 
-	hypervisorConfig := config.HypervisorConfig
+	f.hypervisorConfig = config.HypervisorConfig
 	err := f.validateNewVMConfig(config)
 	if err != nil {
 		f.log().WithError(err).Error("invalid hypervisor config")
@@ -172,46 +173,48 @@ func (f *factory) GetVM(ctx context.Context, config vc.VMConfig) (*vc.VM, error)
 		}
 	}()
 
-	err = vm.Resume()
-	if err != nil {
-		return nil, err
-	}
-
-	// reseed RNG so that shared memory VMs do not generate same random numbers.
-	err = vm.ReseedRNG()
-	if err != nil {
-		return nil, err
-	}
-
-	online := false
-	baseConfig := f.base.Config().HypervisorConfig
-	if baseConfig.NumVCPUs < hypervisorConfig.NumVCPUs {
-		err = vm.AddCPUs(hypervisorConfig.NumVCPUs - baseConfig.NumVCPUs)
-		if err != nil {
-			return nil, err
-		}
-		online = true
-	}
-
-	if baseConfig.MemorySize < hypervisorConfig.MemorySize {
-		err = vm.AddMemory(hypervisorConfig.MemorySize - baseConfig.MemorySize)
-		if err != nil {
-			return nil, err
-		}
-		online = true
-	}
-
-	if online {
-		err = vm.OnlineCPUMemory()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return vm, nil
+	return vm, vm.Resume()
 }
 
 // CloseFactory closes the factory.
 func (f *factory) CloseFactory(ctx context.Context) {
 	f.base.CloseFactory(ctx)
+}
+
+// InitializeVM initializes the VM, reseed random, adds CPUs and memory.
+func (f *factory) InitializeVM(ctx context.Context, vm *vc.VM, sandbox *vc.Sandbox) error {
+	var err error
+
+	span, _ := trace(ctx, "InitializeVM")
+	defer span.Finish()
+
+	// reseed RNG so that shared memory VMs do not generate same random numbers.
+	if err = vm.ReseedRNG(); err != nil {
+		return err
+	}
+
+	online := false
+	baseConfig := f.base.Config().HypervisorConfig
+	if baseConfig.NumVCPUs < f.hypervisorConfig.NumVCPUs {
+		err = vm.AddCPUs(f.hypervisorConfig.NumVCPUs - baseConfig.NumVCPUs)
+		if err != nil {
+			return err
+		}
+		online = true
+	}
+
+	if baseConfig.MemorySize < f.hypervisorConfig.MemorySize {
+		err = vm.AddMemory(f.hypervisorConfig.MemorySize - baseConfig.MemorySize)
+		if err != nil {
+			return err
+		}
+		online = true
+	}
+
+	if online {
+		if err = vm.OnlineCPUMemory(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
