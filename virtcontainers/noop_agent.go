@@ -197,3 +197,8 @@ func (n *noopAgent) getAgentURL() (string, error) {
 func (n *noopAgent) setProxy(sandbox *Sandbox, proxy proxy, pid int, url string) error {
 	return nil
 }
+
+// waitForAgentReady is the Noop agent implementation. It does nothing.
+func (n *noopAgent) waitForAgentReady(sandbox *Sandbox) error {
+	return nil
+}

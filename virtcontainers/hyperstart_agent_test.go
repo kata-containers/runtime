@@ -207,6 +207,14 @@ func TestHyperReseedAPI(t *testing.T) {
 	assert.Nil(err)
 }
 
+func TestHyperWaitForAgentReady(t *testing.T) {
+	assert := assert.New(t)
+
+	h := &hyper{}
+	err := h.waitForAgentReady(nil)
+	assert.Nil(err)
+}
+
 func TestHyperUpdateInterface(t *testing.T) {
 	assert := assert.New(t)
 

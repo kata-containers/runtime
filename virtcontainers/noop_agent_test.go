@@ -222,6 +222,14 @@ func TestNoopAgentReseedRNG(t *testing.T) {
 	}
 }
 
+func TestNoopAgentWaitForAgentReady(t *testing.T) {
+	n := &noopAgent{}
+	err := n.waitForAgentReady(nil)
+	if err != nil {
+		t.Fatal("waitForAgentReady failed")
+	}
+}
+
 func TestNoopAgentUpdateInterface(t *testing.T) {
 	n := &noopAgent{}
 	_, err := n.updateInterface(nil)

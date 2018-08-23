@@ -130,8 +130,17 @@ func (k *kataAgent) generateVMSocket(id string, c KataAgentConfig) error {
 	if c.UseVSock {
 		// We want to go through VSOCK. The VM VSOCK endpoint will be our gRPC.
 		k.Logger().Debug("agent: Using vsock VM socket endpoint")
-		// We dont know yet the context ID - set empty vsock configuration
-		k.vmSocket = kataVSOCK{}
+		// find a free context ID
+		vhostFd, contextID, err := utils.FindContextID()
+		if err != nil {
+			return err
+		}
+
+		k.vmSocket = kataVSOCK{
+			vhostFd:   vhostFd,
+			contextID: contextID,
+			port:      uint32(vSockPort),
+		}
 	} else {
 		k.Logger().Debug("agent: Using unix socket form VM socket endpoint")
 		// We need to generate a host UNIX socket path for the emulated serial port.
@@ -157,16 +166,6 @@ func (k *kataAgent) init(ctx context.Context, sandbox *Sandbox, config interface
 
 	span, _ := k.trace("init")
 	defer span.Finish()
-
-	switch c := config.(type) {
-	case KataAgentConfig:
-		if err := k.generateVMSocket(sandbox.id, c); err != nil {
-			return err
-		}
-		k.keepConn = c.LongLiveConn
-	default:
-		return fmt.Errorf("Invalid config type")
-	}
 
 	k.proxy, err = newProxy(sandbox.config.ProxyType)
 	if err != nil {
@@ -209,43 +208,8 @@ func (k *kataAgent) capabilities() capabilities {
 }
 
 func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, config interface{}) error {
-	if config != nil {
-		switch c := config.(type) {
-		case KataAgentConfig:
-			if err := k.generateVMSocket(id, c); err != nil {
-				return err
-			}
-			k.keepConn = c.LongLiveConn
-		default:
-			return fmt.Errorf("Invalid config type")
-		}
-	}
-
-	switch s := k.vmSocket.(type) {
-	case Socket:
-		err := h.addDevice(s, serialPortDev)
-		if err != nil {
-			return err
-		}
-	case kataVSOCK:
-		var err error
-		s.vhostFd, s.contextID, err = utils.FindContextID()
-		if err != nil {
-			return err
-		}
-		s.port = uint32(vSockPort)
-		if err := h.addDevice(s, vSockPCIDev); err != nil {
-			return err
-		}
-		k.vmSocket = s
-	default:
-		return fmt.Errorf("Invalid config type")
-	}
-
-	if builtin {
-		k.proxyBuiltIn = true
-		k.state.URL, _ = k.agentURL()
-	}
+	k.proxyBuiltIn = builtin
+	k.state.URL, _ = k.agentURL()
 
 	// Adding the shared volume.
 	// This volume contains all bind mounted container bundles.
@@ -561,19 +525,9 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 	span, _ := k.trace("startSandbox")
 	defer span.Finish()
 
-	err := k.startProxy(sandbox)
-	if err != nil {
-		return err
-	}
-
 	hostname := sandbox.config.Hostname
 	if len(hostname) > maxHostnameLen {
 		hostname = hostname[:maxHostnameLen]
-	}
-
-	// check grpc server is serving
-	if err = k.check(); err != nil {
-		return err
 	}
 
 	//
@@ -1518,4 +1472,40 @@ func (k *kataAgent) readProcessStream(containerID, processID string, data []byte
 	}
 
 	return 0, err
+}
+
+func (k *kataAgent) waitForAgentReady(sandbox *Sandbox) error {
+	switch c := sandbox.config.AgentConfig.(type) {
+	case KataAgentConfig:
+		if err := k.generateVMSocket(sandbox.id, c); err != nil {
+			return err
+		}
+		k.keepConn = c.LongLiveConn
+	default:
+		return fmt.Errorf("Invalid config type")
+	}
+
+	var err error
+	switch s := k.vmSocket.(type) {
+	case Socket:
+		k.Logger().Infof("Hot plugging a unix socket as communication channel")
+		if _, err = sandbox.hypervisor.hotplugAddDevice(s, serialPortDev); err != nil {
+			return err
+		}
+	case kataVSOCK:
+		k.Logger().Infof("Hot plugging a vsock as communication channel")
+		defer s.vhostFd.Close()
+		if _, err = sandbox.hypervisor.hotplugAddDevice(s, vSockPCIDev); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("Unsupported communication channel: %v", s)
+	}
+
+	// start proxy here to check the connection with the agent
+	if err = k.startProxy(sandbox); err != nil {
+		return err
+	}
+
+	return k.check()
 }

@@ -987,3 +987,8 @@ func (h *hyper) setProxy(sandbox *Sandbox, proxy proxy, pid int, url string) err
 
 	return nil
 }
+
+func (h *hyper) waitForAgentReady(sandbox *Sandbox) error {
+	// hyperstart-agent does not support wait for agent ready
+	return nil
+}
