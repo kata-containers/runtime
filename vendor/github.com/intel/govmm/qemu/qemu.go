@@ -809,7 +809,8 @@ func (vhostuserDev VhostUserDevice) QemuParams(config *Config) []string {
 // VFIODevice represents a qemu vfio device meant for direct access by guest OS.
 type VFIODevice struct {
 	// Bus-Device-Function of device
-	BDF string
+	BDF         string
+	ExtraParams []string
 }
 
 // Valid returns true if the VFIODevice structure is valid and complete.
@@ -826,6 +827,10 @@ func (vfioDev VFIODevice) QemuParams(config *Config) []string {
 	var qemuParams []string
 
 	deviceParam := fmt.Sprintf("vfio-pci,host=%s", vfioDev.BDF)
+	if len(vfioDev.ExtraParams) > 0 {
+		deviceParam += "," + strings.Join(vfioDev.ExtraParams, ",")
+	}
+
 	qemuParams = append(qemuParams, "-device")
 	qemuParams = append(qemuParams, deviceParam)
 

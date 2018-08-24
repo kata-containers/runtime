@@ -140,12 +140,26 @@ enable_iothreads = @DEFENABLEIOTHREADS@
 # Default false
 #use_vsock = true
 
-# VFIO devices are hotplugged on a bridge by default. 
+# VFIO devices are hotplugged on a bridge by default.
 # Enable hotplugging on root bus. This may be required for devices with
-# a large PCI bar, as this is a current limitation with hotplugging on 
+# a large PCI bar, as this is a current limitation with hotplugging on
 # a bridge. This value is valid for "pc" machine type.
 # Default false
 #hotplug_vfio_on_root_bus = true
+
+# A comma-separated list of IOMMU groups to coldplug into the VM.
+# The devices belong to these groups are only coldplugged if the
+# corresponding IOMMU group is passed using --device=/dev/vfio/XX
+# Example: "5, 7, 11"
+pci_coldplug_groups = "@DEFPCICOLDPLUGGROUPS@"
+
+# A list of parameters to pass to the vfio-pci driver when coldplugging
+# devices. This is a semicolon-separated list of device option lists where
+# a device option list is comma-separated list where the first entry is
+# the device's BDF. All devices that will be coldplugged should be added
+# regardless of whether any extra parameters are required.
+# Example: "01:00.0, opt1=val1, opt2=val2; 02:00.0, opt3=val3; 03:00.0"
+pci_coldplug_device_opts = "@DEFPCICOLDPLUGDEVOPTS@"
 
 [factory]
 # VM templating support. Once enabled, new VMs are created from template

@@ -151,7 +151,7 @@ func create(ctx context.Context, containerID, bundlePath, console, pidFilePath s
 			return err
 		}
 	case vc.PodContainer:
-		process, err = createContainer(ctx, ociSpec, containerID, bundlePath, console, disableOutput)
+		process, err = createContainer(ctx, ociSpec, containerID, bundlePath, console, disableOutput, &runtimeConfig.HypervisorConfig)
 		if err != nil {
 			return err
 		}
@@ -318,14 +318,14 @@ func setEphemeralStorageType(ociSpec oci.CompatOCISpec) oci.CompatOCISpec {
 }
 
 func createContainer(ctx context.Context, ociSpec oci.CompatOCISpec, containerID, bundlePath,
-	console string, disableOutput bool) (vc.Process, error) {
+	console string, disableOutput bool, hConfig *vc.HypervisorConfig) (vc.Process, error) {
 
 	span, ctx := trace(ctx, "createContainer")
 	defer span.Finish()
 
 	ociSpec = setEphemeralStorageType(ociSpec)
 
-	contConfig, err := oci.ContainerConfig(ociSpec, bundlePath, containerID, console, disableOutput)
+	contConfig, err := oci.ContainerConfig(ociSpec, bundlePath, containerID, console, disableOutput, hConfig)
 	if err != nil {
 		return vc.Process{}, err
 	}

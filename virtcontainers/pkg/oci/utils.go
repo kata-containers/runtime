@@ -222,7 +222,81 @@ func newLinuxDeviceInfo(d spec.LinuxDevice) (*config.DeviceInfo, error) {
 	return &deviceInfo, nil
 }
 
-func containerDeviceInfos(spec CompatOCISpec) ([]config.DeviceInfo, error) {
+func configContainsPCIColdplugGroup(hConfig *vc.HypervisorConfig, iommuGroup string) bool {
+	for _, g := range hConfig.PCIColdplugGroups {
+		if iommuGroup == strings.TrimSpace(g) {
+			return true
+		}
+	}
+	return false
+}
+
+// getBDF returns the BDF of pci device
+// Expected input strng format is [<domain>]:[<bus>][<slot>].[<func>] eg. 0000:02:10.0
+func getBDF(deviceSysStr string) (string, error) {
+	tokens := strings.Split(deviceSysStr, ":")
+
+	if len(tokens) != 3 {
+		return "", fmt.Errorf("Incorrect number of tokens found while parsing bdf for device : %s", deviceSysStr)
+	}
+
+	tokens = strings.SplitN(deviceSysStr, ":", 2)
+	return tokens[1], nil
+}
+
+func getBDFsFromIOMMU(iommuGroup string) ([]string, error) {
+	var bdfs []string
+	iommuDevicesPath := filepath.Join(config.SysIOMMUPath, iommuGroup, "devices")
+
+	deviceFiles, err := ioutil.ReadDir(iommuDevicesPath)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, deviceFile := range deviceFiles {
+		deviceBDF, err := getBDF(deviceFile.Name())
+		if err != nil {
+			return nil, err
+		}
+		bdfs = append(bdfs, deviceBDF)
+	}
+
+	return bdfs, nil
+}
+
+func checkForPCIColdPlug(device spec.LinuxDevice, hConfig *vc.HypervisorConfig) bool {
+	if !strings.Contains(device.Path, "/dev/vfio/") {
+		return false
+	}
+
+	pathTokens := strings.Split(device.Path, "/")
+	if len(pathTokens) != 4 {
+		return false
+	}
+
+	iommuGroup := strings.TrimSpace(pathTokens[3])
+	if !configContainsPCIColdplugGroup(hConfig, iommuGroup) {
+		return false
+	}
+
+	bdfs, err := getBDFsFromIOMMU(iommuGroup)
+	if err != nil {
+		return false
+	}
+
+	for _, bdf := range bdfs {
+		for _, opts := range hConfig.PCIColdplugDeviceOpts {
+			if strings.Contains(opts, bdf) {
+				hConfig.PCIColdplugDevices = append(hConfig.PCIColdplugDevices, opts)
+				break
+			}
+		}
+	}
+
+	return true
+}
+
+func containerDeviceInfos(spec CompatOCISpec, hConfig *vc.HypervisorConfig) ([]config.DeviceInfo, error) {
 	ociLinuxDevices := spec.Spec.Linux.Devices
 
 	if ociLinuxDevices == nil {
@@ -231,6 +305,10 @@ func containerDeviceInfos(spec CompatOCISpec) ([]config.DeviceInfo, error) {
 
 	var devices []config.DeviceInfo
 	for _, d := range ociLinuxDevices {
+		if checkForPCIColdPlug(d, hConfig) {
+			continue
+		}
+
 		linuxDeviceInfo, err := newLinuxDeviceInfo(d)
 		if err != nil {
 			return []config.DeviceInfo{}, err
@@ -450,7 +528,7 @@ func addAssetAnnotations(ocispec CompatOCISpec, config *vc.SandboxConfig) {
 // SandboxConfig converts an OCI compatible runtime configuration file
 // to a virtcontainers sandbox configuration structure.
 func SandboxConfig(ocispec CompatOCISpec, runtime RuntimeConfig, bundlePath, cid, console string, detach bool) (vc.SandboxConfig, error) {
-	containerConfig, err := ContainerConfig(ocispec, bundlePath, cid, console, detach)
+	containerConfig, err := ContainerConfig(ocispec, bundlePath, cid, console, detach, &runtime.HypervisorConfig)
 	if err != nil {
 		return vc.SandboxConfig{}, err
 	}
@@ -514,7 +592,7 @@ func SandboxConfig(ocispec CompatOCISpec, runtime RuntimeConfig, bundlePath, cid
 
 // ContainerConfig converts an OCI compatible runtime configuration
 // file to a virtcontainers container configuration structure.
-func ContainerConfig(ocispec CompatOCISpec, bundlePath, cid, console string, detach bool) (vc.ContainerConfig, error) {
+func ContainerConfig(ocispec CompatOCISpec, bundlePath, cid, console string, detach bool, hConfig *vc.HypervisorConfig) (vc.ContainerConfig, error) {
 
 	ociSpecJSON, err := json.Marshal(ocispec)
 	if err != nil {
@@ -544,7 +622,7 @@ func ContainerConfig(ocispec CompatOCISpec, bundlePath, cid, console string, det
 		cmd.SupplementaryGroups = append(cmd.SupplementaryGroups, strconv.FormatUint(uint64(gid), 10))
 	}
 
-	deviceInfos, err := containerDeviceInfos(ocispec)
+	deviceInfos, err := containerDeviceInfos(ocispec, hConfig)
 	if err != nil {
 		return vc.ContainerConfig{}, err
 	}

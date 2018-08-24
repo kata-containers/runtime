@@ -338,6 +338,19 @@ func (q *qemu) createQmpSocket() ([]govmmQemu.QMPSocket, error) {
 	}, nil
 }
 
+func (q *qemu) appendPCIColdPlugDevices(devices []govmmQemu.Device) []govmmQemu.Device {
+	for _, dev := range q.config.PCIColdplugDevices {
+		vfioParams := strings.SplitN(dev, ",", 2)
+		if len(vfioParams) != 2 {
+			continue
+		}
+		vfioDev := govmmQemu.VFIODevice{BDF: vfioParams[0], ExtraParams: vfioParams[1:]}
+		devices = append(devices, vfioDev)
+	}
+
+	return devices
+}
+
 func (q *qemu) buildDevices(initrdPath string) ([]govmmQemu.Device, *govmmQemu.IOThread, error) {
 	var devices []govmmQemu.Device
 
@@ -364,8 +377,9 @@ func (q *qemu) buildDevices(initrdPath string) ([]govmmQemu.Device, *govmmQemu.I
 		devices, ioThread = q.arch.appendSCSIController(devices, q.config.EnableIOThreads)
 	}
 
-	return devices, ioThread, nil
+	devices = q.appendPCIColdPlugDevices(devices)
 
+	return devices, ioThread, nil
 }
 
 func (q *qemu) setupTemplate(knobs *govmmQemu.Knobs, memory *govmmQemu.Memory) govmmQemu.Incoming {

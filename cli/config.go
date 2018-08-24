@@ -94,6 +94,8 @@ type hypervisor struct {
 	EnableIOThreads       bool   `toml:"enable_iothreads"`
 	UseVSock              bool   `toml:"use_vsock"`
 	HotplugVFIOOnRootBus  bool   `toml:"hotplug_vfio_on_root_bus"`
+	PCIColdplugGroups     string `toml:"pci_coldplug_groups"`
+	PCIColdplugDeviceOpts string `toml:"pci_coldplug_device_opts"`
 }
 
 type proxy struct {
@@ -181,6 +183,22 @@ func (h hypervisor) machineAccelerators() string {
 	machineAccelerators = strings.Trim(machineAccelerators, ",")
 
 	return machineAccelerators
+}
+
+func (h hypervisor) pciColdplugGroups() string {
+	if h.PCIColdplugGroups == "" {
+		return defaultPCIColdplugGroups
+	}
+
+	return h.PCIColdplugGroups
+}
+
+func (h hypervisor) pciColdplugDeviceOpts() string {
+	if h.PCIColdplugDeviceOpts == "" {
+		return defaultPCIColdplugDeviceOpts
+	}
+
+	return h.PCIColdplugDeviceOpts
 }
 
 func (h hypervisor) kernelParams() string {
@@ -336,6 +354,9 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 	kernelParams := h.kernelParams()
 	machineType := h.machineType()
 
+	pciColdplugGroups := h.pciColdplugGroups()
+	pciColdplugDeviceOpts := h.pciColdplugDeviceOpts()
+
 	blockDriver, err := h.blockDeviceDriver()
 	if err != nil {
 		return vc.HypervisorConfig{}, err
@@ -375,6 +396,8 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		Msize9p:               h.msize9p(),
 		UseVSock:              useVSock,
 		HotplugVFIOOnRootBus:  h.HotplugVFIOOnRootBus,
+		PCIColdplugGroups:     strings.Split(pciColdplugGroups, ","),
+		PCIColdplugDeviceOpts: strings.Split(pciColdplugDeviceOpts, ";"),
 	}, nil
 }
 

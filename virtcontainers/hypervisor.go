@@ -241,6 +241,17 @@ type HypervisorConfig struct {
 	// DevicesStatePath is the VM device state file path. Used when either BootToBeTemplate or
 	// BootFromTemplate is true.
 	DevicesStatePath string
+
+	// PCIColdplugGroups is used to indicate which IOMMU groups' devices can be coldplugged
+	PCIColdplugGroups []string
+
+	// PCIColdplugGroups is used to indicate which PCI Devices should be coldplugged
+	// if they are passed with --device and their IOMMU group appears in PCIColdplugGroups
+	PCIColdplugDevices []string
+
+	// PCIColdplugDeviceOpts is used to indicate what paramaters
+	// should be passed to vfio-pci for coldplugged devices
+	PCIColdplugDeviceOpts []string
 }
 
 func (conf *HypervisorConfig) checkTemplateConfig() error {
