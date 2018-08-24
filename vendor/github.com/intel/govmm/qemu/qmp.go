@@ -653,7 +653,7 @@ func (q *QMP) ExecuteBlockdevAdd(ctx context.Context, device, blockdevID string)
 		},
 	}
 
-	if q.version.Major > 2 || (q.version.Major == 2 && q.version.Minor >= 9) {
+	if q.version.Major > 2 || (q.version.Major == 2 && q.version.Minor >= 8) {
 		blockdevArgs["node-name"] = blockdevID
 		args = blockdevArgs
 	} else {
@@ -734,7 +734,12 @@ func (q *QMP) ExecuteBlockdevDel(ctx context.Context, blockdevID string) error {
 		return q.executeCommand(ctx, "blockdev-del", args, nil)
 	}
 
-	args["id"] = blockdevID
+	if q.version.Major == 2 && q.version.Minor == 8 {
+		args["node-name"] = blockdevID
+	} else {
+		args["id"] = blockdevID
+	}
+
 	return q.executeCommand(ctx, "x-blockdev-del", args, nil)
 }
 
