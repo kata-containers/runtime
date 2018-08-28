@@ -12,6 +12,7 @@ import (
 	govmmQemu "github.com/intel/govmm/qemu"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type qemuPPC64le struct {
@@ -23,7 +24,7 @@ const defaultQemuPath = "/usr/bin/qemu-system-ppc64le"
 
 const defaultQemuMachineType = QemuPseries
 
-const defaultQemuMachineOptions = "accel=kvm,usb=off"
+const defaultQemuMachineOptions = "accel=kvm,usb=off,nvdimm"
 
 const defaultPCBridgeBus = "pci.0"
 
@@ -52,6 +53,11 @@ var supportedQemuMachines = []govmmQemu.Machine{
 		Type:    QemuPseries,
 		Options: defaultQemuMachineOptions,
 	},
+}
+
+// Logger returns a logrus logger appropriate for logging qemu messages
+func (q *qemuPPC64le) Logger() *logrus.Entry {
+	return virtLog.WithField("subsystem", "qemu")
 }
 
 // MaxQemuVCPUs returns the maximum number of vCPUs supported
@@ -105,12 +111,14 @@ func (q *qemuPPC64le) cpuModel() string {
 
 func (q *qemuPPC64le) memoryTopology(memoryMb, hostMemoryMb uint64) govmmQemu.Memory {
 
-	if hostMemoryMb > defaultMemMaxPPC64le {
-		hostMemoryMb = defaultMemMaxPPC64le
-	} else {
-		// align hostMemoryMb to 256MB multiples
+	if qemuMajorVersion >= 2 && qemuMinorVersion >= 10 {
+		q.Logger().Debug("Aligning maxmem to multiples of 256MB. Assumption: Kernel Version >= 4.11")
 		hostMemoryMb -= (hostMemoryMb % 256)
+	} else {
+		q.Logger().Debug("Restricting maxmem to 32GB as Qemu Version < 2.10, Assumption: Kernel Version >= 4.11")
+		hostMemoryMb = defaultMemMaxPPC64le
 	}
+
 	return genericMemoryTopology(memoryMb, hostMemoryMb)
 }
 

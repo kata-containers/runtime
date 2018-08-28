@@ -34,6 +34,7 @@ import (
 )
 
 var (
+	checkRequestTimeout   = 30 * time.Second
 	defaultKataSocketName = "kata.sock"
 	defaultKataChannel    = "agent.channel.0"
 	defaultKataDeviceID   = "channel0"
@@ -419,9 +420,15 @@ func (k *kataAgent) generateInterfacesAndRoutes(networkNS NetworkNamespace) ([]*
 	return ifaces, routes, nil
 }
 
-func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
+func (k *kataAgent) startProxy(sandbox *Sandbox) error {
+	var err error
+
 	if k.proxy == nil {
 		return errorMissingProxy
+	}
+
+	if k.proxy.consoleWatched() {
+		return nil
 	}
 
 	// Get agent socket path to provide it to the proxy.
@@ -441,10 +448,18 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 		return err
 	}
 
+	// If error occurs after kata-proxy process start,
+	// then rollback to kill kata-proxy process
+	defer func() {
+		if err != nil && pid > 0 {
+			k.proxy.stop(sandbox, pid)
+		}
+	}()
+
 	// Fill agent state with proxy information, and store them.
 	k.state.ProxyPid = pid
 	k.state.URL = uri
-	if err := sandbox.storage.storeAgentState(sandbox.id, k.state); err != nil {
+	if err = sandbox.storage.storeAgentState(sandbox.id, k.state); err != nil {
 		return err
 	}
 
@@ -454,9 +469,23 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 		"proxy-url":  uri,
 	}).Info("proxy started")
 
+	return nil
+}
+
+func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
+	err := k.startProxy(sandbox)
+	if err != nil {
+		return err
+	}
+
 	hostname := sandbox.config.Hostname
 	if len(hostname) > maxHostnameLen {
 		hostname = hostname[:maxHostnameLen]
+	}
+
+	// check grpc server is serving
+	if err = k.check(); err != nil {
+		return err
 	}
 
 	//
@@ -1135,8 +1164,12 @@ func (k *kataAgent) disconnect() error {
 	return nil
 }
 
+// check grpc server is serving
 func (k *kataAgent) check() error {
 	_, err := k.sendReq(&grpc.CheckRequest{})
+	if err != nil {
+		err = fmt.Errorf("Failed to check if grpc server is working: %s", err)
+	}
 	return err
 }
 
@@ -1180,7 +1213,7 @@ type reqFunc func(context.Context, interface{}, ...golangGrpc.CallOption) (inter
 func (k *kataAgent) installReqFunc(c *kataclient.AgentClient) {
 	k.reqHandlers = make(map[string]reqFunc)
 	k.reqHandlers["grpc.CheckRequest"] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, checkRequestTimeout)
 		defer cancel()
 		return k.client.Check(ctx, req.(*grpc.CheckRequest), opts...)
 	}
@@ -1256,6 +1289,8 @@ func (k *kataAgent) sendReq(request interface{}) (interface{}, error) {
 	if msgName == "" || handler == nil {
 		return nil, errors.New("Invalid request type")
 	}
+	message := request.(proto.Message)
+	k.Logger().WithField("name", msgName).WithField("req", message.String()).Debug("sending request")
 
 	return handler(context.Background(), request)
 }

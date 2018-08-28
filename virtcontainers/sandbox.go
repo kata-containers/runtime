@@ -352,6 +352,17 @@ type SandboxConfig struct {
 	SharePidNs bool
 }
 
+func (s *Sandbox) startProxy() error {
+
+	// If the proxy is KataBuiltInProxyType type, it needs to restart the proxy
+	// to watch the guest console if it hadn't been watched.
+	if s.agent == nil {
+		return fmt.Errorf("sandbox %s missed agent pointer", s.ID())
+	}
+
+	return s.agent.startProxy(s)
+}
+
 // valid checks that the sandbox configuration is valid.
 func (sandboxConfig *SandboxConfig) valid() bool {
 	if sandboxConfig.ID == "" {
@@ -441,7 +452,7 @@ type Sandbox struct {
 
 	volumes []Volume
 
-	containers []*Container
+	containers map[string]*Container
 
 	runPath    string
 	configPath string
@@ -510,8 +521,10 @@ func (s *Sandbox) GetAnnotations() map[string]string {
 func (s *Sandbox) GetAllContainers() []VCContainer {
 	ifa := make([]VCContainer, len(s.containers))
 
-	for i, v := range s.containers {
+	i := 0
+	for _, v := range s.containers {
 		ifa[i] = v
+		i++
 	}
 
 	return ifa
@@ -519,8 +532,8 @@ func (s *Sandbox) GetAllContainers() []VCContainer {
 
 // GetContainer returns the container named by the containerID.
 func (s *Sandbox) GetContainer(containerID string) VCContainer {
-	for _, c := range s.containers {
-		if c.id == containerID {
+	for id, c := range s.containers {
+		if id == containerID {
 			return c
 		}
 	}
@@ -730,6 +743,7 @@ func newSandbox(sandboxConfig SandboxConfig) (*Sandbox, error) {
 		config:          &sandboxConfig,
 		devManager:      deviceManager.NewDeviceManager(sandboxConfig.HypervisorConfig.BlockDeviceDriver),
 		volumes:         sandboxConfig.Volumes,
+		containers:      map[string]*Container{},
 		runPath:         filepath.Join(runStoragePath, sandboxConfig.ID),
 		configPath:      filepath.Join(configStoragePath, sandboxConfig.ID),
 		state:           State{},
@@ -783,8 +797,8 @@ func (s *Sandbox) storeSandbox() error {
 		return err
 	}
 
-	for _, container := range s.containers {
-		err = s.storage.storeContainerResource(s.id, container.id, configFileType, *(container.config))
+	for id, container := range s.containers {
+		err = s.storage.storeContainerResource(s.id, id, configFileType, *(container.config))
 		if err != nil {
 			return err
 		}
@@ -835,8 +849,8 @@ func (s *Sandbox) findContainer(containerID string) (*Container, error) {
 		return nil, errNeedContainerID
 	}
 
-	for _, c := range s.containers {
-		if containerID == c.id {
+	for id, c := range s.containers {
+		if containerID == id {
 			return c, nil
 		}
 	}
@@ -856,15 +870,14 @@ func (s *Sandbox) removeContainer(containerID string) error {
 		return errNeedContainerID
 	}
 
-	for idx, c := range s.containers {
-		if containerID == c.id {
-			s.containers = append(s.containers[:idx], s.containers[idx+1:]...)
-			return nil
-		}
+	if _, ok := s.containers[containerID]; !ok {
+		return fmt.Errorf("Could not remove the container %q from the sandbox %q containers list",
+			containerID, s.id)
 	}
 
-	return fmt.Errorf("Could not remove the container %q from the sandbox %q containers list",
-		containerID, s.id)
+	delete(s.containers, containerID)
+
+	return nil
 }
 
 // Delete deletes an already created sandbox.
@@ -892,8 +905,20 @@ func (s *Sandbox) Delete() error {
 }
 
 func (s *Sandbox) createNetwork() error {
+	var netNsPath string
+	var netNsCreated bool
+	var networkNS NetworkNamespace
+	var err error
+
+	//rollback the NetNs when createNetwork failed
+	defer func() {
+		if err != nil && netNsPath != "" && netNsCreated {
+			deleteNetNS(netNsPath)
+		}
+	}()
+
 	// Initialize the network.
-	netNsPath, netNsCreated, err := s.network.init(s.config.NetworkConfig)
+	netNsPath, netNsCreated, err = s.network.init(s.config.NetworkConfig)
 	if err != nil {
 		return err
 	}
@@ -906,14 +931,16 @@ func (s *Sandbox) createNetwork() error {
 	}
 
 	// Add the network
-	networkNS, err := s.network.add(s, s.config.NetworkConfig, netNsPath, netNsCreated)
+	networkNS, err = s.network.add(s, s.config.NetworkConfig, netNsPath, netNsCreated)
 	if err != nil {
 		return err
 	}
 	s.networkNS = networkNS
 
 	// Store the network
-	return s.storage.storeSandboxNetwork(s.id, networkNS)
+	err = s.storage.storeSandboxNetwork(s.id, networkNS)
+
+	return err
 }
 
 func (s *Sandbox) removeNetwork() error {
@@ -936,14 +963,19 @@ func (s *Sandbox) startVM() error {
 
 	s.Logger().Info("VM started")
 
-	// Once startVM is done, we want to guarantee
-	// that the sandbox is manageable. For that we need
-	// to start the sandbox inside the VM.
-	return s.agent.startSandbox(s)
+	return nil
+}
+
+// stopVM: stop the sandbox's VM
+func (s *Sandbox) stopVM() error {
+	return s.hypervisor.stopSandbox()
 }
 
 func (s *Sandbox) addContainer(c *Container) error {
-	s.containers = append(s.containers, c)
+	if _, ok := s.containers[c.id]; ok {
+		return fmt.Errorf("Duplicated container: %s", c.id)
+	}
+	s.containers[c.id] = c
 
 	return nil
 }
@@ -1055,8 +1087,8 @@ func (s *Sandbox) StatusContainer(containerID string) (ContainerStatus, error) {
 		return ContainerStatus{}, errNeedContainerID
 	}
 
-	for _, c := range s.containers {
-		if c.id == containerID {
+	for id, c := range s.containers {
+		if id == containerID {
 			return ContainerStatus{
 				ID:          c.id,
 				State:       c.state,
@@ -1190,6 +1222,14 @@ func (s *Sandbox) stop() error {
 func (s *Sandbox) Pause() error {
 	if err := s.hypervisor.pauseSandbox(); err != nil {
 		return err
+	}
+
+	//After the sandbox is paused, it's needed to stop its monitor,
+	//Otherwise, its monitors will receive timeout errors if it is
+	//paused for a long time, thus its monitor will not tell it's a
+	//crash caused timeout or just a paused timeout.
+	if s.monitor != nil {
+		s.monitor.stop()
 	}
 
 	return s.pauseSetStates()

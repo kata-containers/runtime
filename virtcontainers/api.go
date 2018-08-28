@@ -39,6 +39,8 @@ func CreateSandbox(sandboxConfig SandboxConfig) (VCSandbox, error) {
 }
 
 func createSandboxFromConfig(sandboxConfig SandboxConfig) (*Sandbox, error) {
+	var err error
+
 	// Create the sandbox.
 	s, err := createSandbox(sandboxConfig)
 	if err != nil {
@@ -46,22 +48,50 @@ func createSandboxFromConfig(sandboxConfig SandboxConfig) (*Sandbox, error) {
 	}
 
 	// Create the sandbox network
-	if err := s.createNetwork(); err != nil {
+	if err = s.createNetwork(); err != nil {
 		return nil, err
 	}
+
+	// network rollback
+	defer func() {
+		if err != nil && s.networkNS.NetNsCreated {
+			s.removeNetwork()
+		}
+	}()
 
 	// Start the VM
-	if err := s.startVM(); err != nil {
+	if err = s.startVM(); err != nil {
 		return nil, err
 	}
 
+	// rollback to stop VM if error occurs
+	defer func() {
+		if err != nil {
+			s.stopVM()
+		}
+	}()
+
+	// Once startVM is done, we want to guarantee
+	// that the sandbox is manageable. For that we need
+	// to start the sandbox inside the VM.
+	if err = s.agent.startSandbox(s); err != nil {
+		return nil, err
+	}
+
+	// rollback to stop sandbox in VM
+	defer func() {
+		if err != nil {
+			s.agent.stopSandbox(s)
+		}
+	}()
+
 	// Create Containers
-	if err := s.createContainers(); err != nil {
+	if err = s.createContainers(); err != nil {
 		return nil, err
 	}
 
 	// The sandbox is completely created now, we can store it.
-	if err := s.storeSandbox(); err != nil {
+	if err = s.storeSandbox(); err != nil {
 		return nil, err
 	}
 
@@ -110,7 +140,21 @@ func FetchSandbox(sandboxID string) (VCSandbox, error) {
 	defer unlockSandbox(lockFile)
 
 	// Fetch the sandbox from storage and create it.
-	return fetchSandbox(sandboxID)
+	sandbox, err := fetchSandbox(sandboxID)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the proxy is KataBuiltInProxyType type, it needs to restart the proxy to watch the
+	// guest console if it hadn't been watched.
+	if isProxyBuiltIn(sandbox.config.ProxyType) {
+		err = sandbox.startProxy()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return sandbox, nil
 }
 
 // StartSandbox is the virtcontainers sandbox starting entry point.

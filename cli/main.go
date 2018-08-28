@@ -187,6 +187,16 @@ func setupSignalHandler() {
 	}()
 }
 
+// setExternalLoggers registers the specified logger with the external
+// packages which accept a logger to handle their own logging.
+func setExternalLoggers(logger *logrus.Entry) {
+	// Set virtcontainers logger.
+	vci.SetLogger(logger)
+
+	// Set the OCI package logger.
+	oci.SetLogger(logger)
+}
+
 // beforeSubcommands is the function to perform preliminary checks
 // before command-line parsing occurs.
 func beforeSubcommands(context *cli.Context) error {
@@ -225,20 +235,16 @@ func beforeSubcommands(context *cli.Context) error {
 		return fmt.Errorf("unknown log-format %q", context.GlobalString("log-format"))
 	}
 
-	// Set virtcontainers logger.
-	vci.SetLogger(kataLog)
-
-	// Set the OCI package logger.
-	oci.SetLogger(kataLog)
-
-	ignoreLogging := false
-
 	// Add the name of the sub-command to each log entry for easier
 	// debugging.
 	cmdName := context.Args().First()
 	if context.App.Command(cmdName) != nil {
 		kataLog = kataLog.WithField("command", cmdName)
 	}
+
+	setExternalLoggers(kataLog)
+
+	ignoreLogging := false
 
 	if context.NArg() == 1 && context.Args()[0] == envCmd {
 		// simply report the logging setup
