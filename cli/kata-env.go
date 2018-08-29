@@ -16,6 +16,7 @@ import (
 	"github.com/BurntSushi/toml"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	vcUtils "github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
@@ -24,7 +25,7 @@ import (
 //
 // XXX: Increment for every change to the output format
 // (meaning any change to the EnvInfo type).
-const formatVersion = "1.0.13"
+const formatVersion = "1.0.15"
 
 // MetaInfo stores information on the format of the output itself
 type MetaInfo struct {
@@ -64,6 +65,7 @@ type RuntimeInfo struct {
 	Version RuntimeVersionInfo
 	Config  RuntimeConfigInfo
 	Debug   bool
+	Path    string
 }
 
 // RuntimeVersionInfo stores details of the runtime version
@@ -118,6 +120,7 @@ type HostInfo struct {
 	Distro             DistroInfo
 	CPU                CPUInfo
 	VMContainerCapable bool
+	SupportVSocks      bool
 }
 
 // EnvInfo collects all information that will be displayed by the
@@ -154,9 +157,12 @@ func getRuntimeInfo(configFile string, config oci.RuntimeConfig) RuntimeInfo {
 		Path: configFile,
 	}
 
+	runtimePath, _ := os.Executable()
+
 	return RuntimeInfo{
 		Version: runtimeVersion,
 		Config:  runtimeConfig,
+		Path:    runtimePath,
 	}
 }
 
@@ -208,6 +214,7 @@ func getHostInfo() (HostInfo, error) {
 		Distro:             hostDistro,
 		CPU:                hostCPU,
 		VMContainerCapable: hostVMContainerCapable,
+		SupportVSocks:      vcUtils.SupportsVsocks(),
 	}
 
 	return host, nil

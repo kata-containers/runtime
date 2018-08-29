@@ -20,6 +20,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	vcUtils "github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 
@@ -179,6 +180,7 @@ func genericGetExpectedHostDetails(tmpdir string) (HostInfo, error) {
 		Distro:             expectedDistro,
 		CPU:                expectedCPU,
 		VMContainerCapable: false,
+		SupportVSocks:      vcUtils.SupportsVsocks(),
 	}
 
 	testProcCPUInfo := filepath.Join(tmpdir, "cpuinfo")
@@ -255,6 +257,8 @@ func getExpectedKernel(config oci.RuntimeConfig) KernelInfo {
 }
 
 func getExpectedRuntimeDetails(configFile string) RuntimeInfo {
+	runtimePath, _ := os.Executable()
+
 	return RuntimeInfo{
 		Version: RuntimeVersionInfo{
 			Semver: version,
@@ -264,6 +268,7 @@ func getExpectedRuntimeDetails(configFile string) RuntimeInfo {
 		Config: RuntimeConfigInfo{
 			Path: configFile,
 		},
+		Path: runtimePath,
 	}
 }
 
