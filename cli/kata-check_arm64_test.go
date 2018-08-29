@@ -199,3 +199,7 @@ foo     : bar
 		}
 	}
 }
+
+func TestSetCPUtype(t *testing.T) {
+	testSetCPUTypeGeneric(t)
+}
