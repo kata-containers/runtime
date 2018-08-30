@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	goruntime "runtime"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -121,10 +122,17 @@ func makeCPUInfoFile(path, vendorID, flags string) error {
 	if err != nil {
 		return err
 	}
-
-	args := map[string]string{
-		"Flags":    flags,
-		"VendorID": vendorID,
+	var args map[string]string
+	if goruntime.GOARCH == "s390x" {
+		args = map[string]string{
+			"VendorID": vendorID,
+			"features": flags,
+		}
+	} else {
+		args = map[string]string{
+			"Flags":    flags,
+			"VendorID": vendorID,
+		}
 	}
 
 	contents := &bytes.Buffer{}

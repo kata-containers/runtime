@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"syscall"
 
@@ -251,10 +252,16 @@ func isCgroupMounted(cgroupPath string) bool {
 	if err := syscall.Statfs(cgroupPath, &statFs); err != nil {
 		return false
 	}
+	if goruntime.GOARCH == "s390x" {
+		if statFs.Type != uint32(cgroupFsType) {
+			return false
+		}
 
-	if statFs.Type != int64(cgroupFsType) {
-		return false
-	}
+	} // else {
+	//	if statFs.Type != cgroupFsType.(int64) {
+	//		return false
+	//	}
+	//}
 
 	return true
 }
