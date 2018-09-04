@@ -60,15 +60,19 @@ type State struct {
 	// File system of the rootfs incase it is block device
 	Fstype string `json:"fstype"`
 
-	// Bool to indicate if the drive for a container was hotplugged.
-	HotpluggedDrive bool `json:"hotpluggedDrive"`
-
 	// PCI slot at which the block device backing the container rootfs is attached.
 	RootfsPCIAddr string `json:"rootfsPCIAddr"`
 
 	// Pid is the process id of the sandbox container which is the first
 	// container to be started.
 	Pid int `json:"pid"`
+
+	// Free static vCPUs that can be assigned to individual containers
+	FreeStaticCPU uint32 `json:"freeStaticCpu,omitempty"`
+
+	// Bool to indicate if the drive for a container was hotplugged.
+	// This is moved to bottom of the struct to pass maligned check.
+	HotpluggedDrive bool `json:"hotpluggedDrive"`
 }
 
 // valid checks that the sandbox state is valid.
@@ -763,6 +767,9 @@ func createSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Fac
 		return nil, err
 	}
 
+	// set initial static cpu count
+	s.state.FreeStaticCPU = sandboxConfig.HypervisorConfig.DefaultVCPUs
+
 	// Set sandbox state
 	if err := s.setSandboxState(StateReady); err != nil {
 		return nil, err
@@ -1199,6 +1206,52 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 	}
 
 	return c, nil
+}
+
+// Adjust sandbox remaining static vcpu counter
+// When credit is true, hand out available static vCPUs. Otherwise take it back.
+func (s *Sandbox) adjustVCPUCount(num uint32, credit bool) (uint32, error) {
+	if credit {
+		// No initial vCPUs so no adjustment necessary.
+		if s.state.FreeStaticCPU == 0 {
+			return num, nil
+		}
+
+		if num <= s.state.FreeStaticCPU {
+			s.state.FreeStaticCPU -= num
+			num = 0
+		} else {
+			num -= s.state.FreeStaticCPU
+			s.state.FreeStaticCPU = 0
+		}
+	} else {
+		max := s.config.HypervisorConfig.DefaultVCPUs
+		// Static vCPUs full
+		if s.state.FreeStaticCPU == max {
+			return num, nil
+		}
+
+		if s.state.FreeStaticCPU+num <= max {
+			s.state.FreeStaticCPU += num
+			num = 0
+		} else {
+			num += s.state.FreeStaticCPU - max
+			s.state.FreeStaticCPU = max
+		}
+	}
+
+	if num == 0 {
+		if err := s.saveSandboxState(); err != nil {
+			return 0, err
+		}
+	}
+
+	return num, nil
+}
+
+func (s *Sandbox) saveSandboxState() error {
+	// update static vcpu counter
+	return s.storage.storeSandboxResource(s.id, stateFileType, s.state)
 }
 
 // StartContainer starts a container in the sandbox

@@ -6,6 +6,7 @@
 package virtcontainers
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
@@ -15,7 +16,7 @@ import (
 func TestNoopCreateAllResources(t *testing.T) {
 	n := &noopResourceStorage{}
 
-	err := n.createAllResources(nil)
+	err := n.createAllResources(context.Background(), nil)
 	assert.Nil(t, err)
 }
 

@@ -6,6 +6,7 @@
 package virtcontainers
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -286,10 +287,13 @@ func TestContainerAddResources(t *testing.T) {
 
 	c := &Container{
 		sandbox: &Sandbox{
-			storage: &filesystem{},
+			storage: &noopResourceStorage{},
 		},
 	}
-	err := c.addResources()
+	err := c.sandbox.storage.createAllResources(context.Background(), c.sandbox)
+	assert.Nil(err)
+
+	err = c.addResources()
 	assert.Nil(err)
 
 	c.config = &ContainerConfig{Annotations: make(map[string]string)}
@@ -310,7 +314,7 @@ func TestContainerAddResources(t *testing.T) {
 			vCPUs: vCPUs,
 		},
 		agent:   &noopAgent{},
-		storage: &filesystem{},
+		storage: &noopResourceStorage{},
 	}
 	err = c.addResources()
 	assert.Nil(err)
@@ -321,7 +325,8 @@ func TestContainerRemoveResources(t *testing.T) {
 
 	c := &Container{
 		sandbox: &Sandbox{
-			storage: &filesystem{},
+			storage: &noopResourceStorage{},
+			config:  &SandboxConfig{},
 		},
 	}
 
@@ -346,7 +351,8 @@ func TestContainerRemoveResources(t *testing.T) {
 		hypervisor: &mockHypervisor{
 			vCPUs: vCPUs,
 		},
-		storage: &filesystem{},
+		storage: &noopResourceStorage{},
+		config:  &SandboxConfig{},
 	}
 
 	err = c.removeResources()

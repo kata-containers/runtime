@@ -6,12 +6,14 @@
 package virtcontainers
 
 import (
+	"context"
+
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
 )
 
 type noopResourceStorage struct{}
 
-func (n *noopResourceStorage) createAllResources(sandbox *Sandbox) error {
+func (n *noopResourceStorage) createAllResources(ctx context.Context, sandbox *Sandbox) error {
 	return nil
 }
 

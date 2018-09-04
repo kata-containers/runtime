@@ -1201,6 +1201,11 @@ func (c *Container) addResources() error {
 
 	// Container is being created, try to add the number of vCPUs specified
 	vCPUs := c.config.Resources.VCPUs
+	vCPUs, err := c.sandbox.adjustVCPUCount(vCPUs, true)
+	if err != nil {
+		return err
+	}
+
 	if vCPUs != 0 {
 		virtLog.Debugf("hot adding %d vCPUs", vCPUs)
 		data, err := c.sandbox.hypervisor.hotplugAddDevice(vCPUs, cpuDev)
@@ -1211,6 +1216,10 @@ func (c *Container) addResources() error {
 		vcpusAdded, ok := data.(uint32)
 		if !ok {
 			return fmt.Errorf("Could not get the number of vCPUs added, got %+v", data)
+		}
+
+		if err = c.sandbox.saveSandboxState(); err != nil {
+			return err
 		}
 
 		// A different number of vCPUs was added, we have to update
@@ -1244,9 +1253,18 @@ func (c *Container) removeResources() error {
 	}
 
 	vCPUs := config.Resources.VCPUs
+	vCPUs, err = c.sandbox.adjustVCPUCount(vCPUs, false)
+	if err != nil {
+		return err
+	}
+
 	if vCPUs != 0 {
 		virtLog.Debugf("hot removing %d vCPUs", vCPUs)
 		if _, err := c.sandbox.hypervisor.hotplugRemoveDevice(vCPUs, cpuDev); err != nil {
+			return err
+		}
+
+		if err = c.sandbox.saveSandboxState(); err != nil {
 			return err
 		}
 	}
@@ -1274,6 +1292,14 @@ func (c *Container) updateResources(oldResources, newResources ContainerResource
 	if oldVCPUs < newVCPUs {
 		// hot add vCPUs
 		vCPUs = newVCPUs - oldVCPUs
+		vCPUs, err := c.sandbox.adjustVCPUCount(vCPUs, true)
+		if err != nil {
+			return err
+		}
+		if vCPUs == 0 {
+			return nil
+		}
+
 		virtLog.Debugf("hot adding %d vCPUs", vCPUs)
 		data, err := c.sandbox.hypervisor.hotplugAddDevice(vCPUs, cpuDev)
 		if err != nil {
@@ -1291,6 +1317,14 @@ func (c *Container) updateResources(oldResources, newResources ContainerResource
 	} else {
 		// hot remove vCPUs
 		vCPUs = oldVCPUs - newVCPUs
+		vCPUs, err := c.sandbox.adjustVCPUCount(vCPUs, false)
+		if err != nil {
+			return err
+		}
+		if vCPUs == 0 {
+			return nil
+		}
+
 		virtLog.Debugf("hot removing %d vCPUs", vCPUs)
 		data, err := c.sandbox.hypervisor.hotplugRemoveDevice(vCPUs, cpuDev)
 		if err != nil {
@@ -1302,6 +1336,10 @@ func (c *Container) updateResources(oldResources, newResources ContainerResource
 		}
 		// recalculate the actual number of vCPUs if a different number of vCPUs was removed
 		newResources.VCPUs = oldVCPUs - vcpusRemoved
+	}
+
+	if err := c.sandbox.saveSandboxState(); err != nil {
+		return err
 	}
 
 	// Set and save container's config

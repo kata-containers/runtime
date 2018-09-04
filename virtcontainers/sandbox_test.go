@@ -1722,3 +1722,52 @@ func TestGetNetNs(t *testing.T) {
 	netNs = s.GetNetNs()
 	assert.Equal(t, netNs, expected)
 }
+
+func TestAdjustVCPUCount(t *testing.T) {
+	assert := assert.New(t)
+	s := Sandbox{
+		storage: &noopResourceStorage{},
+		config: &SandboxConfig{
+			HypervisorConfig: HypervisorConfig{
+				DefaultVCPUs: 10,
+			},
+		},
+	}
+
+	s.state.FreeStaticCPU = 10
+
+	num, err := s.adjustVCPUCount(1, true)
+	assert.Nil(err)
+	assert.EqualValues(num, 0)
+	assert.EqualValues(s.state.FreeStaticCPU, 9)
+
+	num, err = s.adjustVCPUCount(1, false)
+	assert.Nil(err)
+	assert.EqualValues(num, 0)
+	assert.EqualValues(s.state.FreeStaticCPU, 10)
+
+	num, err = s.adjustVCPUCount(11, true)
+	assert.Nil(err)
+	assert.EqualValues(num, 1)
+	assert.EqualValues(s.state.FreeStaticCPU, 0)
+
+	num, err = s.adjustVCPUCount(11, true)
+	assert.Nil(err)
+	assert.EqualValues(num, 11)
+	assert.EqualValues(s.state.FreeStaticCPU, 0)
+
+	num, err = s.adjustVCPUCount(1, false)
+	assert.Nil(err)
+	assert.EqualValues(num, 0)
+	assert.EqualValues(s.state.FreeStaticCPU, 1)
+
+	num, err = s.adjustVCPUCount(11, false)
+	assert.Nil(err)
+	assert.EqualValues(num, 2)
+	assert.EqualValues(s.state.FreeStaticCPU, 10)
+
+	num, err = s.adjustVCPUCount(10, false)
+	assert.Nil(err)
+	assert.EqualValues(num, 10)
+	assert.EqualValues(s.state.FreeStaticCPU, 10)
+}
