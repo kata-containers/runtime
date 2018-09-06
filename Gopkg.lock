@@ -123,21 +123,21 @@
   revision = "3520598351bb3500a49ae9563f5539666ae0a27c"
 
 [[projects]]
-  digest = "1:052c0d6d677c7a3f12d8f83e0a1ce20a896cc206782b035f380249d23bf1265d"
+  digest = "1:23284f0e1a071b8ca3cc153a2a97769235a42e8ec8d338393454271e76b0323d"
   name = "github.com/intel/govmm"
   packages = ["qemu"]
   pruneopts = "NUT"
-  revision = "1a16b5f98f133796f9c5e9b6ae3aa6d786cff9b1"
+  revision = "25277d52ad8f07878c2e5da4d1a937292f777f93"
 
 [[projects]]
-  digest = "1:01c37fcb6e2a1fe1321a97faaef74c66ac531ea292ca3f929b7189cc400b1d47"
+  digest = "1:4d42ea2eb943dde6a078eb7bfddcb15d87767302b461c8420dcf72fb7edebdee"
   name = "github.com/kata-containers/agent"
   packages = [
     "protocols/client",
     "protocols/grpc",
   ]
   pruneopts = "NUT"
-  revision = "46396d205bf096db4e69fcfa319525858ce8050c"
+  revision = "3ff97538b0e859e89fe2547f0232df2d1302edf4"
 
 [[projects]]
   digest = "1:04054595e5c5a35d1553a7f3464d18577caf597445d643992998643df56d4afd"
