@@ -147,6 +147,11 @@ enable_iothreads = @DEFENABLEIOTHREADS@
 # Default false
 #hotplug_vfio_on_root_bus = true
 
+# If set to an absolute path within the guest rootfs, the agent
+# will search this directory for OCI hooks and add them to the guest
+# container's lifecycle.
+#guest_hook_path = "@DEFGUESTHOOKPATH@"
+
 [factory]
 # VM templating support. Once enabled, new VMs are created from template
 # using vm cloning. They will share the same initial kernel, initramfs and

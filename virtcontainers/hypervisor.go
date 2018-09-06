@@ -240,6 +240,9 @@ type HypervisorConfig struct {
 	// DevicesStatePath is the VM device state file path. Used when either BootToBeTemplate or
 	// BootFromTemplate is true.
 	DevicesStatePath string
+
+	// GuestHookPath is the path within the VM that will be used for 'drop-in' hooks
+	GuestHookPath string
 }
 
 func (conf *HypervisorConfig) checkTemplateConfig() error {

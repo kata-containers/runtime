@@ -52,6 +52,7 @@ func makeRuntimeConfigFileData(hypervisor, hypervisorPath, kernelPath, imagePath
 	enable_iothreads =  ` + strconv.FormatBool(enableIOThreads) + `
 	hotplug_vfio_on_root_bus =  ` + strconv.FormatBool(hotplugVFIOOnRootBus) + `
 	msize_9p = ` + strconv.FormatUint(uint64(defaultMsize9p), 10) + `
+	guest_hook_path = "` + defaultGuestHookPath + `"
 
 	[proxy.kata]
 	path = "` + proxyPath + `"
@@ -143,6 +144,7 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config testRuntimeConf
 		EnableIOThreads:       enableIOThreads,
 		HotplugVFIOOnRootBus:  hotplugVFIOOnRootBus,
 		Msize9p:               defaultMsize9p,
+		GuestHookPath:         defaultGuestHookPath,
 	}
 
 	agentConfig := vc.KataAgentConfig{}
@@ -562,6 +564,7 @@ func TestMinimalRuntimeConfig(t *testing.T) {
 		Mlock:                 !defaultEnableSwap,
 		BlockDeviceDriver:     defaultBlockDeviceDriver,
 		Msize9p:               defaultMsize9p,
+		GuestHookPath:         defaultGuestHookPath,
 	}
 
 	expectedAgentConfig := vc.KataAgentConfig{}
@@ -1033,6 +1036,21 @@ func TestHypervisorDefaultsImage(t *testing.T) {
 	p, err = h.image()
 	assert.NoError(err)
 	assert.Equal(p, "")
+}
+
+func TestHypervisorDefaultsGuestHookPath(t *testing.T) {
+	assert := assert.New(t)
+
+	h := hypervisor{}
+	guestHookPath := h.guestHookPath()
+	assert.Equal(guestHookPath, defaultGuestHookPath, "default guest hook path wrong")
+
+	testGuestHookPath := "/test/guest/hook/path"
+	h = hypervisor{
+		GuestHookPath: testGuestHookPath,
+	}
+	guestHookPath = h.guestHookPath()
+	assert.Equal(guestHookPath, testGuestHookPath, "custom guest hook path wrong")
 }
 
 func TestProxyDefaults(t *testing.T) {

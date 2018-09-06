@@ -94,6 +94,7 @@ type hypervisor struct {
 	EnableIOThreads       bool   `toml:"enable_iothreads"`
 	UseVSock              bool   `toml:"use_vsock"`
 	HotplugVFIOOnRootBus  bool   `toml:"hotplug_vfio_on_root_bus"`
+	GuestHookPath         string `toml:"guest_hook_path"`
 }
 
 type proxy struct {
@@ -275,6 +276,13 @@ func (h hypervisor) useVSock() bool {
 	return h.UseVSock
 }
 
+func (h hypervisor) guestHookPath() string {
+	if h.GuestHookPath == "" {
+		return defaultGuestHookPath
+	}
+	return h.GuestHookPath
+}
+
 func (p proxy) path() string {
 	if p.Path == "" {
 		return defaultProxyPath
@@ -375,6 +383,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		Msize9p:               h.msize9p(),
 		UseVSock:              useVSock,
 		HotplugVFIOOnRootBus:  h.HotplugVFIOOnRootBus,
+		GuestHookPath:         h.guestHookPath(),
 	}, nil
 }
 
@@ -490,6 +499,7 @@ func loadConfiguration(configPath string, ignoreLogging bool) (resolvedConfigPat
 		EnableIOThreads:       defaultEnableIOThreads,
 		Msize9p:               defaultMsize9p,
 		HotplugVFIOOnRootBus:  defaultHotplugVFIOOnRootBus,
+		GuestHookPath:         defaultGuestHookPath,
 	}
 
 	err = config.InterNetworkModel.SetModel(defaultInterNetworkingModel)

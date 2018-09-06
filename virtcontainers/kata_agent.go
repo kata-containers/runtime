@@ -578,10 +578,11 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 	}
 
 	req := &grpc.CreateSandboxRequest{
-		Hostname:     hostname,
-		Storages:     storages,
-		SandboxPidns: sandbox.sharePidNs,
-		SandboxId:    sandbox.id,
+		Hostname:      hostname,
+		Storages:      storages,
+		SandboxPidns:  sandbox.sharePidNs,
+		SandboxId:     sandbox.id,
+		GuestHookPath: sandbox.config.HypervisorConfig.GuestHookPath,
 	}
 
 	_, err = k.sendReq(req)
