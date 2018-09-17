@@ -1219,6 +1219,19 @@ func (c *Container) addResources() error {
 		return c.sandbox.agent.onlineCPUMem(vcpusAdded)
 	}
 
+	// Container is being created, try to add the memory specified
+	mem := c.config.Resources.Mem
+	if mem != 0 {
+		virtLog.Debugf("hot adding %d B memory", mem)
+		sizeMB := int(mem / 1024 / 1024)
+		// sizeMB needs to be divisible by 2
+		sizeMB = sizeMB + sizeMB%2
+		_, err := c.sandbox.hypervisor.hotplugAddDevice(&memoryDevice{1, sizeMB}, memoryDev)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -1240,6 +1253,18 @@ func (c *Container) removeResources() error {
 	if vCPUs != 0 {
 		virtLog.Debugf("hot removing %d vCPUs", vCPUs)
 		if _, err := c.sandbox.hypervisor.hotplugRemoveDevice(vCPUs, cpuDev); err != nil {
+			return err
+		}
+	}
+
+	mem := c.config.Resources.Mem
+	if mem != 0 {
+		virtLog.Debugf("hot removing %d B memory", mem)
+		sizeMB := int(mem / 1024 / 1024)
+		// sizeMB needs to be divisible by 2
+		sizeMB = sizeMB + sizeMB%2
+		_, err := c.sandbox.hypervisor.hotplugRemoveDevice(&memoryDevice{1, sizeMB}, memoryDev)
+		if err != nil {
 			return err
 		}
 	}
