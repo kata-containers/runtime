@@ -112,6 +112,8 @@ type RuntimeConfig struct {
 	//Determines how the VM should be connected to the
 	//the container network interface
 	InterNetworkModel vc.NetInterworkingModel
+
+	Debug bool
 }
 
 // AddKernelParam allows the addition of new kernel parameters to an existing
