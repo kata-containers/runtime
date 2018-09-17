@@ -616,7 +616,7 @@ func (q *qemu) hotplugBlockDevice(drive *deviceDrivers.Drive, op operation) erro
 			// PCI address is in the format bridge-addr/device-addr eg. "03/02"
 			drive.PCIAddr = fmt.Sprintf("%02x", bridge.Addr) + "/" + addr
 
-			if err = q.qmpMonitorCh.qmp.ExecutePCIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, addr, bridge.ID); err != nil {
+			if err = q.qmpMonitorCh.qmp.ExecutePCIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, addr, bridge.ID, true); err != nil {
 				return err
 			}
 		} else {
@@ -631,7 +631,7 @@ func (q *qemu) hotplugBlockDevice(drive *deviceDrivers.Drive, op operation) erro
 				return err
 			}
 
-			if err = q.qmpMonitorCh.qmp.ExecuteSCSIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, bus, scsiID, lun); err != nil {
+			if err = q.qmpMonitorCh.qmp.ExecuteSCSIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, bus, scsiID, lun, true); err != nil {
 				return err
 			}
 		}
