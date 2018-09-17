@@ -14,4 +14,7 @@ type Factory interface {
 
 	// CloseFactory closes and cleans up the factory.
 	CloseFactory(ctx context.Context)
+
+	// InitializeVM initializes the VM.
+	InitializeVM(ctx context.Context, vm *VM, sandbox *Sandbox) error
 }

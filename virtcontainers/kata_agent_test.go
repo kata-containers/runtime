@@ -30,6 +30,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/manager"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/mock"
+	"github.com/kata-containers/runtime/virtcontainers/utils"
 )
 
 var (
@@ -613,11 +614,14 @@ func TestAgentPathAPI(t *testing.T) {
 	_, ok := k1.vmSocket.(Socket)
 	assert.True(ok)
 
-	c.UseVSock = true
-	err = k2.generateVMSocket(id, c)
-	assert.Nil(err)
-	_, ok = k2.vmSocket.(kataVSOCK)
-	assert.True(ok)
+	// generate vsock if supported
+	if os.Getuid() == 0 && utils.SupportsVsocks() {
+		c.UseVSock = true
+		err = k2.generateVMSocket(id, c)
+		assert.Nil(err)
+		_, ok = k2.vmSocket.(kataVSOCK)
+		assert.True(ok)
+	}
 }
 
 func TestAgentConfigure(t *testing.T) {
@@ -630,10 +634,6 @@ func TestAgentConfigure(t *testing.T) {
 	h := &mockHypervisor{}
 	c := KataAgentConfig{}
 	id := "foobar"
-
-	invalidAgent := HyperConfig{}
-	err = k.configure(h, id, dir, true, invalidAgent)
-	assert.Error(err)
 
 	err = k.configure(h, id, dir, true, c)
 	assert.Nil(err)

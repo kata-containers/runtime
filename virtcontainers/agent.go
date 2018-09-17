@@ -230,6 +230,9 @@ type agent interface {
 	// reseedRNG will reseed the guest random number generator
 	reseedRNG(data []byte) error
 
+	// waitForAgentReady waits until the agent is ready
+	waitForAgentReady(sandbox *Sandbox) error
+
 	// updateInterface will tell the agent to update a nic for an existed Sandbox.
 	updateInterface(inf *grpc.Interface) (*grpc.Interface, error)
 

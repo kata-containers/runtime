@@ -431,3 +431,11 @@ func TestQemuArchBaseAppendSCSIController(t *testing.T) {
 	_, ioThread = qemuArchBase.appendSCSIController(devices, true)
 	assert.NotNil(ioThread)
 }
+
+func TestQemuArchBaseRunningNested(t *testing.T) {
+	assert := assert.New(t)
+	q := &qemuArchBase{nestedRun: true}
+	assert.True(q.runningNested())
+	q.nestedRun = false
+	assert.False(q.runningNested())
+}

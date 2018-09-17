@@ -178,6 +178,10 @@ func newTestSandboxConfigKataAgent() SandboxConfig {
 		HypervisorConfig: hypervisorConfig,
 
 		AgentType: KataContainersAgent,
+		AgentConfig: KataAgentConfig{
+			LongLiveConn: false,
+			UseVSock:     false,
+		},
 
 		Annotations: sandboxAnnotations,
 	}

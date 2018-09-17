@@ -91,6 +91,31 @@ var createCLICommand = cli.Command{
 // Use a variable to allow tests to modify its value
 var getKernelParamsFunc = getKernelParams
 
+func createFactory(ctx context.Context, runtimeConfig oci.RuntimeConfig) error {
+	factoryConfig := vf.Config{
+		Template: true,
+		VMConfig: vc.VMConfig{
+			HypervisorType:   runtimeConfig.HypervisorType,
+			HypervisorConfig: runtimeConfig.HypervisorConfig,
+			AgentType:        runtimeConfig.AgentType,
+			AgentConfig:      runtimeConfig.AgentConfig,
+		},
+	}
+	kataLog.WithField("factory", factoryConfig).Info("load vm factory")
+	f, err := vf.NewFactory(ctx, factoryConfig, true)
+	if err != nil {
+		kataLog.WithError(err).Warn("load vm factory failed, about to create new one")
+		f, err = vf.NewFactory(ctx, factoryConfig, false)
+		if err != nil {
+			kataLog.WithError(err).Warn("create vm factory failed")
+		}
+	}
+	if err == nil {
+		vci.SetFactory(ctx, f)
+	}
+	return err
+}
+
 func create(ctx context.Context, containerID, bundlePath, console, pidFilePath string, detach bool,
 	runtimeConfig oci.RuntimeConfig) error {
 	var err error
@@ -117,27 +142,14 @@ func create(ctx context.Context, containerID, bundlePath, console, pidFilePath s
 		return err
 	}
 
+	err = setKernelParams(containerID, &runtimeConfig)
+	if err != nil {
+		return err
+	}
+
 	if runtimeConfig.FactoryConfig.Template {
-		factoryConfig := vf.Config{
-			Template: true,
-			VMConfig: vc.VMConfig{
-				HypervisorType:   runtimeConfig.HypervisorType,
-				HypervisorConfig: runtimeConfig.HypervisorConfig,
-				AgentType:        runtimeConfig.AgentType,
-				AgentConfig:      runtimeConfig.AgentConfig,
-			},
-		}
-		kataLog.WithField("factory", factoryConfig).Info("load vm factory")
-		f, err := vf.NewFactory(ctx, factoryConfig, true)
-		if err != nil {
-			kataLog.WithError(err).Warn("load vm factory failed, about to create new one")
-			f, err = vf.NewFactory(ctx, factoryConfig, false)
-			if err != nil {
-				kataLog.WithError(err).Warn("create vm factory failed")
-			}
-		}
-		if err == nil {
-			vci.SetFactory(ctx, f)
+		if err = createFactory(ctx, runtimeConfig); err != nil {
+			return err
 		}
 	}
 
@@ -255,11 +267,6 @@ func createSandbox(ctx context.Context, ociSpec oci.CompatOCISpec, runtimeConfig
 	containerID, bundlePath, console string, disableOutput bool) (vc.Process, error) {
 	span, ctx := trace(ctx, "createSandbox")
 	defer span.Finish()
-
-	err := setKernelParams(containerID, &runtimeConfig)
-	if err != nil {
-		return vc.Process{}, err
-	}
 
 	sandboxConfig, err := oci.SandboxConfig(ociSpec, runtimeConfig, bundlePath, containerID, console, disableOutput)
 	if err != nil {

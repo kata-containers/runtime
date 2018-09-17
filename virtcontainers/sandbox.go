@@ -1137,45 +1137,70 @@ func (s *Sandbox) ListRoutes() ([]*grpc.Route, error) {
 
 // startVM starts the VM.
 func (s *Sandbox) startVM() error {
+	var err error
 	span, ctx := s.trace("startVM")
 	defer span.Finish()
 
 	s.Logger().Info("Starting VM")
 
-	// FIXME: This would break cached VMs. We need network hotplug and move
-	// oci hooks and netns handling to cli. See #273.
-	if err := s.network.run(s.networkNS.NetNsPath, func() error {
-		if s.factory != nil {
-			vm, err := s.factory.GetVM(ctx, VMConfig{
+	startSandboxFunc := func() error {
+		return s.hypervisor.startSandbox()
+	}
+	postStartSandboxFunc := func() error {
+		if err := s.agent.waitForAgentReady(s); err != nil {
+			return err
+		}
+		s.Logger().Info("Agent initialization completed")
+		return nil
+	}
+
+	// Use factory if available
+	if s.factory != nil {
+		var vm *VM
+		startSandboxFunc = func() error {
+			if vm, err = s.factory.GetVM(ctx, VMConfig{
 				HypervisorType:   s.config.HypervisorType,
 				HypervisorConfig: s.config.HypervisorConfig,
 				AgentType:        s.config.AgentType,
 				AgentConfig:      s.config.AgentConfig,
 				ProxyType:        s.config.ProxyType,
 				ProxyConfig:      s.config.ProxyConfig,
-			})
-			if err != nil {
+			}); err != nil {
 				return err
 			}
-			err = vm.assignSandbox(s)
-			if err != nil {
+			if err = vm.assignSandbox(s); err != nil {
 				return err
 			}
 			return nil
 		}
 
-		return s.hypervisor.startSandbox()
-	}); err != nil {
+		postStartSandboxFunc = func() error {
+			if err := s.agent.waitForAgentReady(s); err != nil {
+				return err
+			}
+			s.Logger().Info("Agent initialization completed")
+
+			if err := s.factory.InitializeVM(ctx, vm, s); err != nil {
+				return err
+			}
+			s.Logger().Info("VM initialization completed")
+			return nil
+		}
+	}
+
+	// FIXME: This would break cached VMs. We need network hotplug and move
+	// oci hooks and netns handling to cli. See #273.
+	if err = s.network.run(s.networkNS.NetNsPath, startSandboxFunc); err != nil {
 		return err
 	}
 
-	if err := s.hypervisor.waitSandbox(vmStartTimeout); err != nil {
+	if err = s.hypervisor.waitSandbox(vmStartTimeout); err != nil {
 		return err
 	}
 
 	s.Logger().Info("VM started")
 
-	return nil
+	return postStartSandboxFunc()
 }
 
 // stopVM: stop the sandbox's VM
