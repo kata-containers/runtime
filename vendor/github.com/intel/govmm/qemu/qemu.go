@@ -63,25 +63,28 @@ const (
 	NVDIMM DeviceDriver = "nvdimm"
 
 	// Virtio9P is the 9pfs device driver.
-	Virtio9P = "virtio-9p-pci"
+	Virtio9P DeviceDriver = "virtio-9p-pci"
 
 	// VirtioNet is the virt-io networking device driver.
-	VirtioNet = "virtio-net"
+	VirtioNet DeviceDriver = "virtio-net"
 
 	// VirtioNetPCI is the virt-io pci networking device driver.
-	VirtioNetPCI = "virtio-net-pci"
+	VirtioNetPCI DeviceDriver = "virtio-net-pci"
 
 	// VirtioSerial is the serial device driver.
-	VirtioSerial = "virtio-serial-pci"
+	VirtioSerial DeviceDriver = "virtio-serial-pci"
 
 	// VirtioBlock is the block device driver.
-	VirtioBlock = "virtio-blk"
+	VirtioBlock DeviceDriver = "virtio-blk"
 
 	// Console is the console device driver.
-	Console = "virtconsole"
+	Console DeviceDriver = "virtconsole"
 
 	// VirtioSerialPort is the serial port device driver.
-	VirtioSerialPort = "virtserialport"
+	VirtioSerialPort DeviceDriver = "virtserialport"
+
+	// VHostVSockPCI is the vhost vsock pci driver.
+	VHostVSockPCI DeviceDriver = "vhost-vsock-pci"
 )
 
 // ObjectType is a string representing a qemu object type.
@@ -168,10 +171,10 @@ const (
 	Local FSDriver = "local"
 
 	// Handle is the handle qemu filesystem driver.
-	Handle = "handle"
+	Handle FSDriver = "handle"
 
 	// Proxy is the proxy qemu filesystem driver.
-	Proxy = "proxy"
+	Proxy FSDriver = "proxy"
 )
 
 const (
@@ -179,13 +182,13 @@ const (
 	None SecurityModelType = "none"
 
 	// PassThrough uses the same credentials on both the host and guest.
-	PassThrough = "passthrough"
+	PassThrough SecurityModelType = "passthrough"
 
 	// MappedXattr stores some files attributes as extended attributes.
-	MappedXattr = "mapped-xattr"
+	MappedXattr SecurityModelType = "mapped-xattr"
 
 	// MappedFile stores some files attributes in the .virtfs directory.
-	MappedFile = "mapped-file"
+	MappedFile SecurityModelType = "mapped-file"
 )
 
 // FSDevice represents a qemu filesystem configuration.
@@ -256,19 +259,19 @@ const (
 	Pipe CharDeviceBackend = "pipe"
 
 	// Socket creates a 2 way stream socket (TCP or Unix).
-	Socket = "socket"
+	Socket CharDeviceBackend = "socket"
 
 	// CharConsole sends traffic from the guest to QEMU's standard output.
-	CharConsole = "console"
+	CharConsole CharDeviceBackend = "console"
 
 	// Serial sends traffic from the guest to a serial device on the host.
-	Serial = "serial"
+	Serial CharDeviceBackend = "serial"
 
 	// TTY is an alias for Serial.
-	TTY = "tty"
+	TTY CharDeviceBackend = "tty"
 
 	// PTY creates a new pseudo-terminal on the host and connect to it.
-	PTY = "pty"
+	PTY CharDeviceBackend = "pty"
 )
 
 // CharDevice represents a qemu character device.
@@ -345,19 +348,19 @@ const (
 	TAP NetDeviceType = "tap"
 
 	// MACVTAP is a macvtap networking device type.
-	MACVTAP = "macvtap"
+	MACVTAP NetDeviceType = "macvtap"
 
 	// IPVTAP is a ipvtap virtual networking device type.
-	IPVTAP = "ipvtap"
+	IPVTAP NetDeviceType = "ipvtap"
 
 	// VETHTAP is a veth-tap virtual networking device type.
-	VETHTAP = "vethtap"
+	VETHTAP NetDeviceType = "vethtap"
 
 	// VFIO is a direct assigned PCI device or PCI VF
-	VFIO = "VFIO"
+	VFIO NetDeviceType = "VFIO"
 
 	// VHOSTUSER is a vhost-user port (socket)
-	VHOSTUSER = "vhostuser"
+	VHOSTUSER NetDeviceType = "vhostuser"
 )
 
 // QemuNetdevParam converts to the QEMU -netdev parameter notation
@@ -634,7 +637,7 @@ const (
 	NoInterface BlockDeviceInterface = "none"
 
 	// SCSI represents a SCSI block device interface.
-	SCSI = "scsi"
+	SCSI BlockDeviceInterface = "scsi"
 )
 
 const (
@@ -642,7 +645,7 @@ const (
 	Threads BlockDeviceAIO = "threads"
 
 	// Native is the pthread asynchronous I/O implementation.
-	Native = "native"
+	Native BlockDeviceAIO = "native"
 )
 
 const (
@@ -962,12 +965,20 @@ type VSOCKDevice struct {
 	ID string
 
 	ContextID uint32
+
+	// VHostFD vhost file descriptor that holds the ContextID
+	VHostFD *os.File
+
+	// DisableModern prevents qemu from relying on fast MMIO.
+	DisableModern bool
 }
 
 const (
 	// MinimalGuestCID is the smallest valid context ID for a guest.
 	MinimalGuestCID uint32 = 3
+)
 
+const (
 	// VhostVSOCKPCI is the VSOCK vhost device type.
 	VhostVSOCKPCI = "vhost-vsock-pci"
 
@@ -986,12 +997,22 @@ func (vsock VSOCKDevice) Valid() bool {
 
 // QemuParams returns the qemu parameters built out of the VSOCK device.
 func (vsock VSOCKDevice) QemuParams(config *Config) []string {
+	var deviceParams []string
 	var qemuParams []string
 
-	deviceParam := fmt.Sprintf("%s,id=%s,%s=%d", VhostVSOCKPCI, vsock.ID, VSOCKGuestCID, vsock.ContextID)
+	deviceParams = append(deviceParams, fmt.Sprintf("%s", VhostVSOCKPCI))
+	if vsock.DisableModern {
+		deviceParams = append(deviceParams, ",disable-modern=true")
+	}
+	if vsock.VHostFD != nil {
+		qemuFDs := config.appendFDs([]*os.File{vsock.VHostFD})
+		deviceParams = append(deviceParams, fmt.Sprintf(",vhostfd=%d", qemuFDs[0]))
+	}
+	deviceParams = append(deviceParams, fmt.Sprintf(",id=%s", vsock.ID))
+	deviceParams = append(deviceParams, fmt.Sprintf(",%s=%d", VSOCKGuestCID, vsock.ContextID))
 
 	qemuParams = append(qemuParams, "-device")
-	qemuParams = append(qemuParams, deviceParam)
+	qemuParams = append(qemuParams, strings.Join(deviceParams, ""))
 
 	return qemuParams
 }
@@ -1010,7 +1031,7 @@ const (
 	UTC RTCBaseType = "utc"
 
 	// LocalTime is the local base time for qemu RTC.
-	LocalTime = "localtime"
+	LocalTime RTCBaseType = "localtime"
 )
 
 const (
@@ -1018,7 +1039,7 @@ const (
 	Host RTCClock = "host"
 
 	// VM is for using the guest clock as a reference
-	VM = "vm"
+	VM RTCClock = "vm"
 )
 
 const (
@@ -1026,7 +1047,7 @@ const (
 	Slew RTCDriftFix = "slew"
 
 	// NoDriftFix means we don't want/need to fix qemu's RTC drift.
-	NoDriftFix = "none"
+	NoDriftFix RTCDriftFix = "none"
 )
 
 // RTC represents a qemu Real Time Clock configuration.
@@ -1043,16 +1064,12 @@ type RTC struct {
 
 // Valid returns true if the RTC structure is valid and complete.
 func (rtc RTC) Valid() bool {
-	if rtc.Clock != "" {
-		if rtc.Clock != Host && rtc.Clock != VM {
-			return false
-		}
+	if rtc.Clock != Host && rtc.Clock != VM {
+		return false
 	}
 
-	if rtc.DriftFix != "" {
-		if rtc.DriftFix != Slew && rtc.DriftFix != NoDriftFix {
-			return false
-		}
+	if rtc.DriftFix != Slew && rtc.DriftFix != NoDriftFix {
+		return false
 	}
 
 	return true
@@ -1126,6 +1143,10 @@ type Memory struct {
 	// MaxMem is the maximum amount of memory that can be made available
 	// to the guest through e.g. hot pluggable memory.
 	MaxMem string
+
+	// Path is the file path of the memory device. It points to a local
+	// file path used by FileBackedMem.
+	Path string
 }
 
 // Kernel is the guest kernel configuration structure.
@@ -1167,9 +1188,19 @@ type Knobs struct {
 	// MemPrealloc will allocate all the RAM upfront
 	MemPrealloc bool
 
+	// FileBackedMem requires Memory.Size and Memory.Path of the VM to
+	// be set.
+	FileBackedMem bool
+
+	// FileBackedMemShared will set the FileBackedMem device as shared.
+	FileBackedMemShared bool
+
 	// Mlock will control locking of memory
 	// Only active when Realtime is set to true
 	Mlock bool
+
+	// Stopped will not start guest CPU at startup
+	Stopped bool
 
 	// Realtime will enable realtime QEMU
 	Realtime bool
@@ -1180,13 +1211,31 @@ type IOThread struct {
 	ID string
 }
 
+const (
+	// MigrationFD is the migration incoming type based on open file descriptor.
+	// Skip default 0 so that it must be set on purpose.
+	MigrationFD = 1
+	// MigrationExec is the migration incoming type based on commands.
+	MigrationExec = 2
+)
+
+// Incoming controls migration source preparation
+type Incoming struct {
+	// Possible values are MigrationFD, MigrationExec
+	MigrationType int
+	// Only valid if MigrationType == MigrationFD
+	FD *os.File
+	// Only valid if MigrationType == MigrationExec
+	Exec string
+}
+
 // Config is the qemu configuration structure.
 // It allows for passing custom settings and parameters to the qemu API.
 type Config struct {
 	// Path is the qemu binary path.
 	Path string
 
-	// Ctx is not used at the moment.
+	// Ctx is the context used when launching qemu.
 	Ctx context.Context
 
 	// Name is the qemu guest name
@@ -1230,6 +1279,9 @@ type Config struct {
 
 	// Bios is the -bios parameter
 	Bios string
+
+	// Incoming controls migration source preparation
+	Incoming Incoming
 
 	// fds is a list of open file descriptors to be passed to the spawned qemu process
 	fds []*os.File
@@ -1433,23 +1485,7 @@ func (config *Config) appendKernel() {
 	}
 }
 
-func (config *Config) appendKnobs() {
-	if config.Knobs.NoUserConfig == true {
-		config.qemuParams = append(config.qemuParams, "-no-user-config")
-	}
-
-	if config.Knobs.NoDefaults == true {
-		config.qemuParams = append(config.qemuParams, "-nodefaults")
-	}
-
-	if config.Knobs.NoGraphic == true {
-		config.qemuParams = append(config.qemuParams, "-nographic")
-	}
-
-	if config.Knobs.Daemonize == true {
-		config.qemuParams = append(config.qemuParams, "-daemonize")
-	}
-
+func (config *Config) appendMemoryKnobs() {
 	if config.Knobs.HugePages == true {
 		if config.Memory.Size != "" {
 			dimmName := "dimm1"
@@ -1474,7 +1510,42 @@ func (config *Config) appendKnobs() {
 			config.qemuParams = append(config.qemuParams, "-device")
 			config.qemuParams = append(config.qemuParams, deviceMemParam)
 		}
+	} else if config.Knobs.FileBackedMem == true {
+		if config.Memory.Size != "" && config.Memory.Path != "" {
+			dimmName := "dimm1"
+			objMemParam := "memory-backend-file,id=" + dimmName + ",size=" + config.Memory.Size + ",mem-path=" + config.Memory.Path
+			if config.Knobs.FileBackedMemShared == true {
+				objMemParam += ",share=on"
+			}
+			numaMemParam := "node,memdev=" + dimmName
+
+			config.qemuParams = append(config.qemuParams, "-object")
+			config.qemuParams = append(config.qemuParams, objMemParam)
+
+			config.qemuParams = append(config.qemuParams, "-numa")
+			config.qemuParams = append(config.qemuParams, numaMemParam)
+		}
 	}
+}
+
+func (config *Config) appendKnobs() {
+	if config.Knobs.NoUserConfig == true {
+		config.qemuParams = append(config.qemuParams, "-no-user-config")
+	}
+
+	if config.Knobs.NoDefaults == true {
+		config.qemuParams = append(config.qemuParams, "-nodefaults")
+	}
+
+	if config.Knobs.NoGraphic == true {
+		config.qemuParams = append(config.qemuParams, "-nographic")
+	}
+
+	if config.Knobs.Daemonize == true {
+		config.qemuParams = append(config.qemuParams, "-daemonize")
+	}
+
+	config.appendMemoryKnobs()
 
 	if config.Knobs.Realtime == true {
 		config.qemuParams = append(config.qemuParams, "-realtime")
@@ -1495,6 +1566,10 @@ func (config *Config) appendKnobs() {
 			config.qemuParams = append(config.qemuParams, "mlock=off")
 		}
 	}
+
+	if config.Knobs.Stopped == true {
+		config.qemuParams = append(config.qemuParams, "-S")
+	}
 }
 
 func (config *Config) appendBios() {
@@ -1511,6 +1586,20 @@ func (config *Config) appendIOThreads() {
 			config.qemuParams = append(config.qemuParams, fmt.Sprintf("iothread,id=%s", t.ID))
 		}
 	}
+}
+
+func (config *Config) appendIncoming() {
+	var uri string
+	switch config.Incoming.MigrationType {
+	case MigrationExec:
+		uri = fmt.Sprintf("exec:%s", config.Incoming.Exec)
+	case MigrationFD:
+		chFDs := config.appendFDs([]*os.File{config.Incoming.FD})
+		uri = fmt.Sprintf("fd:%d", chFDs[0])
+	default:
+		return
+	}
+	config.qemuParams = append(config.qemuParams, "-S", "-incoming", uri)
 }
 
 // LaunchQemu can be used to launch a new qemu instance.
@@ -1537,22 +1626,24 @@ func LaunchQemu(config Config, logger QMPLog) (string, error) {
 	config.appendKernel()
 	config.appendBios()
 	config.appendIOThreads()
+	config.appendIncoming()
 
 	if err := config.appendCPUs(); err != nil {
 		return "", err
 	}
 
-	return LaunchCustomQemu(config.Ctx, config.Path, config.qemuParams,
+	ctx := config.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	return LaunchCustomQemu(ctx, config.Path, config.qemuParams,
 		config.fds, nil, logger)
 }
 
 // LaunchCustomQemu can be used to launch a new qemu instance.
 //
 // The path parameter is used to pass the qemu executable path.
-//
-// The ctx parameter is not currently used but has been added so that the
-// signature of this function will not need to change when launch cancellation
-// is implemented.
 //
 // params is a slice of options to pass to qemu-system-x86_64 and fds is a
 // list of open file descriptors that are to be passed to the spawned qemu
@@ -1577,7 +1668,8 @@ func LaunchCustomQemu(ctx context.Context, path string, params []string, fds []*
 		path = "qemu-system-x86_64"
 	}
 
-	cmd := exec.Command(path, params...)
+	/* #nosec */
+	cmd := exec.CommandContext(ctx, path, params...)
 	if len(fds) > 0 {
 		logger.Infof("Adding extra file %v", fds)
 		cmd.ExtraFiles = fds
