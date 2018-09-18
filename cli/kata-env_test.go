@@ -146,6 +146,7 @@ func getExpectedShimDetails(config oci.RuntimeConfig) (ShimInfo, error) {
 		Type:    string(config.ShimType),
 		Version: testShimVersion,
 		Path:    shimPath,
+		Debug:   shimConfig.Debug,
 	}, nil
 }
 
@@ -240,6 +241,7 @@ func getExpectedHypervisor(config oci.RuntimeConfig) HypervisorInfo {
 		MachineType:       config.HypervisorConfig.HypervisorMachineType,
 		BlockDeviceDriver: config.HypervisorConfig.BlockDeviceDriver,
 		Msize9p:           config.HypervisorConfig.Msize9p,
+		Debug:             config.HypervisorConfig.Debug,
 	}
 }
 
@@ -256,7 +258,7 @@ func getExpectedKernel(config oci.RuntimeConfig) KernelInfo {
 	}
 }
 
-func getExpectedRuntimeDetails(configFile string) RuntimeInfo {
+func getExpectedRuntimeDetails(config oci.RuntimeConfig, configFile string) RuntimeInfo {
 	runtimePath, _ := os.Executable()
 
 	return RuntimeInfo{
@@ -268,14 +270,15 @@ func getExpectedRuntimeDetails(configFile string) RuntimeInfo {
 		Config: RuntimeConfigInfo{
 			Path: configFile,
 		},
-		Path: runtimePath,
+		Path:  runtimePath,
+		Debug: config.Debug,
 	}
 }
 
 func getExpectedSettings(config oci.RuntimeConfig, tmpdir, configFile string) (EnvInfo, error) {
 	meta := getExpectedMetaInfo()
 
-	runtime := getExpectedRuntimeDetails(configFile)
+	runtime := getExpectedRuntimeDetails(config, configFile)
 
 	proxy, err := getExpectedProxyDetails(config)
 	if err != nil {
@@ -404,16 +407,25 @@ func TestEnvGetEnvInfo(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	configFile, config, err := makeRuntimeConfig(tmpdir)
-	assert.NoError(t, err)
+	// Run test twice to ensure the individual component debug options are
+	// tested.
+	for _, debug := range []bool{false, true} {
+		hypervisorDebug = debug
+		proxyDebug = debug
+		runtimeDebug = debug
+		shimDebug = debug
 
-	expectedEnv, err := getExpectedSettings(config, tmpdir, configFile)
-	assert.NoError(t, err)
+		configFile, config, err := makeRuntimeConfig(tmpdir)
+		assert.NoError(t, err)
 
-	env, err := getEnvInfo(configFile, config)
-	assert.NoError(t, err)
+		expectedEnv, err := getExpectedSettings(config, tmpdir, configFile)
+		assert.NoError(t, err)
 
-	assert.Equal(t, expectedEnv, env)
+		env, err := getEnvInfo(configFile, config)
+		assert.NoError(t, err)
+
+		assert.Equal(t, expectedEnv, env)
+	}
 }
 
 func TestEnvGetEnvInfoNoHypervisorVersion(t *testing.T) {
@@ -542,7 +554,7 @@ func TestEnvGetRuntimeInfo(t *testing.T) {
 	configFile, config, err := makeRuntimeConfig(tmpdir)
 	assert.NoError(t, err)
 
-	expectedRuntime := getExpectedRuntimeDetails(configFile)
+	expectedRuntime := getExpectedRuntimeDetails(config, configFile)
 
 	runtime := getRuntimeInfo(configFile, config)
 
