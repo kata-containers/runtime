@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+// +build go1.10
+
 package main
 
 import (
