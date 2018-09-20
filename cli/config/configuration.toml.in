@@ -27,6 +27,10 @@ machine_type = "@MACHINETYPE@"
 # may stop the virtual machine from booting.
 # To see the list of default parameters, enable hypervisor debug, create a
 # container and look for 'default-kernel-parameters' log entries.
+#
+# NOTE: If you want to use systemd or any other init daemon, the `init` parameter
+# should be used here. For example for systemd you have to add following line:
+# init=/lib/systemd/systemd systemd.unit=@PROJECT_TAG@.target systemd.mask=systemd-networkd.service systemd.mask=systemd-networkd.socket
 kernel_params = "@KERNELPARAMS@"
 
 # Path to the firmware.

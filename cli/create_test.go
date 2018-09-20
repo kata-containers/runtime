@@ -758,24 +758,9 @@ func TestCreateInvalidKernelParams(t *testing.T) {
 	err = writeOCIConfigFile(spec, ociConfigFile)
 	assert.NoError(err)
 
-	savedFunc := katautils.GetKernelParamsFunc
-	defer func() {
-		katautils.GetKernelParamsFunc = savedFunc
-	}()
-
-	katautils.GetKernelParamsFunc = func(needSystemd bool) []vc.Param {
-		return []vc.Param{
-			{
-				Key:   "",
-				Value: "",
-			},
-		}
-	}
-
 	for detach := range []bool{true, false} {
 		err := create(context.Background(), testContainerID, bundlePath, testConsole, pidFilePath, true, true, runtimeConfig)
 		assert.Errorf(err, "%+v", detach)
-		assert.False(vcmock.IsMockError(err))
 		os.RemoveAll(path)
 	}
 }

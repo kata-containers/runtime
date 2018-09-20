@@ -9,48 +9,11 @@ package katautils
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vf "github.com/kata-containers/runtime/virtcontainers/factory"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 )
-
-// GetKernelParamsFunc use a variable to allow tests to modify its value
-var GetKernelParamsFunc = getKernelParams
-
-var systemdKernelParam = []vc.Param{
-	{
-		Key:   "init",
-		Value: "/usr/lib/systemd/systemd",
-	},
-	{
-		Key:   "systemd.unit",
-		Value: systemdUnitName,
-	},
-	{
-		Key:   "systemd.mask",
-		Value: "systemd-networkd.service",
-	},
-	{
-		Key:   "systemd.mask",
-		Value: "systemd-networkd.socket",
-	},
-}
-
-func getKernelParams(needSystemd bool) []vc.Param {
-	p := []vc.Param{}
-
-	if needSystemd {
-		p = append(p, systemdKernelParam...)
-	}
-
-	return p
-}
-
-func needSystemd(config vc.HypervisorConfig) bool {
-	return config.ImagePath != ""
-}
 
 // HandleFactory  set the factory
 func HandleFactory(ctx context.Context, vci vc.VC, runtimeConfig *oci.RuntimeConfig) {
@@ -86,27 +49,11 @@ func HandleFactory(ctx context.Context, vci vc.VC, runtimeConfig *oci.RuntimeCon
 // SetKernelParams adds the user-specified kernel parameters (from the
 // configuration file) to the defaults so that the former take priority.
 func SetKernelParams(containerID string, runtimeConfig *oci.RuntimeConfig) error {
-	defaultKernelParams := GetKernelParamsFunc(needSystemd(runtimeConfig.HypervisorConfig))
-
-	if runtimeConfig.HypervisorConfig.Debug {
-		strParams := vc.SerializeParams(defaultKernelParams, "=")
-		formatted := strings.Join(strParams, " ")
-
-		kataUtilsLogger.WithField("default-kernel-parameters", formatted).Debug()
-	}
-
 	// retrieve the parameters specified in the config file
 	userKernelParams := runtimeConfig.HypervisorConfig.KernelParams
 
 	// reset
 	runtimeConfig.HypervisorConfig.KernelParams = []vc.Param{}
-
-	// first, add default values
-	for _, p := range defaultKernelParams {
-		if err := (runtimeConfig).AddKernelParam(p); err != nil {
-			return err
-		}
-	}
 
 	// now re-add the user-specified values so that they take priority.
 	for _, p := range userKernelParams {

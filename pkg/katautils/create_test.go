@@ -203,10 +203,6 @@ func TestSetKernelParams(t *testing.T) {
 
 	err := SetKernelParams(testContainerID, &config)
 	assert.NoError(err)
-
-	if needSystemd(config.HypervisorConfig) {
-		assert.NotEmpty(config.HypervisorConfig.KernelParams)
-	}
 }
 
 func TestSetKernelParamsUserOptionTakesPriority(t *testing.T) {
