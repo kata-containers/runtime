@@ -88,6 +88,7 @@ var qemuMinorVersion int
 // agnostic list of kernel parameters
 var defaultKernelParameters = []Param{
 	{"panic", "1"},
+	{"initcall_debug", ""},
 }
 
 type operation int
@@ -1233,6 +1234,10 @@ func genericBridges(number uint32, machineType string) []Bridge {
 		bt = pciBridge
 	case QemuPseries:
 		bt = pciBridge
+	case QemuSseries:
+		// see https://wiki.qemu.org/Documentation/Platforms/S390X#A_note_on_PCI_support
+		// hence ignoring PCI support.
+		fallthrough
 	default:
 		return nil
 	}

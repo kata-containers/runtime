@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	govmmQemu "github.com/intel/govmm/qemu"
 
@@ -145,6 +146,9 @@ const (
 
 	// QemuPseries is a QEMU virt machine type for ppc64le
 	QemuPseries = "pseries"
+
+	// QemuSseries is a QEMU virt machine type for s390x
+	QemuSseries = "s390-virtio-ccw"
 )
 
 // kernelParamsNonDebug is a list of the default kernel
@@ -192,7 +196,7 @@ func (q *qemuArchBase) disableVhostNet() {
 
 func (q *qemuArchBase) machine() (govmmQemu.Machine, error) {
 	for _, m := range q.supportedQemuMachines {
-		if m.Type == q.machineType {
+		if m.Type == strings.TrimSpace(q.machineType) {
 			return m, nil
 		}
 	}

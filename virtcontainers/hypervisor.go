@@ -510,6 +510,10 @@ func RunningOnVMM(cpuInfoPath string) (bool, error) {
 
 	flagsField := "flags"
 
+	if runtime.GOARCH == "s390x" {
+		flagsField = "features"
+
+	}
 	f, err := os.Open(cpuInfoPath)
 	if err != nil {
 		return false, err
