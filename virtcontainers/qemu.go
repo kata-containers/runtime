@@ -7,14 +7,15 @@ package virtcontainers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	units "github.com/docker/go-units"
 	govmmQemu "github.com/intel/govmm/qemu"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -502,6 +503,8 @@ func (q *qemu) createSandbox() error {
 	qemuConfig.Devices = q.arch.appendRNGDevice(qemuConfig.Devices, rngDev)
 
 	q.qemuConfig = qemuConfig
+	q.config.Name = qemuConfig.Name
+	q.config.UUID = qemuConfig.UUID
 
 	return nil
 }
@@ -1052,11 +1055,6 @@ func (q *qemu) hotplugMemory(memDev *memoryDevice, op operation) error {
 		return fmt.Errorf("cannot hotplug negative size (%d) memory", memDev.sizeMB)
 	}
 
-	// We do not support memory hot unplug.
-	if op == removeDevice {
-		return errors.New("cannot hot unplug memory device")
-	}
-
 	err := q.qmpSetup()
 	if err != nil {
 		return err
@@ -1070,22 +1068,34 @@ func (q *qemu) hotplugMemory(memDev *memoryDevice, op operation) error {
 	// calculate current memory
 	currentMemory := int(q.config.MemorySize) + q.state.HotpluggedMemory
 
-	// Don't exceed the maximum amount of memory
-	if currentMemory+memDev.sizeMB > int(maxMem) {
-		return fmt.Errorf("Unable to hotplug %d MiB memory, the SB has %d MiB and the maximum amount is %d MiB",
-			memDev.sizeMB, currentMemory, q.config.MemorySize)
-	}
-
 	memoryDevices, err := q.qmpMonitorCh.qmp.ExecQueryMemoryDevices(q.qmpMonitorCh.ctx)
 	if err != nil {
 		return fmt.Errorf("failed to query memory devices: %v", err)
 	}
 
-	if len(memoryDevices) != 0 {
-		memDev.slot = memoryDevices[len(memoryDevices)-1].Data.Slot + 1
-	}
+	switch op {
+	case addDevice:
+		// Don't exceed the maximum amount of memory
+		if currentMemory+memDev.sizeMB > int(maxMem) {
+			q.Logger().Warnf("hotplug %d MiB memory, the SB has %d MiB and the maximum amount on host is %s MiB",
+				memDev.sizeMB, currentMemory, int(maxMem))
+		}
+		vmMaxMemory, _ := units.RAMInBytes(q.qemuConfig.Memory.MaxMem)
+		vmMaxMemoryMiB := vmMaxMemory >> 20
+		if currentMemory+memDev.sizeMB > int(vmMaxMemoryMiB) {
+			return fmt.Errorf("Unable to hotplug %d MiB memory, the SB has %d MiB and the maximum vm memory is %d MiB",
+				memDev.sizeMB, currentMemory, int(vmMaxMemoryMiB))
+		}
+		if len(memoryDevices) != 0 {
+			memDev.slot = memoryDevices[len(memoryDevices)-1].Data.Slot + 1
+		}
 
-	return q.hotplugAddMemory(memDev)
+		return q.hotplugAddMemory(memDev)
+	case removeDevice:
+		return q.hotplugDelMemory(memDev, memoryDevices)
+	default:
+		return fmt.Errorf("invalid operation type %d", op)
+	}
 }
 
 func (q *qemu) hotplugAddMemory(memDev *memoryDevice) error {
@@ -1097,6 +1107,26 @@ func (q *qemu) hotplugAddMemory(memDev *memoryDevice) error {
 
 	q.state.HotpluggedMemory += memDev.sizeMB
 	return q.storage.storeHypervisorState(q.id, q.state)
+}
+
+func (q *qemu) hotplugDelMemory(memDev *memoryDevice, memoryDevices []govmmQemu.MemoryDevices) error {
+	for _, memDevice := range memoryDevices {
+		if memDevice.Data.Slot == memDev.slot {
+			devID := memDevice.Data.ID
+			objID := path.Base(memDevice.Data.Memdev)
+			err := q.qmpMonitorCh.qmp.ExecHotUnplugMemory(q.qmpMonitorCh.ctx, devID, objID)
+
+			if err != nil {
+				q.Logger().WithError(err).Error("hotunplug memory")
+				return err
+			}
+
+			q.state.HotpluggedMemory -= memDev.sizeMB
+			return q.storage.storeHypervisorState(q.id, q.state)
+		}
+	}
+
+	return fmt.Errorf("no memory device on slot %d", memDev.slot)
 }
 
 func (q *qemu) pauseSandbox() error {
@@ -1139,6 +1169,18 @@ func (q *qemu) addDevice(devInfo interface{}, devType deviceType) error {
 	}
 
 	return nil
+}
+
+func (q *qemu) listDevices(devType deviceType) (interface{}, error) {
+	span, _ := q.trace("addDevice")
+	defer span.Finish()
+
+	switch devType {
+	case memoryDev:
+		return q.listMemoryDevices()
+	default:
+		return nil, fmt.Errorf("cannot list device: unsupported device type '%v'", devType)
+	}
 }
 
 // getSandboxConsole builds the path of the console where we can read
@@ -1266,4 +1308,13 @@ func genericMemoryTopology(memoryMb, hostMemoryMb uint64, slots uint8) govmmQemu
 	}
 
 	return memory
+}
+
+func (q *qemu) listMemoryDevices() ([]govmmQemu.MemoryDevices, error) {
+	err := q.qmpSetup()
+	if err != nil {
+		return nil, err
+	}
+
+	return q.qmpMonitorCh.qmp.ExecQueryMemoryDevices(q.qmpMonitorCh.ctx)
 }

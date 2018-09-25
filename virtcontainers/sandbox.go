@@ -21,6 +21,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 
+	govmmQemu "github.com/intel/govmm/qemu"
 	"github.com/kata-containers/agent/protocols/grpc"
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
@@ -1763,4 +1764,84 @@ func (s *Sandbox) AddDevice(info config.DeviceInfo) (api.Device, error) {
 	}
 
 	return b, nil
+}
+
+// MemoryInfo stores the information of memory will be showed in CLI
+type MemoryInfo struct {
+	ID           string `json:"id"`
+	Type         string `json:"type"`
+	Slot         int    `json:"slot"`
+	Size         uint64 `json:"size"`
+	Hotpluggable bool   `json:"hotpluggable"`
+	Hotplugged   bool   `json:"hotplugged"`
+}
+
+// VmMemoryInfo stores VM information and memorys of sandbox
+type VmMemoryInfo struct {
+	Name string       `json:"name"`
+	UUID string       `json:"uuid"`
+	Mem  []MemoryInfo `json:"memory"`
+}
+
+func (s *Sandbox) listMemory() (*VmMemoryInfo, error) {
+	data, err := s.hypervisor.listDevices(memoryDev)
+
+	if err != nil {
+		return nil, fmt.Errorf("list memory failed")
+	}
+
+	memoryDevices := data.([]govmmQemu.MemoryDevices)
+	config := s.hypervisor.hypervisorConfig()
+
+	info := VmMemoryInfo{
+		Name: config.Name,
+		UUID: config.UUID,
+	}
+	for _, memory := range memoryDevices {
+		info.Mem = append(info.Mem, MemoryInfo{
+			ID:           memory.Data.ID,
+			Type:         memory.Type,
+			Slot:         memory.Data.Slot,
+			Size:         memory.Data.Size,
+			Hotpluggable: memory.Data.Hotpluggable,
+			Hotplugged:   memory.Data.Hotplugged,
+		})
+	}
+
+	return &info, nil
+}
+
+func (s *Sandbox) hotplugMemory(sizeMiB int) error {
+	mem := &memoryDevice{
+		sizeMB: sizeMiB,
+	}
+	_, err := s.hypervisor.hotplugAddDevice(mem, memoryDev)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Sandbox) hotUnplugMemory(memID string) error {
+	data, err := s.hypervisor.listDevices(memoryDev)
+	if err != nil {
+		return fmt.Errorf("list memory failed")
+	}
+
+	memoryDevices := data.([]govmmQemu.MemoryDevices)
+	for _, memory := range memoryDevices {
+
+		if memory.Data.ID == memID {
+			mem := memoryDevice{
+				slot:   memory.Data.Slot,
+				sizeMB: int(memory.Data.Size >> 20),
+			}
+
+			_, err = s.hypervisor.hotplugRemoveDevice(&mem, memoryDev)
+			return err
+		}
+	}
+
+	return fmt.Errorf("no such memory device %s", memID)
 }

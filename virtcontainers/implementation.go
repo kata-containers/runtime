@@ -175,3 +175,18 @@ func (impl *VCImpl) UpdateRoutes(ctx context.Context, sandboxID string, routes [
 func (impl *VCImpl) ListRoutes(ctx context.Context, sandboxID string) ([]*grpc.Route, error) {
 	return ListRoutes(ctx, sandboxID)
 }
+
+// ListMemory implements the VC function of the same name.
+func (impl *VCImpl) ListMemory(ctx context.Context, sandboxID string) (*VmMemoryInfo, error) {
+	return ListMemory(ctx, sandboxID)
+}
+
+// HotplugMemory implements the VC function of the same name.
+func (impl *VCImpl) HotplugMemory(ctx context.Context, sandboxID string, sizeMiB int) error {
+	return HotplugMemory(ctx, sandboxID, sizeMiB)
+}
+
+// HotUnplugMemory implements the VC function of the same name.
+func (impl *VCImpl) HotUnplugMemory(ctx context.Context, sandboxID string, memID string) error {
+	return HotUnplugMemory(ctx, sandboxID, memID)
+}

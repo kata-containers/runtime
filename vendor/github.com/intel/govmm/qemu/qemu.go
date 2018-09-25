@@ -1375,6 +1375,8 @@ func (config *Config) appendName() {
 	if config.Name != "" {
 		config.qemuParams = append(config.qemuParams, "-name")
 		config.qemuParams = append(config.qemuParams, config.Name)
+		config.qemuParams = append(config.qemuParams, "-D")
+		config.qemuParams = append(config.qemuParams, "/var/log/qemu.log")
 	}
 }
 

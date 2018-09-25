@@ -74,4 +74,8 @@ type VCMock struct {
 	ListInterfacesFunc  func(ctx context.Context, sandboxID string) ([]*grpc.Interface, error)
 	UpdateRoutesFunc    func(ctx context.Context, sandboxID string, routes []*grpc.Route) ([]*grpc.Route, error)
 	ListRoutesFunc      func(ctx context.Context, sandboxID string) ([]*grpc.Route, error)
+
+	ListMemoryFunc      func(ctx context.Context, sandboxID string) (*vc.VmMemoryInfo, error)
+	HotplugMemoryFunc   func(ctx context.Context, sandboxID string, sizeMiB int) error
+	HotUnplugMemoryFunc func(ctx context.Context, sandboxID string, memID string) error
 }

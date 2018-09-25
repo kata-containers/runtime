@@ -250,6 +250,9 @@ type HypervisorConfig struct {
 
 	// DisableVhostNet is used to indicate if host supports vhost_net
 	DisableVhostNet bool
+
+	Name string
+	UUID string
 }
 
 func (conf *HypervisorConfig) checkTemplateConfig() error {
@@ -565,6 +568,7 @@ type hypervisor interface {
 	saveSandbox() error
 	resumeSandbox() error
 	addDevice(devInfo interface{}, devType deviceType) error
+	listDevices(devType deviceType) (interface{}, error)
 	hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error)
 	hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error)
 	getSandboxConsole(sandboxID string) (string, error)

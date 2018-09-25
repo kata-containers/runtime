@@ -1068,6 +1068,32 @@ func (q *QMP) ExecHotplugMemory(ctx context.Context, qomtype, id, mempath string
 	return err
 }
 
+func (q *QMP) ExecHotUnplugMemory(ctx context.Context, devID, objID string) error {
+	args := map[string]interface{}{
+		"id": devID,
+	}
+	filter := &qmpEventFilter{
+		eventName: "DEVICE_DELETED",
+		dataKey:   "device",
+		dataValue: devID,
+	}
+	err := q.executeCommand(ctx, "device_del", args, filter)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(time.Second * 0)
+	args = map[string]interface{}{
+		"id": objID,
+	}
+	err = q.executeCommand(ctx, "object-del", args, nil)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
 // ExecutePCIVSockAdd adds a vhost-vsock-pci bus
 func (q *QMP) ExecutePCIVSockAdd(ctx context.Context, id, guestCID, vhostfd, addr, bus string, disableModern bool) error {
 	args := map[string]interface{}{

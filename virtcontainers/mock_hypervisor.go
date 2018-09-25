@@ -60,6 +60,10 @@ func (m *mockHypervisor) addDevice(devInfo interface{}, devType deviceType) erro
 	return nil
 }
 
+func (m *mockHypervisor) listDevices(devType deviceType) (interface{}, error) {
+	return nil, nil
+}
+
 func (m *mockHypervisor) hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
 	switch devType {
 	case cpuDev:

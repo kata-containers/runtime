@@ -948,3 +948,75 @@ func ListRoutes(ctx context.Context, sandboxID string) ([]*grpc.Route, error) {
 
 	return s.ListRoutes()
 }
+
+// ListMemory is the virtcontainers list memory entry point.
+func ListMemory(ctx context.Context, sandboxID string) (*VmMemoryInfo, error) {
+	span, ctx := trace(ctx, "ListMemory")
+	defer span.Finish()
+
+	if sandboxID == "" {
+		return nil, errNeedSandboxID
+	}
+
+	lockFile, err := rLockSandbox(sandboxID)
+	if err != nil {
+		return nil, err
+	}
+	defer unlockSandbox(lockFile)
+
+	s, err := fetchSandbox(ctx, sandboxID)
+	if err != nil {
+		return nil, err
+	}
+	defer s.releaseStatelessSandbox()
+
+	return s.listMemory()
+}
+
+// HotplugMemory is the virtcontainers hotplug memory entry point.
+func HotplugMemory(ctx context.Context, sandboxID string, sizeMiB int) error {
+	span, ctx := trace(ctx, "HotplugMemory")
+	defer span.Finish()
+
+	if sandboxID == "" {
+		return errNeedSandboxID
+	}
+
+	lockFile, err := rLockSandbox(sandboxID)
+	if err != nil {
+		return err
+	}
+	defer unlockSandbox(lockFile)
+
+	s, err := fetchSandbox(ctx, sandboxID)
+	if err != nil {
+		return err
+	}
+	defer s.releaseStatelessSandbox()
+
+	return s.hotplugMemory(sizeMiB)
+}
+
+// HotUnplugMemory is the virtcontainers hot unplug memory entry point.
+func HotUnplugMemory(ctx context.Context, sandboxID string, memID string) error {
+	span, ctx := trace(ctx, "HotUnplugMemory")
+	defer span.Finish()
+
+	if sandboxID == "" {
+		return errNeedSandboxID
+	}
+
+	lockFile, err := rLockSandbox(sandboxID)
+	if err != nil {
+		return err
+	}
+	defer unlockSandbox(lockFile)
+
+	s, err := fetchSandbox(ctx, sandboxID)
+	if err != nil {
+		return err
+	}
+	defer s.releaseStatelessSandbox()
+
+	return s.hotUnplugMemory(memID)
+}

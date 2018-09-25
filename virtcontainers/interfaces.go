@@ -53,6 +53,10 @@ type VC interface {
 	ListInterfaces(ctx context.Context, sandboxID string) ([]*grpc.Interface, error)
 	UpdateRoutes(ctx context.Context, sandboxID string, routes []*grpc.Route) ([]*grpc.Route, error)
 	ListRoutes(ctx context.Context, sandboxID string) ([]*grpc.Route, error)
+
+	ListMemory(ctx context.Context, sandboxID string) (*VmMemoryInfo, error)
+	HotplugMemory(ctx context.Context, sandboxID string, sizeMiB int) error
+	HotUnplugMemory(ctx context.Context, sandboxID string, memID string) error
 }
 
 // VCSandbox is the Sandbox interface

@@ -297,3 +297,30 @@ func (m *VCMock) ListRoutes(ctx context.Context, sandboxID string) ([]*grpc.Rout
 
 	return nil, fmt.Errorf("%s: %s (%+v): sandboxID: %v", mockErrorPrefix, getSelf(), m, sandboxID)
 }
+
+// ListMemory implements the VC function of the same name.
+func (m *VCMock) ListMemory(ctx context.Context, sandboxID string) (*vc.VmMemoryInfo, error) {
+	if m.ListMemoryFunc != nil {
+		return m.ListMemoryFunc(ctx, sandboxID)
+	}
+
+	return nil, fmt.Errorf("%s: %s", mockErrorPrefix, getSelf())
+}
+
+// HotplugMemory implements the VC function of the same name.
+func (m *VCMock) HotplugMemory(ctx context.Context, sandboxID string, sizeMiB int) error {
+	if m.HotplugMemoryFunc != nil {
+		return m.HotplugMemoryFunc(ctx, sandboxID, sizeMiB)
+	}
+
+	return fmt.Errorf("%s: %s", mockErrorPrefix, getSelf())
+}
+
+// HotUnplugMemory implements the VC function of the same name.
+func (m *VCMock) HotUnplugMemory(ctx context.Context, sandboxID string, memID string) error {
+	if m.HotUnplugMemoryFunc != nil {
+		return m.HotUnplugMemoryFunc(ctx, sandboxID, memID)
+	}
+
+	return fmt.Errorf("%s: %s", mockErrorPrefix, getSelf())
+}
