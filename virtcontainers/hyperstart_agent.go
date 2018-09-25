@@ -897,10 +897,6 @@ func (h *hyper) resumeContainer(sandbox *Sandbox, c Container) error {
 	return nil
 }
 
-func (h *hyper) cleanupSandbox(sandbox *Sandbox) error {
-	return nil
-}
-
 func (h *hyper) reseedRNG(data []byte) error {
 	// hyperstart-agent does not support reseeding
 	return nil
