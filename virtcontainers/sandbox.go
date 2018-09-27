@@ -1820,6 +1820,11 @@ func (s *Sandbox) hotplugMemory(sizeMiB int) error {
 		return err
 	}
 
+	err = s.agent.onlineCPUMem(0, false, true)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

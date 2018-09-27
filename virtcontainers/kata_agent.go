@@ -1247,11 +1247,12 @@ func (k *kataAgent) resumeContainer(sandbox *Sandbox, c Container) error {
 	return err
 }
 
-func (k *kataAgent) onlineCPUMem(cpus uint32, cpuOnly bool) error {
+func (k *kataAgent) onlineCPUMem(cpus uint32, cpuOnly, movable bool) error {
 	req := &grpc.OnlineCPUMemRequest{
 		Wait:    false,
 		NbCpus:  cpus,
 		CpuOnly: cpuOnly,
+		Movable: movable,
 	}
 
 	_, err := k.sendReq(req)

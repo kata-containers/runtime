@@ -205,7 +205,7 @@ type agent interface {
 	// This function should be called after hot adding vCPUs or Memory.
 	// cpus specifies the number of CPUs that were added and the agent should online
 	// cpuOnly specifies that we should online cpu or online memory or both
-	onlineCPUMem(cpus uint32, cpuOnly bool) error
+	onlineCPUMem(cpus uint32, cpuOnly, movable bool) error
 
 	// statsContainer will tell the agent to get stats from a container related to a Sandbox
 	statsContainer(sandbox *Sandbox, c Container) (*ContainerStats, error)

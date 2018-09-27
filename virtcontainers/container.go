@@ -1210,7 +1210,7 @@ func (c *Container) addResources() error {
 			}
 		}
 
-		return c.sandbox.agent.onlineCPUMem(vcpusAdded, true)
+		return c.sandbox.agent.onlineCPUMem(vcpusAdded, true, false)
 	}
 
 	return nil
@@ -1270,7 +1270,7 @@ func (c *Container) updateVCPUResources(oldResources, newResources ContainerReso
 		}
 		// recalculate the actual number of vCPUs if a different number of vCPUs was added
 		newResources.VCPUs = oldVCPUs + vcpusAdded
-		if err := c.sandbox.agent.onlineCPUMem(vcpusAdded, true); err != nil {
+		if err := c.sandbox.agent.onlineCPUMem(vcpusAdded, true, false); err != nil {
 			return err
 		}
 	} else {
@@ -1330,7 +1330,7 @@ func (c *Container) updateMemoryResources(oldResources, newResources ContainerRe
 			return err
 		}
 		newResources.MemMB = newMemMB
-		if err := c.sandbox.agent.onlineCPUMem(0, false); err != nil {
+		if err := c.sandbox.agent.onlineCPUMem(0, false, false); err != nil {
 			return err
 		}
 	}

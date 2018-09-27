@@ -89,7 +89,7 @@ func (n *noopAgent) updateContainer(sandbox *Sandbox, c Container, resources spe
 }
 
 // onlineCPUMem is the Noop agent Container online CPU and Memory implementation. It does nothing.
-func (n *noopAgent) onlineCPUMem(cpus uint32, cpuOnly bool) error {
+func (n *noopAgent) onlineCPUMem(cpus uint32, cpuOnly, movable bool) error {
 	return nil
 }
 
