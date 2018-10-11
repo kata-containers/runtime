@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -1399,6 +1400,12 @@ func createEndpointsFromScan(networkNSPath string, config NetworkConfig) ([]Endp
 
 		idx++
 	}
+
+	sort.Slice(endpoints, func(i, j int) bool {
+		return endpoints[i].Name() < endpoints[j].Name()
+	})
+
+	networkLogger().WithField("endpoints", endpoints).Info("Endpoints found after scan")
 
 	return endpoints, nil
 }
