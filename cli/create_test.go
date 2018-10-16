@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -563,6 +564,13 @@ func TestCreateProcessCgroupsPathSuccessful(t *testing.T) {
 	// Rewrite the file
 	err = writeOCIConfigFile(spec, ociConfigFile)
 	assert.NoError(err)
+
+	err = create(testContainerID, "", testConsole, pidFilePath, false, runtimeConfig)
+	assert.Error(err, "bundle path not set")
+
+	re := regexp.MustCompile("config.json.*no such file or directory")
+	matches := re.FindAllStringSubmatch(err.Error(), -1)
+	assert.NotEmpty(matches)
 
 	for _, detach := range []bool{true, false} {
 		err := create(testContainerID, bundlePath, testConsole, pidFilePath, detach, runtimeConfig)
