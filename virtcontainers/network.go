@@ -51,6 +51,9 @@ const (
 	// This will be used for vethtap, macvtap, ipvtap
 	NetXConnectEnlightenedModel
 
+	// NetXConnectNoneModel can be used when the VM is in the host network namespace
+	NetXConnectNoneModel
+
 	// NetXConnectInvalidModel is the last item to check valid values by IsValid()
 	NetXConnectInvalidModel
 )
@@ -74,6 +77,9 @@ func (n *NetInterworkingModel) SetModel(modelName string) error {
 		return nil
 	case "enlightened":
 		*n = NetXConnectEnlightenedModel
+		return nil
+	case "none":
+		*n = NetXConnectNoneModel
 		return nil
 	}
 	return fmt.Errorf("Unknown type %s", modelName)
@@ -832,6 +838,12 @@ func doNetNS(netNSPath string, cb func(ns.NetNS) error) error {
 	}
 	defer currentNS.Close()
 
+	// if netNSPath is empty, the callback function will be run in the current network namespace.
+	// So skip useless GetNS and Set, just call cb().
+	if netNSPath == "" {
+		return cb(currentNS)
+	}
+
 	targetNS, err := ns.GetNS(netNSPath)
 	if err != nil {
 		return err
@@ -1111,11 +1123,14 @@ func createEndpoint(netInfo NetworkInfo, idx int, model NetInterworkingModel) (E
 			networkLogger().WithField("interface", netInfo.Iface.Name).Info("VhostUser network interface found")
 			endpoint, err = createVhostUserEndpoint(netInfo, socketPath)
 		} else if netInfo.Iface.Type == "macvlan" {
-			networkLogger().Infof("macvlan interface found")
+			networkLogger().Info("macvlan interface found")
 			endpoint, err = createBridgedMacvlanNetworkEndpoint(idx, netInfo.Iface.Name, model)
 		} else if netInfo.Iface.Type == "macvtap" {
-			networkLogger().Infof("macvtap interface found")
+			networkLogger().Info("macvtap interface found")
 			endpoint, err = createMacvtapNetworkEndpoint(netInfo)
+		} else if netInfo.Iface.Type == "tap" {
+			networkLogger().Info("tap interface found")
+			endpoint, err = createTapNetworkEndpoint(idx, netInfo.Iface.Name)
 		} else if netInfo.Iface.Type == "veth" {
 			endpoint, err = createVethNetworkEndpoint(idx, netInfo.Iface.Name, model)
 		} else {

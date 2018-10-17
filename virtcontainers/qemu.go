@@ -898,6 +898,13 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) error {
 			if err != nil {
 				return err
 			}
+		case TapEndpointType:
+			drive := endpoint.(*TapEndpoint)
+			pciAddr, err := q.hotAddNetDevice(drive.Name(), drive.ID, drive.HardwareAddr(), drive.VMFds, drive.VhostFds)
+			drive.PCIAddr = pciAddr
+			if err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("this endpoint is not supported")
 		}
@@ -906,6 +913,11 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) error {
 		case VethEndpointType:
 			drive := endpoint.(*VethEndpoint)
 			if err = q.hotRemoveNetDevice(drive.Name(), drive.NetPair.ID); err != nil {
+				return err
+			}
+		case TapEndpointType:
+			drive := endpoint.(*TapEndpoint)
+			if err = q.hotRemoveNetDevice(drive.Name(), drive.ID); err != nil {
 				return err
 			}
 		default:
