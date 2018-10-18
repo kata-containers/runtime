@@ -122,6 +122,13 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("ERROR: failed to create OCI bundle: %v", err))
 	}
+
+	newPersistentNamespacesFunc = func(sandboxNsPath string) int { return 1 }
+	joinNamespacesFunc = func(containerNsPath string) int { return 1 }
+	removePersistentNamespacesFunc = func(sandboxNsPath string) int { return 0 }
+	getFsInfoFunc = func(filesystem string) (fsInfo, error) { return fsInfo{"", "", "", 0, ""}, nil }
+	mountRootfsFunc = func(rootfs string) (string, error) { return "", nil }
+	unmountRootfsFunc = func(status vc.ContainerStatus, ociSpec oci.CompatOCISpec, joinedNs bool) error { return nil }
 }
 
 // resetCLIGlobals undoes the effects of setCLIGlobals(), restoring the original values
