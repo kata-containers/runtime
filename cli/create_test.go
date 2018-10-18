@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
@@ -28,6 +27,7 @@ import (
 const (
 	testPID                     = 100
 	testConsole                 = "/dev/pts/999"
+	testConsoleSocket           = "/tmp/console.sock"
 	testContainerTypeAnnotation = "io.kubernetes.cri-o.ContainerType"
 	testSandboxIDAnnotation     = "io.kubernetes.cri-o.SandboxID"
 	testContainerTypeSandbox    = "sandbox"
@@ -253,6 +253,7 @@ func TestCreateInvalidArgs(t *testing.T) {
 		containerID   string
 		bundlePath    string
 		console       string
+		consoleSocket string
 		pidFilePath   string
 		detach        bool
 		systemdCgroup bool
@@ -260,15 +261,15 @@ func TestCreateInvalidArgs(t *testing.T) {
 	}
 
 	data := []testData{
-		{"", "", "", "", false, false, oci.RuntimeConfig{}},
-		{"", "", "", "", true, true, oci.RuntimeConfig{}},
-		{"foo", "", "", "", true, false, oci.RuntimeConfig{}},
-		{testContainerID, bundlePath, testConsole, pidFilePath, false, false, runtimeConfig},
-		{testContainerID, bundlePath, testConsole, pidFilePath, true, true, runtimeConfig},
+		{"", "", "", "", "", false, false, oci.RuntimeConfig{}},
+		{"", "", "", "", "", true, true, oci.RuntimeConfig{}},
+		{"foo", "", "", "", "", true, false, oci.RuntimeConfig{}},
+		{testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, false, false, runtimeConfig},
+		{testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, true, true, runtimeConfig},
 	}
 
 	for i, d := range data {
-		err := create(context.Background(), d.containerID, d.bundlePath, d.console, d.pidFilePath, d.detach, d.systemdCgroup, d.runtimeConfig)
+		err := create(context.Background(), d.containerID, d.bundlePath, d.console, d.consoleSocket, d.pidFilePath, d.detach, d.systemdCgroup, d.runtimeConfig)
 		assert.Errorf(err, "test %d (%+v)", i, d)
 	}
 }
@@ -307,7 +308,7 @@ func TestCreateInvalidConfigJSON(t *testing.T) {
 	f.Close()
 
 	for detach := range []bool{true, false} {
-		err := create(context.Background(), testContainerID, bundlePath, testConsole, pidFilePath, true, true, runtimeConfig)
+		err := create(context.Background(), testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, true, true, runtimeConfig)
 		assert.Errorf(err, "%+v", detach)
 		assert.False(vcmock.IsMockError(err))
 		os.RemoveAll(path)
@@ -351,7 +352,7 @@ func TestCreateInvalidContainerType(t *testing.T) {
 	assert.NoError(err)
 
 	for detach := range []bool{true, false} {
-		err := create(context.Background(), testContainerID, bundlePath, testConsole, pidFilePath, true, true, runtimeConfig)
+		err := create(context.Background(), testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, true, true, runtimeConfig)
 		assert.Errorf(err, "%+v", detach)
 		assert.False(vcmock.IsMockError(err))
 		os.RemoveAll(path)
@@ -396,7 +397,7 @@ func TestCreateContainerInvalid(t *testing.T) {
 	assert.NoError(err)
 
 	for detach := range []bool{true, false} {
-		err := create(context.Background(), testContainerID, bundlePath, testConsole, pidFilePath, true, true, runtimeConfig)
+		err := create(context.Background(), testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, true, true, runtimeConfig)
 		assert.Errorf(err, "%+v", detach)
 		assert.False(vcmock.IsMockError(err))
 		os.RemoveAll(path)
@@ -490,7 +491,7 @@ func TestCreateProcessCgroupsPathSuccessful(t *testing.T) {
 	err = writeOCIConfigFile(spec, ociConfigFile)
 	assert.NoError(err)
 
-	err = create(context.Background(), testContainerID, "", testConsole, pidFilePath, false, true, runtimeConfig)
+	err = create(context.Background(), testContainerID, "", testConsole, testConsoleSocket, pidFilePath, false, true, runtimeConfig)
 	assert.Error(err, "bundle path not set")
 
 	re := regexp.MustCompile("config.json.*no such file or directory")
@@ -498,7 +499,7 @@ func TestCreateProcessCgroupsPathSuccessful(t *testing.T) {
 	assert.NotEmpty(matches)
 
 	for _, detach := range []bool{true, false} {
-		err := create(context.Background(), testContainerID, bundlePath, testConsole, pidFilePath, detach, true, runtimeConfig)
+		err := create(context.Background(), testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, detach, true, runtimeConfig)
 		assert.NoError(err, "detached: %+v", detach)
 		os.RemoveAll(path)
 	}
@@ -582,7 +583,7 @@ func TestCreateCreateCgroupsFilesFail(t *testing.T) {
 	assert.NoError(err)
 
 	for detach := range []bool{true, false} {
-		err := create(context.Background(), testContainerID, bundlePath, testConsole, pidFilePath, true, true, runtimeConfig)
+		err := create(context.Background(), testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, true, true, runtimeConfig)
 		assert.Errorf(err, "%+v", detach)
 		assert.False(vcmock.IsMockError(err))
 		os.RemoveAll(path)
@@ -658,7 +659,7 @@ func TestCreateCreateCreatePidFileFail(t *testing.T) {
 	assert.NoError(err)
 
 	for detach := range []bool{true, false} {
-		err := create(context.Background(), testContainerID, bundlePath, testConsole, pidFilePath, true, true, runtimeConfig)
+		err := create(context.Background(), testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, true, true, runtimeConfig)
 		assert.Errorf(err, "%+v", detach)
 		assert.False(vcmock.IsMockError(err))
 		os.RemoveAll(path)
@@ -728,7 +729,7 @@ func TestCreate(t *testing.T) {
 	assert.NoError(err)
 
 	for detach := range []bool{true, false} {
-		err := create(context.Background(), testContainerID, bundlePath, testConsole, pidFilePath, true, true, runtimeConfig)
+		err := create(context.Background(), testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, true, true, runtimeConfig)
 		assert.NoError(err, "%+v", detach)
 		os.RemoveAll(path)
 	}
@@ -785,7 +786,7 @@ func TestCreateInvalidKernelParams(t *testing.T) {
 	}
 
 	for detach := range []bool{true, false} {
-		err := create(context.Background(), testContainerID, bundlePath, testConsole, pidFilePath, true, true, runtimeConfig)
+		err := create(context.Background(), testContainerID, bundlePath, testConsole, testConsoleSocket, pidFilePath, true, true, runtimeConfig)
 		assert.Errorf(err, "%+v", detach)
 		assert.False(vcmock.IsMockError(err))
 		os.RemoveAll(path)
@@ -830,7 +831,7 @@ func TestCreateSandboxConfigFail(t *testing.T) {
 		Quota: &quota,
 	}
 
-	_, err = createSandbox(context.Background(), spec, runtimeConfig, testContainerID, bundlePath, testConsole, true, true)
+	_, err = createSandbox(context.Background(), spec, runtimeConfig, testContainerID, bundlePath, testConsole, testConsoleSocket, true, true)
 	assert.Error(err)
 }
 
@@ -864,7 +865,7 @@ func TestCreateCreateSandboxFail(t *testing.T) {
 	spec, err := readOCIConfigFile(ociConfigFile)
 	assert.NoError(err)
 
-	_, err = createSandbox(context.Background(), spec, runtimeConfig, testContainerID, bundlePath, testConsole, true, true)
+	_, err = createSandbox(context.Background(), spec, runtimeConfig, testContainerID, bundlePath, testConsole, testConsoleSocket, true, true)
 	assert.Error(err)
 	assert.True(vcmock.IsMockError(err))
 }
@@ -902,10 +903,9 @@ func TestCreateCreateContainerContainerConfigFail(t *testing.T) {
 	assert.NoError(err)
 
 	for _, disableOutput := range []bool{true, false} {
-		_, err = createContainer(context.Background(), spec, testContainerID, bundlePath, testConsole, disableOutput)
+		_, err = createContainer(context.Background(), spec, testContainerID, bundlePath, testConsole, testConsoleSocket, disableOutput)
 		assert.Error(err)
 		assert.False(vcmock.IsMockError(err))
-		assert.True(strings.Contains(err.Error(), containerType))
 		os.RemoveAll(path)
 	}
 }
@@ -942,11 +942,20 @@ func TestCreateCreateContainerFail(t *testing.T) {
 	err = writeOCIConfigFile(spec, ociConfigFile)
 	assert.NoError(err)
 
+	orgNamespacesPath := namespacesPath
+	namespacesPath, err = ioutil.TempDir("", "ns")
+	assert.NoError(err)
+	defer func() {
+		os.RemoveAll(namespacesPath)
+		namespacesPath = orgNamespacesPath
+	}()
+
 	for _, disableOutput := range []bool{true, false} {
-		_, err = createContainer(context.Background(), spec, testContainerID, bundlePath, testConsole, disableOutput)
+		_, err = createContainer(context.Background(), spec, testContainerID, bundlePath, testConsole, testConsoleSocket, disableOutput)
 		assert.Error(err)
 		assert.True(vcmock.IsMockError(err))
 		os.RemoveAll(path)
+		os.RemoveAll(filepath.Join(namespacesPath, testContainerID))
 	}
 }
 
@@ -1008,10 +1017,18 @@ func TestCreateCreateContainer(t *testing.T) {
 	err = writeOCIConfigFile(spec, ociConfigFile)
 	assert.NoError(err)
 
+	orgNamespacesPath := namespacesPath
+	namespacesPath, err = ioutil.TempDir("", "ns")
+	assert.NoError(err)
+	defer func() {
+		os.RemoveAll(namespacesPath)
+		namespacesPath = orgNamespacesPath
+	}()
 	for _, disableOutput := range []bool{true, false} {
-		_, err = createContainer(context.Background(), spec, testContainerID, bundlePath, testConsole, disableOutput)
+		_, err = createContainer(context.Background(), spec, testContainerID, bundlePath, testConsole, testConsoleSocket, disableOutput)
 		assert.NoError(err)
 		os.RemoveAll(path)
+		os.RemoveAll(filepath.Join(namespacesPath, testContainerID))
 	}
 }
 

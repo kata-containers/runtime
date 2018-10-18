@@ -71,14 +71,10 @@ var createCLICommand = cli.Command{
 			return errors.New("invalid runtime config")
 		}
 
-		console, err := setupConsole(context.String("console"), context.String("console-socket"))
-		if err != nil {
-			return err
-		}
-
 		return create(ctx, context.Args().First(),
 			context.String("bundle"),
-			console,
+			context.String("console"),
+			context.String("console-socket"),
 			context.String("pid-file"),
 			true,
 			context.Bool("systemd-cgroup"),
@@ -120,7 +116,7 @@ func handleFactory(ctx context.Context, runtimeConfig oci.RuntimeConfig) {
 	vci.SetFactory(ctx, f)
 }
 
-func create(ctx context.Context, containerID, bundlePath, console, pidFilePath string, detach, systemdCgroup bool,
+func create(ctx context.Context, containerID, bundlePath, console, consoleSocket, pidFilePath string, detach, systemdCgroup bool,
 	runtimeConfig oci.RuntimeConfig) error {
 	var err error
 
@@ -164,12 +160,12 @@ func create(ctx context.Context, containerID, bundlePath, console, pidFilePath s
 	var process vc.Process
 	switch containerType {
 	case vc.PodSandbox:
-		process, err = createSandbox(ctx, ociSpec, runtimeConfig, containerID, bundlePath, console, disableOutput, systemdCgroup)
+		process, err = createSandbox(ctx, ociSpec, runtimeConfig, containerID, bundlePath, console, consoleSocket, disableOutput, systemdCgroup)
 		if err != nil {
 			return err
 		}
 	case vc.PodContainer:
-		process, err = createContainer(ctx, ociSpec, containerID, bundlePath, console, disableOutput)
+		process, err = createContainer(ctx, ociSpec, containerID, bundlePath, console, consoleSocket, disableOutput)
 		if err != nil {
 			return err
 		}
@@ -250,16 +246,21 @@ func setKernelParams(containerID string, runtimeConfig *oci.RuntimeConfig) error
 }
 
 func createSandbox(ctx context.Context, ociSpec oci.CompatOCISpec, runtimeConfig oci.RuntimeConfig,
-	containerID, bundlePath, console string, disableOutput, systemdCgroup bool) (vc.Process, error) {
+	containerID, bundlePath, console, consoleSocket string, disableOutput, systemdCgroup bool) (vc.Process, error) {
 	span, ctx := trace(ctx, "createSandbox")
 	defer span.Finish()
 
-	err := setKernelParams(containerID, &runtimeConfig)
+	consolePath, err := setupConsole(console, consoleSocket)
 	if err != nil {
 		return vc.Process{}, err
 	}
 
-	sandboxConfig, err := oci.SandboxConfig(ociSpec, runtimeConfig, bundlePath, containerID, console, disableOutput, systemdCgroup)
+	err = setKernelParams(containerID, &runtimeConfig)
+	if err != nil {
+		return vc.Process{}, err
+	}
+
+	sandboxConfig, err := oci.SandboxConfig(ociSpec, runtimeConfig, bundlePath, containerID, consolePath, disableOutput, systemdCgroup)
 	if err != nil {
 		return vc.Process{}, err
 	}
@@ -316,19 +317,24 @@ func setEphemeralStorageType(ociSpec oci.CompatOCISpec) oci.CompatOCISpec {
 }
 
 func createContainer(ctx context.Context, ociSpec oci.CompatOCISpec, containerID, bundlePath,
-	console string, disableOutput bool) (vc.Process, error) {
-
-	span, ctx := trace(ctx, "createContainer")
-	defer span.Finish()
-
-	ociSpec = setEphemeralStorageType(ociSpec)
-
-	contConfig, err := oci.ContainerConfig(ociSpec, bundlePath, containerID, console, disableOutput)
+	console, consoleSocket string, disableOutput bool) (vc.Process, error) {
+	sandboxID, err := ociSpec.SandboxID()
 	if err != nil {
 		return vc.Process{}, err
 	}
 
-	sandboxID, err := ociSpec.SandboxID()
+
+	span, ctx := trace(ctx, "createContainer")
+	defer span.Finish()
+
+	consolePath, err := setupConsole(console, consoleSocket)
+	if err != nil {
+		return vc.Process{}, err
+	}
+
+	ociSpec = setEphemeralStorageType(ociSpec)
+
+	contConfig, err := oci.ContainerConfig(ociSpec, bundlePath, containerID, consolePath, disableOutput)
 	if err != nil {
 		return vc.Process{}, err
 	}

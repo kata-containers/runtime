@@ -85,12 +85,7 @@ func run(ctx context.Context, containerID, bundle, console, consoleSocket, pidFi
 	span, ctx := trace(ctx, "run")
 	defer span.Finish()
 
-	consolePath, err := setupConsole(console, consoleSocket)
-	if err != nil {
-		return err
-	}
-
-	if err := create(ctx, containerID, bundle, consolePath, pidFile, detach, systemdCgroup, runtimeConfig); err != nil {
+	if err := create(ctx, containerID, bundle, console, consoleSocket, pidFile, detach, systemdCgroup, runtimeConfig); err != nil {
 		return err
 	}
 
