@@ -60,6 +60,11 @@ EXAMPLE:
 }
 
 func delete(ctx context.Context, containerID string, force bool) error {
+	joinedNs, err := joinNamespaces(containerID)
+	if err != nil {
+		return err
+	}
+
 	span, ctx := trace(ctx, "delete")
 	defer span.Finish()
 
@@ -111,6 +116,11 @@ func delete(ctx context.Context, containerID string, force bool) error {
 			return err
 		}
 	case vc.PodContainer:
+		// rootfs is mounted to make container rootfs visible inside sandbox namespace
+		if err := unmountRootfsFunc(status, ociSpec, joinedNs); err != nil {
+			return err
+		}
+
 		if err := deleteContainer(ctx, sandboxID, containerID, forceStop); err != nil {
 			return err
 		}
@@ -120,6 +130,10 @@ func delete(ctx context.Context, containerID string, force bool) error {
 
 	// Run post-stop OCI hooks.
 	if err := postStopHooks(ctx, ociSpec, sandboxID, status.Annotations[vcAnnot.BundlePathKey]); err != nil {
+		return err
+	}
+
+	if err := removePersistentNamespaces(sandboxID, containerID); err != nil {
 		return err
 	}
 

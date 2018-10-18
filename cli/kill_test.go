@@ -68,8 +68,14 @@ func testKillCLIFunctionTerminationSignalSuccessful(t *testing.T, sig string) {
 		State: vc.StateRunning,
 	}
 
+	rootPath, configPath := testConfigSetup(t)
+	defer os.RemoveAll(rootPath)
+	configJSON, err := readOCIConfigJSON(configPath)
+	assert.NoError(err)
+
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
+		vcAnnotations.ConfigJSONKey:    configJSON,
 	}
 
 	testingImpl.KillContainerFunc = testKillContainerFuncReturnNil
@@ -96,6 +102,7 @@ func testKillCLIFunctionTerminationSignalSuccessful(t *testing.T, sig string) {
 
 	annotations = map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
+		vcAnnotations.ConfigJSONKey:    configJSON,
 	}
 
 	testingImpl.StatusContainerFunc = func(ctx context.Context, sandboxID, containerID string) (vc.ContainerStatus, error) {
@@ -154,8 +161,14 @@ func TestKillCLIFunctionNoSignalSuccessful(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
+	rootPath, configPath := testConfigSetup(t)
+	defer os.RemoveAll(rootPath)
+	configJSON, err := readOCIConfigJSON(configPath)
+	assert.NoError(err)
+
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
+		vcAnnotations.ConfigJSONKey:    configJSON,
 	}
 
 	testingImpl.KillContainerFunc = testKillContainerFuncReturnNil
@@ -182,6 +195,7 @@ func TestKillCLIFunctionNoSignalSuccessful(t *testing.T) {
 
 	annotations = map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
+		vcAnnotations.ConfigJSONKey:    configJSON,
 	}
 
 	testingImpl.StatusContainerFunc = func(ctx context.Context, sandboxID, containerID string) (vc.ContainerStatus, error) {
@@ -204,8 +218,14 @@ func TestKillCLIFunctionEnableAllSuccessful(t *testing.T) {
 		State: vc.StateRunning,
 	}
 
+	rootPath, configPath := testConfigSetup(t)
+	defer os.RemoveAll(rootPath)
+	configJSON, err := readOCIConfigJSON(configPath)
+	assert.NoError(err)
+
 	annotations := map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodContainer),
+		vcAnnotations.ConfigJSONKey:    configJSON,
 	}
 
 	testingImpl.KillContainerFunc = func(ctx context.Context, sandboxID, containerID string, signal syscall.Signal, all bool) error {
@@ -239,6 +259,7 @@ func TestKillCLIFunctionEnableAllSuccessful(t *testing.T) {
 
 	annotations = map[string]string{
 		vcAnnotations.ContainerTypeKey: string(vc.PodSandbox),
+		vcAnnotations.ConfigJSONKey:    configJSON,
 	}
 
 	testingImpl.StatusContainerFunc = func(ctx context.Context, sandboxID, containerID string) (vc.ContainerStatus, error) {
@@ -327,9 +348,17 @@ func TestKillCLIFunctionStatePausedSuccessful(t *testing.T) {
 	assert.NoError(err)
 	defer os.RemoveAll(path)
 
+	rootPath, configPath := testConfigSetup(t)
+	defer os.RemoveAll(rootPath)
+	configJSON, err := readOCIConfigJSON(configPath)
+	assert.NoError(err)
+
 	testingImpl.StatusContainerFunc = func(ctx context.Context, sandboxID, containerID string) (vc.ContainerStatus, error) {
 		return newSingleContainerStatus(testContainerID, state,
-			map[string]string{string(vcAnnotations.ContainerTypeKey): string(vc.PodContainer)}), nil
+			map[string]string{
+				string(vcAnnotations.ContainerTypeKey): string(vc.PodContainer),
+				vcAnnotations.ConfigJSONKey:            configJSON,
+			}), nil
 	}
 
 	defer func() {

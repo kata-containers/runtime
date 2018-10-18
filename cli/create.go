@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vf "github.com/kata-containers/runtime/virtcontainers/factory"
@@ -85,6 +86,8 @@ var createCLICommand = cli.Command{
 
 // Use a variable to allow tests to modify its value
 var getKernelParamsFunc = getKernelParams
+
+var mountRootfsFunc = mountRootfs
 
 func handleFactory(ctx context.Context, runtimeConfig oci.RuntimeConfig) {
 	if !runtimeConfig.FactoryConfig.Template {
@@ -247,6 +250,10 @@ func setKernelParams(containerID string, runtimeConfig *oci.RuntimeConfig) error
 
 func createSandbox(ctx context.Context, ociSpec oci.CompatOCISpec, runtimeConfig oci.RuntimeConfig,
 	containerID, bundlePath, console, consoleSocket string, disableOutput, systemdCgroup bool) (vc.Process, error) {
+	if err := newPersistentNamespaces(containerID, "", ociSpec.Linux.Namespaces); err != nil {
+		return vc.Process{}, err
+	}
+
 	span, ctx := trace(ctx, "createSandbox")
 	defer span.Finish()
 
@@ -317,27 +324,51 @@ func setEphemeralStorageType(ociSpec oci.CompatOCISpec) oci.CompatOCISpec {
 }
 
 func createContainer(ctx context.Context, ociSpec oci.CompatOCISpec, containerID, bundlePath,
-	console, consoleSocket string, disableOutput bool) (vc.Process, error) {
+	console, consoleSocket string, disableOutput bool) (p vc.Process, err error) {
 	sandboxID, err := ociSpec.SandboxID()
 	if err != nil {
-		return vc.Process{}, err
+		return
 	}
 
+	if err = newPersistentNamespaces(sandboxID, containerID, ociSpec.Linux.Namespaces); err != nil {
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			if e := removePersistentNamespaces(sandboxID, containerID); e != nil {
+				kataLog.WithError(e).Warn("Could not remove persisten namespaces")
+			}
+		}
+	}()
 
 	span, ctx := trace(ctx, "createContainer")
 	defer span.Finish()
 
 	consolePath, err := setupConsole(console, consoleSocket)
 	if err != nil {
-		return vc.Process{}, err
+		return
 	}
 
 	ociSpec = setEphemeralStorageType(ociSpec)
 
 	contConfig, err := oci.ContainerConfig(ociSpec, bundlePath, containerID, consolePath, disableOutput)
 	if err != nil {
-		return vc.Process{}, err
+		return
 	}
+
+	rootfs, err := mountRootfsFunc(contConfig.RootFs)
+	if err != nil {
+		return
+	}
+
+	defer func() {
+		if err != nil && rootfs != "" {
+			if e := syscall.Unmount(rootfs, 0); e != nil {
+				kataLog.WithError(e).WithField("rootfs", rootfs).Warn("Could not unmount rootfs")
+			}
+		}
+	}()
 
 	kataLog = kataLog.WithField("sandbox", sandboxID)
 	setExternalLoggers(ctx, kataLog)
@@ -345,7 +376,7 @@ func createContainer(ctx context.Context, ociSpec oci.CompatOCISpec, containerID
 
 	s, c, err := vci.CreateContainer(ctx, sandboxID, contConfig)
 	if err != nil {
-		return vc.Process{}, err
+		return
 	}
 
 	// Run pre-start OCI hooks.
@@ -353,14 +384,29 @@ func createContainer(ctx context.Context, ociSpec oci.CompatOCISpec, containerID
 		return preStartHooks(ctx, ociSpec, containerID, bundlePath)
 	})
 	if err != nil {
-		return vc.Process{}, err
+		return
 	}
 
-	if err := addContainerIDMapping(ctx, containerID, sandboxID); err != nil {
-		return vc.Process{}, err
+	if err = addContainerIDMapping(ctx, containerID, sandboxID); err != nil {
+		return
 	}
 
 	return c.Process(), nil
+}
+
+func mountRootfs(rootfs string) (string, error) {
+	// Sandbox's mount namespaces was created before this container, hence
+	// the rootfs for this container must be mounted to make it visible
+	info, err := getFsInfo(rootfs)
+	if err != nil {
+		return "", err
+	}
+
+	if err = syscall.Mount(info.device, info.mountPoint, info.fsType, uintptr(info.flags), info.data); err != nil {
+		return "", err
+	}
+
+	return info.mountPoint, nil
 }
 
 func createPIDFile(ctx context.Context, pidFilePath string, pid int) error {

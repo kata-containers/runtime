@@ -48,6 +48,10 @@ var startCLICommand = cli.Command{
 }
 
 func start(ctx context.Context, containerID string) (vc.VCSandbox, error) {
+	if _, err := joinNamespaces(containerID); err != nil {
+		return nil, err
+	}
+
 	span, _ := trace(ctx, "start")
 	defer span.Finish()
 

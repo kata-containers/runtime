@@ -188,10 +188,13 @@ func generateExecParams(context *cli.Context, specProcess *oci.CompatOCIProcess)
 }
 
 func execute(ctx context.Context, context *cli.Context) error {
+	containerID := context.Args().First()
+	if _, err := joinNamespaces(containerID); err != nil {
+		return err
+	}
+
 	span, ctx := trace(ctx, "execute")
 	defer span.Finish()
-
-	containerID := context.Args().First()
 
 	kataLog = kataLog.WithField("container", containerID)
 	setExternalLoggers(ctx, kataLog)

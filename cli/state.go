@@ -40,6 +40,10 @@ instance of a container.`,
 }
 
 func state(ctx context.Context, containerID string) error {
+	if _, err := joinNamespaces(containerID); err != nil {
+		return err
+	}
+
 	span, _ := trace(ctx, "state")
 	defer span.Finish()
 

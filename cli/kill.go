@@ -9,10 +9,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"syscall"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	vcAnnot "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -29,7 +31,7 @@ var killCLICommand = cli.Command{
 EXAMPLE:
    If the container id is "ubuntu01" the following will send a "KILL" signal
    to the init process of the "ubuntu01" container:
-	 
+
        # ` + name + ` kill ubuntu01 KILL`,
 	Flags: []cli.Flag{
 		cli.BoolFlag{
@@ -96,7 +98,14 @@ var signalList = map[string]syscall.Signal{
 	"SIGXFSZ":   syscall.SIGXFSZ,
 }
 
+var unmountRootfsFunc = unmountRootfs
+
 func kill(ctx context.Context, containerID, signal string, all bool) error {
+	joinedNs, err := joinNamespaces(containerID)
+	if err != nil {
+		return err
+	}
+
 	span, _ := trace(ctx, "kill")
 	defer span.Finish()
 
@@ -106,7 +115,6 @@ func kill(ctx context.Context, containerID, signal string, all bool) error {
 
 	// Checks the MUST and MUST NOT from OCI runtime specification
 	status, sandboxID, err := getExistingContainerInfo(ctx, containerID)
-
 	if err != nil {
 		return err
 	}
@@ -141,21 +149,42 @@ func kill(ctx context.Context, containerID, signal string, all bool) error {
 		return nil
 	}
 
+	return stopContainer(ctx, sandboxID, containerID, status, joinedNs)
+}
+
+func stopContainer(ctx context.Context, sandboxID, containerID string, status vc.ContainerStatus, joinedNs bool) error {
 	containerType, err := oci.GetContainerType(status.Annotations)
+	if err != nil {
+		return err
+	}
+
+	ociSpec, err := oci.GetOCIConfig(status)
 	if err != nil {
 		return err
 	}
 
 	switch containerType {
 	case vc.PodSandbox:
-		_, err = vci.StopSandbox(ctx, sandboxID)
+		if _, err = vci.StopSandbox(ctx, sandboxID); err != nil {
+			return err
+		}
+		if err := removePersistentNamespaces(sandboxID, containerID); err != nil {
+			return err
+		}
 	case vc.PodContainer:
-		_, err = vci.StopContainer(ctx, sandboxID, containerID)
+		// rootfs is mounted to make container rootfs visible inside sandbox namespace
+		if err := unmountRootfsFunc(status, ociSpec, joinedNs); err != nil {
+			return err
+		}
+
+		if _, err = vci.StopContainer(ctx, sandboxID, containerID); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("Invalid container type found")
 	}
 
-	return err
+	return nil
 }
 
 func processSignal(signal string) (syscall.Signal, error) {
@@ -186,4 +215,26 @@ func processSignal(signal string) (syscall.Signal, error) {
 	}
 
 	return 0, fmt.Errorf("Signal %s is not supported", signal)
+}
+
+func unmountRootfs(status vc.ContainerStatus, ociSpec oci.CompatOCISpec, joinedNs bool) error {
+	// umount container's rootfs that was mounted in the sandbox namespace
+	if joinedNs {
+		rootfs := ociSpec.Root.Path
+		if !filepath.IsAbs(rootfs) {
+			rootfs = filepath.Join(status.Annotations[vcAnnot.BundlePathKey], ociSpec.Root.Path)
+		}
+
+		info, err := getFsInfo(rootfs)
+		if err != nil {
+			kataLog.WithError(err).WithField("path", rootfs).Warn("Could not get filesystem information")
+			return nil
+		}
+
+		if err := syscall.Unmount(info.mountPoint, 0); err != nil {
+			kataLog.WithError(err).WithField("mount-point", info.mountPoint).Warn("Could not unmount filesystem")
+		}
+	}
+
+	return nil
 }
