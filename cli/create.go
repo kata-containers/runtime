@@ -85,12 +85,53 @@ var createCLICommand = cli.Command{
 // Use a variable to allow tests to modify its value
 var getKernelParamsFunc = getKernelParams
 
+func handleFactory(runtimeConfig oci.RuntimeConfig) {
+	if !runtimeConfig.FactoryConfig.Template {
+		return
+	}
+
+	factoryConfig := vf.Config{
+		Template: true,
+		VMConfig: vc.VMConfig{
+			HypervisorType:   runtimeConfig.HypervisorType,
+			HypervisorConfig: runtimeConfig.HypervisorConfig,
+			AgentType:        runtimeConfig.AgentType,
+			AgentConfig:      runtimeConfig.AgentConfig,
+		},
+	}
+
+	kataLog.WithField("factory", factoryConfig).Info("load vm factory")
+
+	f, err := vf.NewFactory(factoryConfig, true)
+	if err != nil {
+		kataLog.WithError(err).Warn("load vm factory failed, about to create new one")
+		f, err = vf.NewFactory(factoryConfig, false)
+		if err != nil {
+			kataLog.WithError(err).Warn("create vm factory failed")
+			return
+		}
+	}
+
+	vci.SetFactory(f)
+}
+
 func create(containerID, bundlePath, console, pidFilePath string, detach bool,
 	runtimeConfig oci.RuntimeConfig) error {
 	var err error
 
 	kataLog = kataLog.WithField("container", containerID)
 	setExternalLoggers(kataLog)
+
+	if bundlePath == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+
+		kataLog.WithField("directory", cwd).Debug("Defaulting bundle path to current directory")
+
+		bundlePath = cwd
+	}
 
 	// Checks the MUST and MUST NOT from OCI runtime specification
 	if bundlePath, err = validCreateParams(containerID, bundlePath); err != nil {
@@ -107,29 +148,7 @@ func create(containerID, bundlePath, console, pidFilePath string, detach bool,
 		return err
 	}
 
-	if runtimeConfig.FactoryConfig.Template {
-		factoryConfig := vf.Config{
-			Template: true,
-			VMConfig: vc.VMConfig{
-				HypervisorType:   runtimeConfig.HypervisorType,
-				HypervisorConfig: runtimeConfig.HypervisorConfig,
-				AgentType:        runtimeConfig.AgentType,
-				AgentConfig:      runtimeConfig.AgentConfig,
-			},
-		}
-		kataLog.WithField("factory", factoryConfig).Info("load vm factory")
-		f, err := vf.NewFactory(factoryConfig, true)
-		if err != nil {
-			kataLog.WithError(err).Warn("load vm factory failed, about to create new one")
-			f, err = vf.NewFactory(factoryConfig, false)
-			if err != nil {
-				kataLog.WithError(err).Warn("create vm factory failed")
-			}
-		}
-		if err == nil {
-			vci.SetFactory(f)
-		}
-	}
+	handleFactory(runtimeConfig)
 
 	disableOutput := noNeedForOutput(detach, ociSpec.Process.Terminal)
 
