@@ -399,6 +399,8 @@ func afterSubcommands(c *cli.Context) error {
 
 	stopTracing(ctx)
 
+	closeChannels()
+
 	return nil
 }
 
