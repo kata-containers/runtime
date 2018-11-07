@@ -11,7 +11,7 @@ import (
 
 	"github.com/containerd/containerd/mount"
 	"github.com/kata-containers/runtime/pkg/katautils"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 
 	"github.com/sirupsen/logrus"
 )

@@ -21,6 +21,7 @@ import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/vcmock"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 )
@@ -121,7 +122,7 @@ func newTestRuntimeConfig(dir, consolePath string, create bool) (oci.RuntimeConf
 		HypervisorConfig: hypervisorConfig,
 		AgentType:        vc.KataContainersAgent,
 		ProxyType:        vc.CCProxyType,
-		ShimType:         vc.CCShimType,
+		ShimType:         vshim.CCShimType,
 		Console:          consolePath,
 	}, nil
 }

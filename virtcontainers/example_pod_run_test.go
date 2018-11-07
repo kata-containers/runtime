@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 )
 
 const containerRootfs = "/var/lib/container/bundle/"

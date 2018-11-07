@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/kata-containers/agent/protocols/grpc"
-	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/net/context"
 )
@@ -47,7 +46,7 @@ func (n *noopAgent) disconnect() error {
 }
 
 // exec is the Noop agent command execution implementation. It does nothing.
-func (n *noopAgent) exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*Process, error) {
+func (n *noopAgent) exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*types.Process, error) {
 	return nil, nil
 }
 
@@ -62,8 +61,8 @@ func (n *noopAgent) stopSandbox(sandbox *Sandbox) error {
 }
 
 // createContainer is the Noop agent Container creation implementation. It does nothing.
-func (n *noopAgent) createContainer(sandbox *Sandbox, c *Container) (*Process, error) {
-	return &Process{}, nil
+func (n *noopAgent) createContainer(sandbox *Sandbox, c *Container) (*types.Process, error) {
+	return &types.Process{}, nil
 }
 
 // startContainer is the Noop agent Container starting implementation. It does nothing.
@@ -97,22 +96,22 @@ func (n *noopAgent) onlineCPUMem(cpus uint32, cpuOnly bool) error {
 }
 
 // updateInterface is the Noop agent Interface update implementation. It does nothing.
-func (n *noopAgent) updateInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
+func (n *noopAgent) updateInterface(inf *types.Interface) (*types.Interface, error) {
 	return nil, nil
 }
 
 // listInterfaces is the Noop agent Interfaces list implementation. It does nothing.
-func (n *noopAgent) listInterfaces() ([]*vcTypes.Interface, error) {
+func (n *noopAgent) listInterfaces() ([]*types.Interface, error) {
 	return nil, nil
 }
 
 // updateRoutes is the Noop agent Routes update implementation. It does nothing.
-func (n *noopAgent) updateRoutes(routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
+func (n *noopAgent) updateRoutes(routes []*types.Route) ([]*types.Route, error) {
 	return nil, nil
 }
 
 // listRoutes is the Noop agent Routes list implementation. It does nothing.
-func (n *noopAgent) listRoutes() ([]*vcTypes.Route, error) {
+func (n *noopAgent) listRoutes() ([]*types.Route, error) {
 	return nil, nil
 }
 

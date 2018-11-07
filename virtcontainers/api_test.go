@@ -19,8 +19,7 @@ import (
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/mock"
-	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 )
@@ -2423,12 +2422,12 @@ func TestNetworkOperation(t *testing.T) {
 	cleanUp()
 
 	assert := assert.New(t)
-	inf := &vcTypes.Interface{
+	inf := &types.Interface{
 		Name:   "eno1",
 		Mtu:    1500,
 		HwAddr: "02:00:ca:fe:00:48",
 	}
-	ip := vcTypes.IPAddress{
+	ip := types.IPAddress{
 		Family:  0,
 		Address: "192.168.0.101",
 		Mask:    "24",

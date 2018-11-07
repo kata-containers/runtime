@@ -19,7 +19,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 )
 
 // sandboxResource is an int representing a sandbox resource type.
@@ -637,7 +637,7 @@ func (fs *filesystem) storeResource(sandboxSpecific bool, sandboxID, containerID
 	case NetworkNamespace:
 		return fs.storeNetworkResource(sandboxSpecific, sandboxID, containerID, resource, file)
 
-	case Process:
+	case types.Process:
 		return fs.storeProcessResource(sandboxSpecific, sandboxID, containerID, resource, file)
 
 	case []Mount:
@@ -808,17 +808,17 @@ func (fs *filesystem) fetchContainerState(sandboxID, containerID string) (types.
 	return state, nil
 }
 
-func (fs *filesystem) fetchContainerProcess(sandboxID, containerID string) (Process, error) {
-	var process Process
+func (fs *filesystem) fetchContainerProcess(sandboxID, containerID string) (types.Process, error) {
+	var process types.Process
 
 	if err := fs.fetchResource(false, sandboxID, containerID, processFileType, &process); err != nil {
-		return Process{}, err
+		return types.Process{}, err
 	}
 
 	return process, nil
 }
 
-func (fs *filesystem) storeContainerProcess(sandboxID, containerID string, process Process) error {
+func (fs *filesystem) storeContainerProcess(sandboxID, containerID string, process types.Process) error {
 	return fs.storeContainerResource(sandboxID, containerID, processFileType, process)
 }
 

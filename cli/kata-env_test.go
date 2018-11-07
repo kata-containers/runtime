@@ -20,6 +20,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 	vcUtils "github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
@@ -223,7 +224,7 @@ func getExpectedNetmonDetails(config oci.RuntimeConfig) (NetmonInfo, error) {
 }
 
 func getExpectedShimDetails(config oci.RuntimeConfig) (ShimInfo, error) {
-	shimConfig, ok := config.ShimConfig.(vc.ShimConfig)
+	shimConfig, ok := config.ShimConfig.(vshim.Config)
 	if !ok {
 		return ShimInfo{}, fmt.Errorf("failed to get shim config")
 	}

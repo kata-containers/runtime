@@ -17,8 +17,8 @@ import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/vcmock"
-	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 )
@@ -300,8 +300,8 @@ func TestExecuteWithFlags(t *testing.T) {
 
 	assert.True(vcmock.IsMockError(err))
 
-	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *vc.Process, error) {
-		return &vcmock.Sandbox{}, &vcmock.Container{}, &vc.Process{}, nil
+	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *types.Process, error) {
+		return &vcmock.Sandbox{}, &vcmock.Container{}, &types.Process{}, nil
 	}
 
 	defer func() {
@@ -317,14 +317,14 @@ func TestExecuteWithFlags(t *testing.T) {
 	os.Remove(pidFilePath)
 
 	// Process ran and exited successfully
-	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *vc.Process, error) {
+	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *types.Process, error) {
 		// create a fake container process
 		workload := []string{"cat", "/dev/null"}
 		command := exec.Command(workload[0], workload[1:]...)
 		err := command.Start()
 		assert.NoError(err, "Unable to start process %v: %s", workload, err)
 
-		vcProcess := vc.Process{}
+		vcProcess := types.Process{}
 		vcProcess.Pid = command.Process.Pid
 		return &vcmock.Sandbox{}, &vcmock.Container{}, &vcProcess, nil
 	}
@@ -381,14 +381,14 @@ func TestExecuteWithFlagsDetached(t *testing.T) {
 		testingImpl.StatusContainerFunc = nil
 	}()
 
-	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *vc.Process, error) {
+	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *types.Process, error) {
 		// create a fake container process
 		workload := []string{"cat", "/dev/null"}
 		command := exec.Command(workload[0], workload[1:]...)
 		err := command.Start()
 		assert.NoError(err, "Unable to start process %v: %s", workload, err)
 
-		vcProcess := vc.Process{}
+		vcProcess := types.Process{}
 		vcProcess.Pid = command.Process.Pid
 		return &vcmock.Sandbox{}, &vcmock.Container{}, &vcProcess, nil
 	}
@@ -543,13 +543,13 @@ func TestExecuteWithValidProcessJson(t *testing.T) {
 
 	workload := []string{"cat", "/dev/null"}
 
-	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *vc.Process, error) {
+	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *types.Process, error) {
 		// create a fake container process
 		command := exec.Command(workload[0], workload[1:]...)
 		err := command.Start()
 		assert.NoError(err, "Unable to start process %v: %s", workload, err)
 
-		vcProcess := vc.Process{}
+		vcProcess := types.Process{}
 		vcProcess.Pid = command.Process.Pid
 
 		return &vcmock.Sandbox{}, &vcmock.Container{}, &vcProcess, nil
@@ -645,13 +645,13 @@ func TestExecuteWithEmptyEnvironmentValue(t *testing.T) {
 
 	workload := []string{"cat", "/dev/null"}
 
-	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *vc.Process, error) {
+	testingImpl.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *types.Process, error) {
 		// create a fake container process
 		command := exec.Command(workload[0], workload[1:]...)
 		err := command.Start()
 		assert.NoError(err, "Unable to start process %v: %s", workload, err)
 
-		vcProcess := vc.Process{}
+		vcProcess := types.Process{}
 		vcProcess.Pid = command.Process.Pid
 
 		return &vcmock.Sandbox{}, &vcmock.Container{}, &vcProcess, nil

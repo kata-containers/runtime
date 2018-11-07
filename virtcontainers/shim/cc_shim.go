@@ -3,23 +3,21 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package shim
 
 import (
 	"fmt"
 )
 
-type ccShim struct{}
+//CcShim is the structure type of cc-shim
+type CcShim struct{}
 
-// start is the ccShim start implementation.
+// Start is the CcShim start implementation.
 // It starts the cc-shim binary with URL and token flags provided by
 // the proxy.
-func (s *ccShim) start(sandbox *Sandbox, params ShimParams) (int, error) {
-	if sandbox.config == nil {
-		return -1, fmt.Errorf("Sandbox config cannot be nil")
-	}
+func (s *CcShim) Start(shimType Type, shimConfig interface{}, params Params) (int, error) {
 
-	config, ok := newShimConfig(*(sandbox.config)).(ShimConfig)
+	config, ok := NewShimConfig(shimType, shimConfig).(Config)
 	if !ok {
 		return -1, fmt.Errorf("Wrong shim config type, should be CCShimConfig type")
 	}

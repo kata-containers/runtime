@@ -24,7 +24,8 @@ import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 )
 
 const (
@@ -109,7 +110,7 @@ func TestMinimalSandboxConfig(t *testing.T) {
 		HypervisorType: vc.QemuHypervisor,
 		AgentType:      vc.HyperstartAgent,
 		ProxyType:      vc.CCProxyType,
-		ShimType:       vc.CCShimType,
+		ShimType:       vshim.CCShimType,
 		Console:        consolePath,
 	}
 
@@ -224,7 +225,7 @@ func TestMinimalSandboxConfig(t *testing.T) {
 		HypervisorType: vc.QemuHypervisor,
 		AgentType:      vc.HyperstartAgent,
 		ProxyType:      vc.CCProxyType,
-		ShimType:       vc.CCShimType,
+		ShimType:       vshim.CCShimType,
 
 		NetworkModel:  vc.DefaultNetworkModel,
 		NetworkConfig: expectedNetworkConfig,

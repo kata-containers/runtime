@@ -8,7 +8,7 @@ package virtcontainers
 import (
 	"os"
 
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 
 	govmmQemu "github.com/intel/govmm/qemu"
 )

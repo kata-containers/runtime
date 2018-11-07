@@ -18,6 +18,7 @@ import (
 	"unsafe"
 
 	. "github.com/kata-containers/runtime/virtcontainers/pkg/mock"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 )
 
 // These tests don't care about the format of the container ID
@@ -35,10 +36,21 @@ func getMockCCShimBinPath() string {
 	return DefaultMockCCShimBinPath
 }
 
-func testCCShimStart(t *testing.T, sandbox *Sandbox, params ShimParams, expectFail bool) {
-	s := &ccShim{}
+func testCCShimStart(t *testing.T, sandbox *Sandbox, params vshim.Params, expectFail bool) {
+	sandboxConfig := sandbox.config
+	if sandboxConfig == nil {
+		if !expectFail {
+			//return -1, fmt.Errorf("Sandbox config cannot be nil")
+			t.Fatalf("Sandbox config cannot be nil (sandbox %+v, params %+v, expectFail %t)",
+				sandbox, params, expectFail)
+		} else {
+			return
+		}
+	}
 
-	pid, err := s.start(sandbox, params)
+	s := &vshim.CcShim{}
+
+	pid, err := s.Start(sandboxConfig.ShimType, sandboxConfig.ShimConfig, params)
 	if expectFail {
 		if err == nil || pid != -1 {
 			t.Fatalf("This test should fail (sandbox %+v, params %+v, expectFail %t)",
@@ -58,7 +70,7 @@ func testCCShimStart(t *testing.T, sandbox *Sandbox, params ShimParams, expectFa
 }
 
 func TestCCShimStartNilSandboxConfigFailure(t *testing.T) {
-	testCCShimStart(t, &Sandbox{}, ShimParams{}, true)
+	testCCShimStart(t, &Sandbox{}, vshim.Params{}, true)
 }
 
 func TestCCShimStartNilShimConfigFailure(t *testing.T) {
@@ -66,55 +78,55 @@ func TestCCShimStartNilShimConfigFailure(t *testing.T) {
 		config: &SandboxConfig{},
 	}
 
-	testCCShimStart(t, sandbox, ShimParams{}, true)
+	testCCShimStart(t, sandbox, vshim.Params{}, true)
 }
 
 func TestCCShimStartShimPathEmptyFailure(t *testing.T) {
 	sandbox := &Sandbox{
 		config: &SandboxConfig{
-			ShimType:   CCShimType,
-			ShimConfig: ShimConfig{},
+			ShimType:   vshim.CCShimType,
+			ShimConfig: vshim.Config{},
 		},
 	}
 
-	testCCShimStart(t, sandbox, ShimParams{}, true)
+	testCCShimStart(t, sandbox, vshim.Params{}, true)
 }
 
 func TestCCShimStartShimTypeInvalid(t *testing.T) {
 	sandbox := &Sandbox{
 		config: &SandboxConfig{
 			ShimType:   "foo",
-			ShimConfig: ShimConfig{},
+			ShimConfig: vshim.Config{},
 		},
 	}
 
-	testCCShimStart(t, sandbox, ShimParams{}, true)
+	testCCShimStart(t, sandbox, vshim.Params{}, true)
 }
 
 func TestCCShimStartParamsTokenEmptyFailure(t *testing.T) {
 	sandbox := &Sandbox{
 		config: &SandboxConfig{
-			ShimType: CCShimType,
-			ShimConfig: ShimConfig{
+			ShimType: vshim.CCShimType,
+			ShimConfig: vshim.Config{
 				Path: getMockCCShimBinPath(),
 			},
 		},
 	}
 
-	testCCShimStart(t, sandbox, ShimParams{}, true)
+	testCCShimStart(t, sandbox, vshim.Params{}, true)
 }
 
 func TestCCShimStartParamsURLEmptyFailure(t *testing.T) {
 	sandbox := &Sandbox{
 		config: &SandboxConfig{
-			ShimType: CCShimType,
-			ShimConfig: ShimConfig{
+			ShimType: vshim.CCShimType,
+			ShimConfig: vshim.Config{
 				Path: getMockCCShimBinPath(),
 			},
 		},
 	}
 
-	params := ShimParams{
+	params := vshim.Params{
 		Token: "testToken",
 	}
 
@@ -124,14 +136,14 @@ func TestCCShimStartParamsURLEmptyFailure(t *testing.T) {
 func TestCCShimStartParamsContainerEmptyFailure(t *testing.T) {
 	sandbox := &Sandbox{
 		config: &SandboxConfig{
-			ShimType: CCShimType,
-			ShimConfig: ShimConfig{
+			ShimType: vshim.CCShimType,
+			ShimConfig: vshim.Config{
 				Path: getMockCCShimBinPath(),
 			},
 		},
 	}
 
-	params := ShimParams{
+	params := vshim.Params{
 		Token: "testToken",
 		URL:   "unix://is/awesome",
 	}
@@ -150,14 +162,14 @@ func TestCCShimStartParamsInvalidCommand(t *testing.T) {
 
 	sandbox := &Sandbox{
 		config: &SandboxConfig{
-			ShimType: CCShimType,
-			ShimConfig: ShimConfig{
+			ShimType: vshim.CCShimType,
+			ShimConfig: vshim.Config{
 				Path: cmd,
 			},
 		},
 	}
 
-	params := ShimParams{
+	params := vshim.Params{
 		Token: "testToken",
 		URL:   "http://foo",
 	}
@@ -165,25 +177,25 @@ func TestCCShimStartParamsInvalidCommand(t *testing.T) {
 	testCCShimStart(t, sandbox, params, true)
 }
 
-func startCCShimStartWithoutConsoleSuccessful(t *testing.T, detach bool) (*os.File, *os.File, *os.File, *Sandbox, ShimParams, error) {
+func startCCShimStartWithoutConsoleSuccessful(t *testing.T, detach bool) (*os.File, *os.File, *os.File, *Sandbox, vshim.Params, error) {
 	saveStdout := os.Stdout
 	rStdout, wStdout, err := os.Pipe()
 	if err != nil {
-		return nil, nil, nil, &Sandbox{}, ShimParams{}, err
+		return nil, nil, nil, &Sandbox{}, vshim.Params{}, err
 	}
 
 	os.Stdout = wStdout
 
 	sandbox := &Sandbox{
 		config: &SandboxConfig{
-			ShimType: CCShimType,
-			ShimConfig: ShimConfig{
+			ShimType: vshim.CCShimType,
+			ShimConfig: vshim.Config{
 				Path: getMockCCShimBinPath(),
 			},
 		},
 	}
 
-	params := ShimParams{
+	params := vshim.Params{
 		Container: testContainer,
 		Token:     "testToken",
 		URL:       testProxyURL,
@@ -262,14 +274,14 @@ func TestCCShimStartDetachSuccessful(t *testing.T) {
 func TestCCShimStartWithConsoleNonExistingFailure(t *testing.T) {
 	sandbox := &Sandbox{
 		config: &SandboxConfig{
-			ShimType: CCShimType,
-			ShimConfig: ShimConfig{
+			ShimType: vshim.CCShimType,
+			ShimConfig: vshim.Config{
 				Path: getMockCCShimBinPath(),
 			},
 		},
 	}
 
-	params := ShimParams{
+	params := vshim.Params{
 		Token:   "testToken",
 		URL:     testProxyURL,
 		Console: testWrongConsolePath,
@@ -338,14 +350,14 @@ func TestCCShimStartWithConsoleSuccessful(t *testing.T) {
 
 	sandbox := &Sandbox{
 		config: &SandboxConfig{
-			ShimType: CCShimType,
-			ShimConfig: ShimConfig{
+			ShimType: vshim.CCShimType,
+			ShimConfig: vshim.Config{
 				Path: getMockCCShimBinPath(),
 			},
 		},
 	}
 
-	params := ShimParams{
+	params := vshim.Params{
 		Container: testContainer,
 		Token:     "testToken",
 		URL:       testProxyURL,

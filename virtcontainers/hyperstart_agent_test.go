@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/kata-containers/runtime/virtcontainers/pkg/hyperstart"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 )

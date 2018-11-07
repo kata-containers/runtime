@@ -17,6 +17,7 @@ import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -28,7 +29,7 @@ const (
 
 var (
 	defaultProxy = vc.KataProxyType
-	defaultShim  = vc.KataShimType
+	defaultShim  = vshim.KataShimType
 
 	// if true, enable opentracing support.
 	tracing = false
@@ -551,13 +552,13 @@ func newFactoryConfig(f factory) (oci.FactoryConfig, error) {
 	return oci.FactoryConfig{Template: f.Template}, nil
 }
 
-func newShimConfig(s shim) (vc.ShimConfig, error) {
+func newShimConfig(s shim) (vshim.Config, error) {
 	path, err := s.path()
 	if err != nil {
-		return vc.ShimConfig{}, err
+		return vshim.Config{}, err
 	}
 
-	return vc.ShimConfig{
+	return vshim.Config{
 		Path:  path,
 		Debug: s.debug(),
 		Trace: s.trace(),
@@ -627,9 +628,9 @@ func updateRuntimeConfigShim(configPath string, tomlConf tomlConfig, config *oci
 	for k, shim := range tomlConf.Shim {
 		switch k {
 		case ccShimTableType:
-			config.ShimType = vc.CCShimType
+			config.ShimType = vshim.CCShimType
 		case kataShimTableType:
-			config.ShimType = vc.KataShimType
+			config.ShimType = vshim.KataShimType
 		}
 
 		shConfig, err := newShimConfig(shim)
@@ -879,7 +880,7 @@ func updateConfig(configPath string, tomlConf tomlConfig, config *oci.RuntimeCon
 
 	if builtIn {
 		config.ProxyType = vc.KataBuiltInProxyType
-		config.ShimType = vc.KataBuiltInShimType
+		config.ShimType = vshim.KataBuiltInShimType
 		config.AgentType = vc.KataContainersAgent
 		config.AgentConfig = vc.KataAgentConfig{
 			LongLiveConn: true,
@@ -900,7 +901,7 @@ func checkNetNsConfig(config oci.RuntimeConfig) error {
 		if config.InterNetworkModel != vc.NetXConnectNoneModel {
 			return fmt.Errorf("config disable_new_netns only works with 'none' internetworking_model")
 		}
-	} else if config.ShimConfig.(vc.ShimConfig).Trace {
+	} else if config.ShimConfig.(vshim.Config).Trace {
 		// Normally, the shim runs in a separate network namespace.
 		// But when tracing, the shim process needs to be able to talk
 		// to the Jaeger agent running in the host network namespace.

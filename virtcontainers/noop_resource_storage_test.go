@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -155,7 +156,7 @@ func TestNoopFetchContainerProcess(t *testing.T) {
 func TestNoopStoreContainerProcess(t *testing.T) {
 	n := &noopResourceStorage{}
 
-	err := n.storeContainerProcess("", "", Process{})
+	err := n.storeContainerProcess("", "", types.Process{})
 	assert.Nil(t, err)
 }
 

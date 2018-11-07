@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/manager"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 )
 
 func TestFilesystemCreateAllResourcesSuccessful(t *testing.T) {

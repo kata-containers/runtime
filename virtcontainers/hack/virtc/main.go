@@ -14,11 +14,12 @@ import (
 	"text/tabwriter"
 
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
-	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 )
 
 var virtcLog *logrus.Entry
@@ -72,7 +73,7 @@ var sandboxConfigFlags = []cli.Flag{
 
 	cli.GenericFlag{
 		Name:  "shim",
-		Value: new(vc.ShimType),
+		Value: new(vshim.Type),
 		Usage: "the shim type",
 	},
 
@@ -160,7 +161,7 @@ func buildSandboxConfig(context *cli.Context) (vc.SandboxConfig, error) {
 		return vc.SandboxConfig{}, fmt.Errorf("Could not convert proxy type")
 	}
 
-	shimType, ok := context.Generic("shim").(*vc.ShimType)
+	shimType, ok := context.Generic("shim").(*vshim.Type)
 	if ok != true {
 		return vc.SandboxConfig{}, fmt.Errorf("Could not convert shim type")
 	}
@@ -242,12 +243,12 @@ func getProxyConfig(proxyType vc.ProxyType, path string) vc.ProxyConfig {
 	return proxyConfig
 }
 
-func getShimConfig(shimType vc.ShimType, path string) interface{} {
+func getShimConfig(shimType vshim.Type, path string) interface{} {
 	var shimConfig interface{}
 
 	switch shimType {
-	case vc.CCShimType, vc.KataShimType:
-		shimConfig = vc.ShimConfig{
+	case vshim.CCShimType, vshim.KataShimType:
+		shimConfig = vshim.Config{
 			Path: path,
 		}
 

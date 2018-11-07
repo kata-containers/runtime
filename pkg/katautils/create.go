@@ -13,6 +13,7 @@ import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vf "github.com/kata-containers/runtime/virtcontainers/factory"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 )
 
 // GetKernelParamsFunc use a variable to allow tests to modify its value
@@ -98,13 +99,13 @@ func SetEphemeralStorageType(ociSpec oci.CompatOCISpec) oci.CompatOCISpec {
 
 // CreateSandbox create a sandbox container
 func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec oci.CompatOCISpec, runtimeConfig oci.RuntimeConfig,
-	containerID, bundlePath, console string, disableOutput, systemdCgroup, builtIn bool) (vc.VCSandbox, vc.Process, error) {
+	containerID, bundlePath, console string, disableOutput, systemdCgroup, builtIn bool) (vc.VCSandbox, types.Process, error) {
 	span, ctx := Trace(ctx, "createSandbox")
 	defer span.Finish()
 
 	sandboxConfig, err := oci.SandboxConfig(ociSpec, runtimeConfig, bundlePath, containerID, console, disableOutput, systemdCgroup)
 	if err != nil {
-		return nil, vc.Process{}, err
+		return nil, types.Process{}, err
 	}
 
 	if builtIn {
@@ -115,7 +116,7 @@ func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec oci.CompatOCISpec, ru
 	// created, because it is not responsible for the creation of the
 	// netns if it does not exist.
 	if err := SetupNetworkNamespace(&sandboxConfig.NetworkConfig); err != nil {
-		return nil, vc.Process{}, err
+		return nil, types.Process{}, err
 	}
 
 	// Run pre-start OCI hooks.
@@ -123,12 +124,12 @@ func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec oci.CompatOCISpec, ru
 		return PreStartHooks(ctx, ociSpec, containerID, bundlePath)
 	})
 	if err != nil {
-		return nil, vc.Process{}, err
+		return nil, types.Process{}, err
 	}
 
 	sandbox, err := vci.CreateSandbox(ctx, sandboxConfig)
 	if err != nil {
-		return nil, vc.Process{}, err
+		return nil, types.Process{}, err
 	}
 
 	sid := sandbox.ID()
@@ -137,13 +138,13 @@ func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec oci.CompatOCISpec, ru
 
 	containers := sandbox.GetAllContainers()
 	if len(containers) != 1 {
-		return nil, vc.Process{}, fmt.Errorf("BUG: Container list from sandbox is wrong, expecting only one container, found %d containers", len(containers))
+		return nil, types.Process{}, fmt.Errorf("BUG: Container list from sandbox is wrong, expecting only one container, found %d containers", len(containers))
 	}
 
 	if !builtIn {
 		err = AddContainerIDMapping(ctx, containerID, sandbox.ID())
 		if err != nil {
-			return nil, vc.Process{}, err
+			return nil, types.Process{}, err
 		}
 	}
 
@@ -151,7 +152,7 @@ func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec oci.CompatOCISpec, ru
 }
 
 // CreateContainer create a container
-func CreateContainer(ctx context.Context, vci vc.VC, sandbox vc.VCSandbox, ociSpec oci.CompatOCISpec, containerID, bundlePath, console string, disableOutput, builtIn bool) (vc.Process, error) {
+func CreateContainer(ctx context.Context, vci vc.VC, sandbox vc.VCSandbox, ociSpec oci.CompatOCISpec, containerID, bundlePath, console string, disableOutput, builtIn bool) (types.Process, error) {
 	var c vc.VCContainer
 
 	span, ctx := Trace(ctx, "createContainer")
@@ -161,12 +162,12 @@ func CreateContainer(ctx context.Context, vci vc.VC, sandbox vc.VCSandbox, ociSp
 
 	contConfig, err := oci.ContainerConfig(ociSpec, bundlePath, containerID, console, disableOutput)
 	if err != nil {
-		return vc.Process{}, err
+		return types.Process{}, err
 	}
 
 	sandboxID, err := ociSpec.SandboxID()
 	if err != nil {
-		return vc.Process{}, err
+		return types.Process{}, err
 	}
 
 	span.SetTag("sandbox", sandboxID)
@@ -174,24 +175,24 @@ func CreateContainer(ctx context.Context, vci vc.VC, sandbox vc.VCSandbox, ociSp
 	if builtIn {
 		c, err = sandbox.CreateContainer(contConfig)
 		if err != nil {
-			return vc.Process{}, err
+			return types.Process{}, err
 		}
 	} else {
 		kataUtilsLogger = kataUtilsLogger.WithField("sandbox", sandboxID)
 
 		sandbox, c, err = vci.CreateContainer(ctx, sandboxID, contConfig)
 		if err != nil {
-			return vc.Process{}, err
+			return types.Process{}, err
 		}
 
 		if err := AddContainerIDMapping(ctx, containerID, sandboxID); err != nil {
-			return vc.Process{}, err
+			return types.Process{}, err
 		}
 
 		kataUtilsLogger = kataUtilsLogger.WithField("sandbox", sandboxID)
 
 		if err := AddContainerIDMapping(ctx, containerID, sandboxID); err != nil {
-			return vc.Process{}, err
+			return types.Process{}, err
 		}
 	}
 
@@ -200,7 +201,7 @@ func CreateContainer(ctx context.Context, vci vc.VC, sandbox vc.VCSandbox, ociSp
 		return PreStartHooks(ctx, ociSpec, containerID, bundlePath)
 	})
 	if err != nil {
-		return vc.Process{}, err
+		return types.Process{}, err
 	}
 
 	return c.Process(), nil

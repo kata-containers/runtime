@@ -25,7 +25,8 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	dockershimAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations/dockershim"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 )
 
 type annotationContainerType struct {
@@ -111,7 +112,7 @@ type RuntimeConfig struct {
 	ProxyType   vc.ProxyType
 	ProxyConfig vc.ProxyConfig
 
-	ShimType   vc.ShimType
+	ShimType   vshim.Type
 	ShimConfig interface{}
 
 	Console string

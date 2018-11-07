@@ -3,13 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package shim
 
 import (
 	"fmt"
 )
 
-type kataShim struct{}
+// KataShim is the structure type of kata shim
+type KataShim struct{}
 
 // KataShimConfig is the structure providing specific configuration
 // for kataShim implementation.
@@ -18,15 +19,11 @@ type KataShimConfig struct {
 	Debug bool
 }
 
-// start is the ccShim start implementation.
-// It starts the cc-shim binary with URL and token flags provided by
+// Start is the KataBuiltInShim start implementation for kata shim.
+// It starts the kata shim binary with URL and token flags provided by
 // the proxy.
-func (s *kataShim) start(sandbox *Sandbox, params ShimParams) (int, error) {
-	if sandbox.config == nil {
-		return -1, fmt.Errorf("Sandbox config cannot be nil")
-	}
-
-	config, ok := newShimConfig(*(sandbox.config)).(ShimConfig)
+func (s *KataShim) Start(shimType Type, shimConfig interface{}, params Params) (int, error) {
+	config, ok := NewShimConfig(shimType, shimConfig).(Config)
 	if !ok {
 		return -1, fmt.Errorf("Wrong shim config type, should be KataShimConfig type")
 	}

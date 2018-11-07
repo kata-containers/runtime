@@ -22,8 +22,8 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/hyperstart"
 	ns "github.com/kata-containers/runtime/virtcontainers/pkg/nsenter"
-	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/net/context"
@@ -79,7 +79,7 @@ type HyperAgentState struct {
 // hyper is the Agent interface implementation for hyperstart.
 type hyper struct {
 	sandbox *Sandbox
-	shim    shim
+	shim    vshim.Shim
 	proxy   proxy
 	client  *proxyClient.Client
 	state   HyperAgentState
@@ -283,7 +283,7 @@ func (h *hyper) init(ctx context.Context, sandbox *Sandbox, config interface{}) 
 		return err
 	}
 
-	h.shim, err = newShim(sandbox.config.ShimType)
+	h.shim, err = vshim.NewShim(sandbox.config.ShimType)
 	if err != nil {
 		return err
 	}
@@ -340,7 +340,7 @@ func (h *hyper) capabilities() types.Capabilities {
 }
 
 // exec is the agent command execution implementation for hyperstart.
-func (h *hyper) exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*Process, error) {
+func (h *hyper) exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*types.Process, error) {
 	token, err := h.attach()
 	if err != nil {
 		return nil, err
@@ -367,7 +367,7 @@ func (h *hyper) exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*Process, er
 		},
 	}
 
-	process, err := prepareAndStartShim(sandbox, h.shim, c.id,
+	process, err := vshim.PrepareAndStartShim(sandbox.config.ShimType, sandbox.config.ShimConfig, h.shim, c.id,
 		token, h.state.URL, cmd, []ns.NSType{}, enterNSList)
 	if err != nil {
 		return nil, err
@@ -584,7 +584,7 @@ func (h *hyper) startOneContainer(sandbox *Sandbox, c *Container) error {
 }
 
 // createContainer is the agent Container creation implementation for hyperstart.
-func (h *hyper) createContainer(sandbox *Sandbox, c *Container) (*Process, error) {
+func (h *hyper) createContainer(sandbox *Sandbox, c *Container) (*types.Process, error) {
 	token, err := h.attach()
 	if err != nil {
 		return nil, err
@@ -599,7 +599,7 @@ func (h *hyper) createContainer(sandbox *Sandbox, c *Container) (*Process, error
 		},
 	}
 
-	return prepareAndStartShim(sandbox, h.shim, c.id, token,
+	return vshim.PrepareAndStartShim(sandbox.config.ShimType, sandbox.config.ShimConfig, h.shim, c.id, token,
 		h.state.URL, c.config.Cmd, createNSList, enterNSList)
 }
 
@@ -650,7 +650,7 @@ func (h *hyper) signalProcess(c *Container, processID string, signal syscall.Sig
 	// Send the signal to the shim directly in case the container has not
 	// been started yet.
 	if c.state.State == types.StateReady {
-		return signalShim(c.process.Pid, signal)
+		return vshim.SignalShim(c.process.Pid, signal)
 	}
 
 	return h.killOneContainer(c.id, signal, all)
@@ -891,22 +891,22 @@ func (h *hyper) onlineCPUMem(cpus uint32, cpuOnly bool) error {
 	return nil
 }
 
-func (h *hyper) updateInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
+func (h *hyper) updateInterface(inf *types.Interface) (*types.Interface, error) {
 	// hyperstart-agent does not support update interface
 	return nil, nil
 }
 
-func (h *hyper) listInterfaces() ([]*vcTypes.Interface, error) {
+func (h *hyper) listInterfaces() ([]*types.Interface, error) {
 	// hyperstart-agent does not support list interfaces
 	return nil, nil
 }
 
-func (h *hyper) updateRoutes(routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
+func (h *hyper) updateRoutes(routes []*types.Route) ([]*types.Route, error) {
 	// hyperstart-agent does not support update routes
 	return nil, nil
 }
 
-func (h *hyper) listRoutes() ([]*vcTypes.Route, error) {
+func (h *hyper) listRoutes() ([]*types.Route, error) {
 	// hyperstart-agent does not support list routes
 	return nil, nil
 }

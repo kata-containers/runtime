@@ -17,6 +17,7 @@ import (
 	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 	vcUtils "github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
@@ -283,7 +284,7 @@ func getCommandVersion(cmd string) (string, error) {
 }
 
 func getShimInfo(config oci.RuntimeConfig) (ShimInfo, error) {
-	shimConfig, ok := config.ShimConfig.(vc.ShimConfig)
+	shimConfig, ok := config.ShimConfig.(vshim.Config)
 	if !ok {
 		return ShimInfo{}, errors.New("cannot determine shim config")
 	}

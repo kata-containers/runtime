@@ -10,14 +10,16 @@ import (
 	"reflect"
 	"syscall"
 	"testing"
+
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 )
 
 const (
 	testRunningProcess = "sleep"
 )
 
-func testSetShimType(t *testing.T, value string, expected ShimType) {
-	var shimType ShimType
+func testSetShimType(t *testing.T, value string, expected vshim.Type) {
+	var shimType vshim.Type
 
 	err := (&shimType).Set(value)
 	if err != nil {
@@ -30,19 +32,19 @@ func testSetShimType(t *testing.T, value string, expected ShimType) {
 }
 
 func TestSetCCShimType(t *testing.T) {
-	testSetShimType(t, "ccShim", CCShimType)
+	testSetShimType(t, "ccShim", vshim.CCShimType)
 }
 
 func TestSetKataShimType(t *testing.T) {
-	testSetShimType(t, "kataShim", KataShimType)
+	testSetShimType(t, "kataShim", vshim.KataShimType)
 }
 
 func TestSetNoopShimType(t *testing.T) {
-	testSetShimType(t, "noopShim", NoopShimType)
+	testSetShimType(t, "noopShim", vshim.NoopShimType)
 }
 
 func TestSetUnknownShimType(t *testing.T) {
-	var shimType ShimType
+	var shimType vshim.Type
 
 	unknownType := "unknown"
 
@@ -51,12 +53,12 @@ func TestSetUnknownShimType(t *testing.T) {
 		t.Fatalf("Should fail because %s type used", unknownType)
 	}
 
-	if shimType == CCShimType || shimType == NoopShimType {
+	if shimType == vshim.CCShimType || shimType == vshim.NoopShimType {
 		t.Fatalf("%s shim type was not expected", shimType)
 	}
 }
 
-func testStringFromShimType(t *testing.T, shimType ShimType, expected string) {
+func testStringFromShimType(t *testing.T, shimType vshim.Type, expected string) {
 	shimTypeStr := (&shimType).String()
 	if shimTypeStr != expected {
 		t.Fatalf("Got %s\nExpecting %s", shimTypeStr, expected)
@@ -64,32 +66,32 @@ func testStringFromShimType(t *testing.T, shimType ShimType, expected string) {
 }
 
 func TestStringFromCCShimType(t *testing.T) {
-	shimType := CCShimType
+	shimType := vshim.CCShimType
 	testStringFromShimType(t, shimType, "ccShim")
 }
 
 func TestStringFromKataShimType(t *testing.T) {
-	shimType := KataShimType
+	shimType := vshim.KataShimType
 	testStringFromShimType(t, shimType, "kataShim")
 }
 
 func TestStringFromNoopShimType(t *testing.T) {
-	shimType := NoopShimType
+	shimType := vshim.NoopShimType
 	testStringFromShimType(t, shimType, "noopShim")
 }
 
 func TestStringFromKataBuiltInShimType(t *testing.T) {
-	shimType := KataBuiltInShimType
+	shimType := vshim.KataBuiltInShimType
 	testStringFromShimType(t, shimType, "kataBuiltInShim")
 }
 
 func TestStringFromUnknownShimType(t *testing.T) {
-	var shimType ShimType
+	var shimType vshim.Type
 	testStringFromShimType(t, shimType, "")
 }
 
-func testNewShimFromShimType(t *testing.T, shimType ShimType, expected shim) {
-	result, err := newShim(shimType)
+func testNewShimFromShimType(t *testing.T, shimType vshim.Type, expected vshim.Shim) {
+	result, err := vshim.NewShim(shimType)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,40 +102,40 @@ func testNewShimFromShimType(t *testing.T, shimType ShimType, expected shim) {
 }
 
 func TestNewShimFromCCShimType(t *testing.T) {
-	shimType := CCShimType
-	expectedShim := &ccShim{}
+	shimType := vshim.CCShimType
+	expectedShim := &vshim.CcShim{}
 	testNewShimFromShimType(t, shimType, expectedShim)
 }
 
 func TestNewShimFromKataShimType(t *testing.T) {
-	shimType := KataShimType
-	expectedShim := &kataShim{}
+	shimType := vshim.KataShimType
+	expectedShim := &vshim.KataShim{}
 	testNewShimFromShimType(t, shimType, expectedShim)
 }
 
 func TestNewShimFromNoopShimType(t *testing.T) {
-	shimType := NoopShimType
-	expectedShim := &noopShim{}
+	shimType := vshim.NoopShimType
+	expectedShim := &vshim.NoopShim{}
 	testNewShimFromShimType(t, shimType, expectedShim)
 }
 
 func TestNewShimFromKataBuiltInShimType(t *testing.T) {
-	shimType := KataBuiltInShimType
-	expectedShim := &kataBuiltInShim{}
+	shimType := vshim.KataBuiltInShimType
+	expectedShim := &vshim.KataBuiltInShim{}
 	testNewShimFromShimType(t, shimType, expectedShim)
 }
 
 func TestNewShimFromUnknownShimType(t *testing.T) {
-	var shimType ShimType
+	var shimType vshim.Type
 
-	_, err := newShim(shimType)
+	_, err := vshim.NewShim(shimType)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func testNewShimConfigFromSandboxConfig(t *testing.T, sandboxConfig SandboxConfig, expected interface{}) {
-	result := newShimConfig(sandboxConfig)
+	result := vshim.NewShimConfig(sandboxConfig.ShimType, sandboxConfig.ShimConfig)
 
 	if reflect.DeepEqual(result, expected) == false {
 		t.Fatalf("Got %+v\nExpecting %+v", result, expected)
@@ -141,10 +143,10 @@ func testNewShimConfigFromSandboxConfig(t *testing.T, sandboxConfig SandboxConfi
 }
 
 func TestNewShimConfigFromCCShimSandboxConfig(t *testing.T) {
-	shimConfig := ShimConfig{}
+	shimConfig := vshim.Config{}
 
 	sandboxConfig := SandboxConfig{
-		ShimType:   CCShimType,
+		ShimType:   vshim.CCShimType,
 		ShimConfig: shimConfig,
 	}
 
@@ -152,10 +154,10 @@ func TestNewShimConfigFromCCShimSandboxConfig(t *testing.T) {
 }
 
 func TestNewShimConfigFromKataShimSandboxConfig(t *testing.T) {
-	shimConfig := ShimConfig{}
+	shimConfig := vshim.Config{}
 
 	sandboxConfig := SandboxConfig{
-		ShimType:   KataShimType,
+		ShimType:   vshim.KataShimType,
 		ShimConfig: shimConfig,
 	}
 
@@ -164,7 +166,7 @@ func TestNewShimConfigFromKataShimSandboxConfig(t *testing.T) {
 
 func TestNewShimConfigFromNoopShimSandboxConfig(t *testing.T) {
 	sandboxConfig := SandboxConfig{
-		ShimType: NoopShimType,
+		ShimType: vshim.NoopShimType,
 	}
 
 	testNewShimConfigFromSandboxConfig(t, sandboxConfig, nil)
@@ -172,14 +174,14 @@ func TestNewShimConfigFromNoopShimSandboxConfig(t *testing.T) {
 
 func TestNewShimConfigFromKataBuiltInShimSandboxConfig(t *testing.T) {
 	sandboxConfig := SandboxConfig{
-		ShimType: KataBuiltInShimType,
+		ShimType: vshim.KataBuiltInShimType,
 	}
 
 	testNewShimConfigFromSandboxConfig(t, sandboxConfig, nil)
 }
 
 func TestNewShimConfigFromUnknownShimSandboxConfig(t *testing.T) {
-	var shimType ShimType
+	var shimType vshim.Type
 
 	sandboxConfig := SandboxConfig{
 		ShimType: shimType,
@@ -225,7 +227,7 @@ func testRunSleep999AndGetCmd(t *testing.T) *exec.Cmd {
 func TestStopShimSuccessfulProcessNotRunning(t *testing.T) {
 	pid := testRunSleep0AndGetPid(t)
 
-	if err := stopShim(pid); err != nil {
+	if err := vshim.StopShim(pid); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -233,13 +235,13 @@ func TestStopShimSuccessfulProcessNotRunning(t *testing.T) {
 func TestStopShimSuccessfulProcessRunning(t *testing.T) {
 	cmd := testRunSleep999AndGetCmd(t)
 
-	if err := stopShim(cmd.Process.Pid); err != nil {
+	if err := vshim.StopShim(cmd.Process.Pid); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func testIsShimRunning(t *testing.T, pid int, expected bool) {
-	running, err := isShimRunning(pid)
+	running, err := vshim.IsShimRunning(pid)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +271,7 @@ func TestWaitForShimInvalidPidSuccessful(t *testing.T) {
 	wrongValuesList := []int{0, -1, -100}
 
 	for _, val := range wrongValuesList {
-		if err := waitForShim(val); err != nil {
+		if err := vshim.WaitForShim(val); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -278,7 +280,7 @@ func TestWaitForShimInvalidPidSuccessful(t *testing.T) {
 func TestWaitForShimNotRunningSuccessful(t *testing.T) {
 	pid := testRunSleep0AndGetPid(t)
 
-	if err := waitForShim(pid); err != nil {
+	if err := vshim.WaitForShim(pid); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -286,8 +288,8 @@ func TestWaitForShimNotRunningSuccessful(t *testing.T) {
 func TestWaitForShimRunningForTooLongFailure(t *testing.T) {
 	cmd := testRunSleep999AndGetCmd(t)
 
-	waitForShimTimeout = 0.1
-	if err := waitForShim(cmd.Process.Pid); err == nil {
+	vshim.SetWaitForShimTimeout(0.1)
+	if err := vshim.WaitForShim(cmd.Process.Pid); err == nil {
 		t.Fatal(err)
 	}
 

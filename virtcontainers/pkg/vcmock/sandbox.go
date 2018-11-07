@@ -12,8 +12,7 @@ import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
-	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -144,8 +143,8 @@ func (s *Sandbox) Status() vc.SandboxStatus {
 }
 
 // EnterContainer implements the VCSandbox function of the same name.
-func (s *Sandbox) EnterContainer(containerID string, cmd types.Cmd) (vc.VCContainer, *vc.Process, error) {
-	return &Container{}, &vc.Process{}, nil
+func (s *Sandbox) EnterContainer(containerID string, cmd types.Cmd) (vc.VCContainer, *types.Process, error) {
+	return &Container{}, &types.Process{}, nil
 }
 
 // Monitor implements the VCSandbox function of the same name.
@@ -189,26 +188,26 @@ func (s *Sandbox) AddDevice(info config.DeviceInfo) (api.Device, error) {
 }
 
 // AddInterface implements the VCSandbox function of the same name.
-func (s *Sandbox) AddInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
+func (s *Sandbox) AddInterface(inf *types.Interface) (*types.Interface, error) {
 	return nil, nil
 }
 
 // RemoveInterface implements the VCSandbox function of the same name.
-func (s *Sandbox) RemoveInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
+func (s *Sandbox) RemoveInterface(inf *types.Interface) (*types.Interface, error) {
 	return nil, nil
 }
 
 // ListInterfaces implements the VCSandbox function of the same name.
-func (s *Sandbox) ListInterfaces() ([]*vcTypes.Interface, error) {
+func (s *Sandbox) ListInterfaces() ([]*types.Interface, error) {
 	return nil, nil
 }
 
 // UpdateRoutes implements the VCSandbox function of the same name.
-func (s *Sandbox) UpdateRoutes(routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
+func (s *Sandbox) UpdateRoutes(routes []*types.Route) ([]*types.Route, error) {
 	return nil, nil
 }
 
 // ListRoutes implements the VCSandbox function of the same name.
-func (s *Sandbox) ListRoutes() ([]*vcTypes.Route, error) {
+func (s *Sandbox) ListRoutes() ([]*types.Route, error) {
 	return nil, nil
 }

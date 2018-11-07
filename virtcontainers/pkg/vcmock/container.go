@@ -7,6 +7,7 @@ package vcmock
 
 import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 )
 
 // ID implements the VCContainer function of the same name.
@@ -20,7 +21,7 @@ func (c *Container) Sandbox() vc.VCSandbox {
 }
 
 // Process implements the VCContainer function of the same name.
-func (c *Container) Process() vc.Process {
+func (c *Container) Process() types.Process {
 	// always return a mockprocess with a non-zero Pid
 	if c.MockProcess.Pid == 0 {
 		c.MockProcess.Pid = 1000

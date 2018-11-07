@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
-	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -26,6 +25,8 @@ import (
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/manager"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 )
 
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/major.h
@@ -45,23 +46,6 @@ var cdromMajors = map[int64]string{
 	28: "MATSUSHITA_CDROM4_MAJOR",
 	29: "AZTECH_CDROM_MAJOR",
 	32: "CM206_CDROM_MAJOR",
-}
-
-// Process gathers data related to a container process.
-type Process struct {
-	// Token is the process execution context ID. It must be
-	// unique per sandbox.
-	// Token is used to manipulate processes for containers
-	// that have not started yet, and later identify them
-	// uniquely within a sandbox.
-	Token string
-
-	// Pid is the process ID as seen by the host software
-	// stack, e.g. CRI-O, containerd. This is typically the
-	// shim PID.
-	Pid int
-
-	StartTime time.Time
 }
 
 // ContainerStatus describes a container status.
@@ -276,7 +260,7 @@ type Container struct {
 
 	state types.State
 
-	process Process
+	process types.Process
 
 	mounts []Mount
 
@@ -319,7 +303,7 @@ func (c *Container) Sandbox() VCSandbox {
 }
 
 // Process returns the container process.
-func (c *Container) Process() Process {
+func (c *Container) Process() types.Process {
 	return c.process
 }
 
@@ -616,7 +600,7 @@ func newContainer(sandbox *Sandbox, contConfig ContainerConfig) (*Container, err
 		configPath:    filepath.Join(configStoragePath, sandbox.id, contConfig.ID),
 		containerPath: filepath.Join(sandbox.id, contConfig.ID),
 		state:         types.State{},
-		process:       Process{},
+		process:       types.Process{},
 		mounts:        contConfig.Mounts,
 		ctx:           sandbox.ctx,
 	}
@@ -880,10 +864,10 @@ func (c *Container) stop() error {
 
 		// If shim is still running something went wrong
 		// Make sure we stop the shim process
-		if running, _ := isShimRunning(c.process.Pid); running {
+		if running, _ := vshim.IsShimRunning(c.process.Pid); running {
 			l := c.Logger()
 			l.Error("Failed to stop container so stopping dangling shim")
-			if err := stopShim(c.process.Pid); err != nil {
+			if err := vshim.StopShim(c.process.Pid); err != nil {
 				l.WithError(err).Warn("failed to stop shim")
 			}
 		}
@@ -896,7 +880,7 @@ func (c *Container) stop() error {
 	// However, if the signal didn't reach its goal, the caller still
 	// expects this container to be stopped, that's why we should not
 	// return an error, but instead try to kill it forcefully.
-	if err := waitForShim(c.process.Pid); err != nil {
+	if err := vshim.WaitForShim(c.process.Pid); err != nil {
 		// Force the container to be killed.
 		if err := c.kill(syscall.SIGKILL, true); err != nil {
 			return err
@@ -906,7 +890,7 @@ func (c *Container) stop() error {
 		// to succeed. Indeed, we have already given a second chance
 		// to the container by trying to kill it with SIGKILL, there
 		// is no reason to try to go further if we got an error.
-		if err := waitForShim(c.process.Pid); err != nil {
+		if err := vshim.WaitForShim(c.process.Pid); err != nil {
 			return err
 		}
 	}
@@ -942,7 +926,7 @@ func (c *Container) stop() error {
 	return c.setContainerState(types.StateStopped)
 }
 
-func (c *Container) enter(cmd types.Cmd) (*Process, error) {
+func (c *Container) enter(cmd types.Cmd) (*types.Process, error) {
 	if err := c.checkSandboxRunning("enter"); err != nil {
 		return nil, err
 	}

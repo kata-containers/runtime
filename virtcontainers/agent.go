@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"github.com/kata-containers/agent/protocols/grpc"
-	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/mitchellh/mapstructure"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/net/context"
@@ -161,7 +160,7 @@ type agent interface {
 	createSandbox(sandbox *Sandbox) error
 
 	// exec will tell the agent to run a command in an already running container.
-	exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*Process, error)
+	exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*types.Process, error)
 
 	// startSandbox will tell the agent to start all containers related to the Sandbox.
 	startSandbox(sandbox *Sandbox) error
@@ -170,7 +169,7 @@ type agent interface {
 	stopSandbox(sandbox *Sandbox) error
 
 	// createContainer will tell the agent to create a container related to a Sandbox.
-	createContainer(sandbox *Sandbox, c *Container) (*Process, error)
+	createContainer(sandbox *Sandbox, c *Container) (*types.Process, error)
 
 	// startContainer will tell the agent to start a container related to a Sandbox.
 	startContainer(sandbox *Sandbox, c *Container) error
@@ -235,16 +234,16 @@ type agent interface {
 	reseedRNG(data []byte) error
 
 	// updateInterface will tell the agent to update a nic for an existed Sandbox.
-	updateInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error)
+	updateInterface(inf *types.Interface) (*types.Interface, error)
 
 	// listInterfaces will tell the agent to list interfaces of an existed Sandbox
-	listInterfaces() ([]*vcTypes.Interface, error)
+	listInterfaces() ([]*types.Interface, error)
 
 	// updateRoutes will tell the agent to update route table for an existed Sandbox.
-	updateRoutes(routes []*vcTypes.Route) ([]*vcTypes.Route, error)
+	updateRoutes(routes []*types.Route) ([]*types.Route, error)
 
 	// listRoutes will tell the agent to list routes of an existed Sandbox
-	listRoutes() ([]*vcTypes.Route, error)
+	listRoutes() ([]*types.Route, error)
 
 	// getGuestDetails will tell the agent to get some information of guest
 	getGuestDetails(*grpc.GuestDetailsRequest) (*grpc.GuestDetailsResponse, error)

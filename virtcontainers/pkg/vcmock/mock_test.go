@@ -13,8 +13,7 @@ import (
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/factory"
-	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
@@ -427,15 +426,15 @@ func TestVCMockEnterContainer(t *testing.T) {
 	assert.Error(err)
 	assert.True(IsMockError(err))
 
-	m.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *vc.Process, error) {
-		return &Sandbox{}, &Container{}, &vc.Process{}, nil
+	m.EnterContainerFunc = func(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (vc.VCSandbox, vc.VCContainer, *types.Process, error) {
+		return &Sandbox{}, &Container{}, &types.Process{}, nil
 	}
 
 	sandbox, container, process, err := m.EnterContainer(ctx, testSandboxID, testContainerID, cmd)
 	assert.NoError(err)
 	assert.Equal(sandbox, &Sandbox{})
 	assert.Equal(container, &Container{})
-	assert.Equal(process, &vc.Process{})
+	assert.Equal(process, &types.Process{})
 
 	// reset
 	m.EnterContainerFunc = nil
@@ -749,7 +748,7 @@ func TestVCMockAddInterface(t *testing.T) {
 	assert.Error(err)
 	assert.True(IsMockError(err))
 
-	m.AddInterfaceFunc = func(ctx context.Context, sid string, inf *vcTypes.Interface) (*vcTypes.Interface, error) {
+	m.AddInterfaceFunc = func(ctx context.Context, sid string, inf *types.Interface) (*types.Interface, error) {
 		return nil, nil
 	}
 
@@ -776,7 +775,7 @@ func TestVCMockRemoveInterface(t *testing.T) {
 	assert.Error(err)
 	assert.True(IsMockError(err))
 
-	m.RemoveInterfaceFunc = func(ctx context.Context, sid string, inf *vcTypes.Interface) (*vcTypes.Interface, error) {
+	m.RemoveInterfaceFunc = func(ctx context.Context, sid string, inf *types.Interface) (*types.Interface, error) {
 		return nil, nil
 	}
 
@@ -803,7 +802,7 @@ func TestVCMockListInterfaces(t *testing.T) {
 	assert.Error(err)
 	assert.True(IsMockError(err))
 
-	m.ListInterfacesFunc = func(ctx context.Context, sid string) ([]*vcTypes.Interface, error) {
+	m.ListInterfacesFunc = func(ctx context.Context, sid string) ([]*types.Interface, error) {
 		return nil, nil
 	}
 
@@ -830,7 +829,7 @@ func TestVCMockUpdateRoutes(t *testing.T) {
 	assert.Error(err)
 	assert.True(IsMockError(err))
 
-	m.UpdateRoutesFunc = func(ctx context.Context, sid string, routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
+	m.UpdateRoutesFunc = func(ctx context.Context, sid string, routes []*types.Route) ([]*types.Route, error) {
 		return nil, nil
 	}
 
@@ -857,7 +856,7 @@ func TestVCMockListRoutes(t *testing.T) {
 	assert.Error(err)
 	assert.True(IsMockError(err))
 
-	m.ListRoutesFunc = func(ctx context.Context, sid string) ([]*vcTypes.Route, error) {
+	m.ListRoutesFunc = func(ctx context.Context, sid string) ([]*types.Route, error) {
 		return nil, nil
 	}
 

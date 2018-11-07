@@ -15,6 +15,7 @@ import (
 	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/urfave/cli"
 )
 
@@ -127,7 +128,7 @@ func create(ctx context.Context, containerID, bundlePath, console, pidFilePath s
 
 	disableOutput := noNeedForOutput(detach, ociSpec.Process.Terminal)
 
-	var process vc.Process
+	var process types.Process
 	switch containerType {
 	case vc.PodSandbox:
 		_, process, err = katautils.CreateSandbox(ctx, vci, ociSpec, runtimeConfig, containerID, bundlePath, console, disableOutput, systemdCgroup, false)

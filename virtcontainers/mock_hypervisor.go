@@ -9,7 +9,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 )
 
 type mockHypervisor struct {

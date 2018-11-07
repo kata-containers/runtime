@@ -7,7 +7,7 @@ package virtcontainers
 
 import (
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
-	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 )
 
 type noopResourceStorage struct{}
@@ -88,11 +88,11 @@ func (n *noopResourceStorage) fetchContainerState(sandboxID, containerID string)
 	return types.State{}, nil
 }
 
-func (n *noopResourceStorage) fetchContainerProcess(sandboxID, containerID string) (Process, error) {
-	return Process{}, nil
+func (n *noopResourceStorage) fetchContainerProcess(sandboxID, containerID string) (types.Process, error) {
+	return types.Process{}, nil
 }
 
-func (n *noopResourceStorage) storeContainerProcess(sandboxID, containerID string, process Process) error {
+func (n *noopResourceStorage) storeContainerProcess(sandboxID, containerID string, process types.Process) error {
 	return nil
 }
 

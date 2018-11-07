@@ -22,6 +22,7 @@ import (
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	vshim "github.com/kata-containers/runtime/virtcontainers/shim"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -174,7 +175,7 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config testRuntimeConf
 		Path: proxyPath,
 	}
 
-	shimConfig := vc.ShimConfig{
+	shimConfig := vshim.Config{
 		Path: shimPath,
 	}
 
@@ -407,7 +408,7 @@ func TestConfigLoadConfigurationFailMissingShim(t *testing.T) {
 		func(config testRuntimeConfig, configFile string, ignoreLogging bool) (bool, error) {
 			expectFail := true
 
-			shimConfig, ok := config.RuntimeConfig.ShimConfig.(vc.ShimConfig)
+			shimConfig, ok := config.RuntimeConfig.ShimConfig.(vshim.Config)
 			if !ok {
 				return expectFail, fmt.Errorf("cannot determine shim config")
 			}
@@ -616,7 +617,7 @@ func TestMinimalRuntimeConfig(t *testing.T) {
 		Path: proxyPath,
 	}
 
-	expectedShimConfig := vc.ShimConfig{
+	expectedShimConfig := vshim.Config{
 		Path: shimPath,
 	}
 
@@ -1602,7 +1603,7 @@ func TestCheckNetNsConfigShimTrace(t *testing.T) {
 		config := oci.RuntimeConfig{
 			DisableNewNetNs:   d.disableNetNs,
 			InterNetworkModel: d.networkModel,
-			ShimConfig: vc.ShimConfig{
+			ShimConfig: vshim.Config{
 				Trace: d.shimTrace,
 			},
 		}

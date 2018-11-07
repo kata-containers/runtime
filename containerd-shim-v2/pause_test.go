@@ -14,8 +14,8 @@ import (
 	taskAPI "github.com/containerd/containerd/runtime/v2/task"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/vcmock"
-	"github.com/kata-containers/runtime/virtcontainers/types"
 
 	"github.com/stretchr/testify/assert"
 )
