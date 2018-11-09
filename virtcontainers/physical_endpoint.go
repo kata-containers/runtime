@@ -179,9 +179,10 @@ func createPhysicalEndpoint(netInfo NetworkInfo) (*PhysicalEndpoint, error) {
 	vendorDeviceID := fmt.Sprintf("%s %s", vendorID, deviceID)
 	vendorDeviceID = strings.TrimSpace(vendorDeviceID)
 
+	// pass the null string macaddr to agent to avoid updateInterface failure
 	physicalEndpoint := &PhysicalEndpoint{
 		IfaceName:      netInfo.Iface.Name,
-		HardAddr:       netInfo.Iface.HardwareAddr.String(),
+		HardAddr:       "",
 		VendorDeviceID: vendorDeviceID,
 		EndpointType:   PhysicalEndpointType,
 		Driver:         driver,
