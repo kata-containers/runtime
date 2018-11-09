@@ -15,6 +15,7 @@ var defaultInitrdPath = "/usr/share/kata-containers/kata-containers-initrd.img"
 var defaultFirmwarePath = ""
 var defaultMachineAccelerators = ""
 var defaultShimPath = "/usr/libexec/kata-containers/kata-shim"
+var systemdUnitName = "kata-containers.target"
 
 const defaultKernelParams = ""
 const defaultMachineType = "pc"

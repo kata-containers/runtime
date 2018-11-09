@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kata-containers/runtime/pkg/katautils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,13 +39,13 @@ func TestFileExists(t *testing.T) {
 
 func TestIsEphemeralStorage(t *testing.T) {
 	sampleEphePath := "/var/lib/kubelet/pods/366c3a75-4869-11e8-b479-507b9ddd5ce4/volumes/kubernetes.io~empty-dir/cache-volume"
-	isEphe := IsEphemeralStorage(sampleEphePath)
+	isEphe := katautils.IsEphemeralStorage(sampleEphePath)
 	if !isEphe {
 		t.Fatalf("Unable to correctly determine volume type")
 	}
 
 	sampleEphePath = "/var/lib/kubelet/pods/366c3a75-4869-11e8-b479-507b9ddd5ce4/volumes/cache-volume"
-	isEphe = IsEphemeralStorage(sampleEphePath)
+	isEphe = katautils.IsEphemeralStorage(sampleEphePath)
 	if isEphe {
 		t.Fatalf("Unable to correctly determine volume type")
 	}

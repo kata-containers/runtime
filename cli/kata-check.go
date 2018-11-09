@@ -288,7 +288,7 @@ var kataCheckCLICommand = cli.Command{
 			return err
 		}
 
-		span, _ := trace(ctx, "kata-check")
+		span, _ := katautils.Trace(ctx, "kata-check")
 		defer span.Finish()
 
 		setCPUtype()

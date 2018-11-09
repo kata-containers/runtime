@@ -14,6 +14,7 @@ import (
 	runtim "runtime"
 
 	"github.com/BurntSushi/toml"
+	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	vcUtils "github.com/kata-containers/runtime/virtcontainers/utils"
@@ -451,7 +452,7 @@ var kataEnvCLICommand = cli.Command{
 			return err
 		}
 
-		span, _ := trace(ctx, "kata-env")
+		span, _ := katautils.Trace(ctx, "kata-env")
 		defer span.Finish()
 
 		return handleSettings(defaultOutputFile, context)

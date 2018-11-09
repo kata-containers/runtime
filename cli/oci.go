@@ -13,11 +13,9 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"strings"
 	"syscall"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/opencontainers/runc/libcontainer/utils"
@@ -247,7 +245,7 @@ func fetchContainerIDMapping(containerID string) (string, error) {
 }
 
 func addContainerIDMapping(ctx context.Context, containerID, sandboxID string) error {
-	span, _ := trace(ctx, "addContainerIDMapping")
+	span, _ := katautils.Trace(ctx, "addContainerIDMapping")
 	defer span.Finish()
 
 	if containerID == "" {
@@ -274,7 +272,7 @@ func addContainerIDMapping(ctx context.Context, containerID, sandboxID string) e
 }
 
 func delContainerIDMapping(ctx context.Context, containerID string) error {
-	span, _ := trace(ctx, "delContainerIDMapping")
+	span, _ := katautils.Trace(ctx, "delContainerIDMapping")
 	defer span.Finish()
 
 	if containerID == "" {
@@ -284,34 +282,4 @@ func delContainerIDMapping(ctx context.Context, containerID string) error {
 	path := filepath.Join(ctrsMapTreePath, containerID)
 
 	return os.RemoveAll(path)
-}
-
-// enterNetNS is free from any call to a go routine, and it calls
-// into runtime.LockOSThread(), meaning it won't be executed in a
-// different thread than the one expected by the caller.
-func enterNetNS(netNSPath string, cb func() error) error {
-	if netNSPath == "" {
-		return cb()
-	}
-
-	goruntime.LockOSThread()
-	defer goruntime.UnlockOSThread()
-
-	currentNS, err := ns.GetCurrentNS()
-	if err != nil {
-		return err
-	}
-	defer currentNS.Close()
-
-	targetNS, err := ns.GetNS(netNSPath)
-	if err != nil {
-		return err
-	}
-
-	if err := targetNS.Set(); err != nil {
-		return err
-	}
-	defer currentNS.Set()
-
-	return cb()
 }

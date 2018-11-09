@@ -11,10 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
+	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
-	vf "github.com/kata-containers/runtime/virtcontainers/factory"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/urfave/cli"
 )
@@ -87,44 +86,11 @@ var createCLICommand = cli.Command{
 	},
 }
 
-// Use a variable to allow tests to modify its value
-var getKernelParamsFunc = getKernelParams
-
-func handleFactory(ctx context.Context, runtimeConfig oci.RuntimeConfig) {
-	if !runtimeConfig.FactoryConfig.Template {
-		return
-	}
-
-	factoryConfig := vf.Config{
-		Template: true,
-		VMConfig: vc.VMConfig{
-			HypervisorType:   runtimeConfig.HypervisorType,
-			HypervisorConfig: runtimeConfig.HypervisorConfig,
-			AgentType:        runtimeConfig.AgentType,
-			AgentConfig:      runtimeConfig.AgentConfig,
-		},
-	}
-
-	kataLog.WithField("factory", factoryConfig).Info("load vm factory")
-
-	f, err := vf.NewFactory(ctx, factoryConfig, true)
-	if err != nil {
-		kataLog.WithError(err).Warn("load vm factory failed, about to create new one")
-		f, err = vf.NewFactory(ctx, factoryConfig, false)
-		if err != nil {
-			kataLog.WithError(err).Warn("create vm factory failed")
-			return
-		}
-	}
-
-	vci.SetFactory(ctx, f)
-}
-
 func create(ctx context.Context, containerID, bundlePath, console, pidFilePath string, detach, systemdCgroup bool,
 	runtimeConfig oci.RuntimeConfig) error {
 	var err error
 
-	span, ctx := trace(ctx, "create")
+	span, ctx := katautils.Trace(ctx, "create")
 	defer span.Finish()
 
 	kataLog = kataLog.WithField("container", containerID)
@@ -157,7 +123,7 @@ func create(ctx context.Context, containerID, bundlePath, console, pidFilePath s
 		return err
 	}
 
-	handleFactory(ctx, runtimeConfig)
+	katautils.HandleFactory(ctx, vci, &runtimeConfig)
 
 	disableOutput := noNeedForOutput(detach, ociSpec.Process.Terminal)
 
@@ -181,80 +147,12 @@ func create(ctx context.Context, containerID, bundlePath, console, pidFilePath s
 	return createPIDFile(ctx, pidFilePath, process.Pid)
 }
 
-var systemdKernelParam = []vc.Param{
-	{
-		Key:   "init",
-		Value: "/usr/lib/systemd/systemd",
-	},
-	{
-		Key:   "systemd.unit",
-		Value: systemdUnitName,
-	},
-	{
-		Key:   "systemd.mask",
-		Value: "systemd-networkd.service",
-	},
-	{
-		Key:   "systemd.mask",
-		Value: "systemd-networkd.socket",
-	},
-}
-
-func getKernelParams(needSystemd bool) []vc.Param {
-	p := []vc.Param{}
-
-	if needSystemd {
-		p = append(p, systemdKernelParam...)
-	}
-
-	return p
-}
-
-func needSystemd(config vc.HypervisorConfig) bool {
-	return config.ImagePath != ""
-}
-
-// setKernelParams adds the user-specified kernel parameters (from the
-// configuration file) to the defaults so that the former take priority.
-func setKernelParams(containerID string, runtimeConfig *oci.RuntimeConfig) error {
-	defaultKernelParams := getKernelParamsFunc(needSystemd(runtimeConfig.HypervisorConfig))
-
-	if runtimeConfig.HypervisorConfig.Debug {
-		strParams := vc.SerializeParams(defaultKernelParams, "=")
-		formatted := strings.Join(strParams, " ")
-
-		kataLog.WithField("default-kernel-parameters", formatted).Debug()
-	}
-
-	// retrieve the parameters specified in the config file
-	userKernelParams := runtimeConfig.HypervisorConfig.KernelParams
-
-	// reset
-	runtimeConfig.HypervisorConfig.KernelParams = []vc.Param{}
-
-	// first, add default values
-	for _, p := range defaultKernelParams {
-		if err := (runtimeConfig).AddKernelParam(p); err != nil {
-			return err
-		}
-	}
-
-	// now re-add the user-specified values so that they take priority.
-	for _, p := range userKernelParams {
-		if err := (runtimeConfig).AddKernelParam(p); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func createSandbox(ctx context.Context, ociSpec oci.CompatOCISpec, runtimeConfig oci.RuntimeConfig,
 	containerID, bundlePath, console string, disableOutput, systemdCgroup bool) (vc.Process, error) {
-	span, ctx := trace(ctx, "createSandbox")
+	span, ctx := katautils.Trace(ctx, "createSandbox")
 	defer span.Finish()
 
-	err := setKernelParams(containerID, &runtimeConfig)
+	err := katautils.SetKernelParams(containerID, &runtimeConfig)
 	if err != nil {
 		return vc.Process{}, err
 	}
@@ -272,8 +170,8 @@ func createSandbox(ctx context.Context, ociSpec oci.CompatOCISpec, runtimeConfig
 	}
 
 	// Run pre-start OCI hooks.
-	err = enterNetNS(sandboxConfig.NetworkConfig.NetNSPath, func() error {
-		return preStartHooks(ctx, ociSpec, containerID, bundlePath)
+	err = katautils.EnterNetNS(sandboxConfig.NetworkConfig.NetNSPath, func() error {
+		return katautils.PreStartHooks(ctx, ociSpec, containerID, bundlePath)
 	})
 	if err != nil {
 		return vc.Process{}, err
@@ -301,27 +199,13 @@ func createSandbox(ctx context.Context, ociSpec oci.CompatOCISpec, runtimeConfig
 	return containers[0].Process(), nil
 }
 
-// setEphemeralStorageType sets the mount type to 'ephemeral'
-// if the mount source path is provisioned by k8s for ephemeral storage.
-// For the given pod ephemeral volume is created only once
-// backed by tmpfs inside the VM. For successive containers
-// of the same pod the already existing volume is reused.
-func setEphemeralStorageType(ociSpec oci.CompatOCISpec) oci.CompatOCISpec {
-	for idx, mnt := range ociSpec.Mounts {
-		if IsEphemeralStorage(mnt.Source) {
-			ociSpec.Mounts[idx].Type = "ephemeral"
-		}
-	}
-	return ociSpec
-}
-
 func createContainer(ctx context.Context, ociSpec oci.CompatOCISpec, containerID, bundlePath,
 	console string, disableOutput bool) (vc.Process, error) {
 
-	span, ctx := trace(ctx, "createContainer")
+	span, ctx := katautils.Trace(ctx, "createContainer")
 	defer span.Finish()
 
-	ociSpec = setEphemeralStorageType(ociSpec)
+	ociSpec = katautils.SetEphemeralStorageType(ociSpec)
 
 	contConfig, err := oci.ContainerConfig(ociSpec, bundlePath, containerID, console, disableOutput)
 	if err != nil {
@@ -343,8 +227,8 @@ func createContainer(ctx context.Context, ociSpec oci.CompatOCISpec, containerID
 	}
 
 	// Run pre-start OCI hooks.
-	err = enterNetNS(s.GetNetNs(), func() error {
-		return preStartHooks(ctx, ociSpec, containerID, bundlePath)
+	err = katautils.EnterNetNS(s.GetNetNs(), func() error {
+		return katautils.PreStartHooks(ctx, ociSpec, containerID, bundlePath)
 	})
 	if err != nil {
 		return vc.Process{}, err
@@ -358,7 +242,7 @@ func createContainer(ctx context.Context, ociSpec oci.CompatOCISpec, containerID
 }
 
 func createPIDFile(ctx context.Context, pidFilePath string, pid int) error {
-	span, _ := trace(ctx, "createPIDFile")
+	span, _ := katautils.Trace(ctx, "createPIDFile")
 	defer span.Finish()
 
 	if pidFilePath == "" {

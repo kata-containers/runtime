@@ -7,7 +7,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -17,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/vcmock"
@@ -35,28 +35,6 @@ const (
 )
 
 var testStrPID = fmt.Sprintf("%d", testPID)
-
-// return the value of the *last* param with the specified key
-func findLastParam(key string, params []vc.Param) (string, error) {
-	if key == "" {
-		return "", errors.New("ERROR: need non-nil key")
-	}
-
-	l := len(params)
-	if l == 0 {
-		return "", errors.New("ERROR: no params")
-	}
-
-	for i := l - 1; i >= 0; i-- {
-		p := params[i]
-
-		if key == p.Key {
-			return p.Value, nil
-		}
-	}
-
-	return "", fmt.Errorf("no param called %q found", name)
-}
 
 func TestCreatePIDFileSuccessful(t *testing.T) {
 	pidDirPath, err := ioutil.TempDir(testDir, "pid-path-")
@@ -770,12 +748,12 @@ func TestCreateInvalidKernelParams(t *testing.T) {
 	err = writeOCIConfigFile(spec, ociConfigFile)
 	assert.NoError(err)
 
-	savedFunc := getKernelParamsFunc
+	savedFunc := katautils.GetKernelParamsFunc
 	defer func() {
-		getKernelParamsFunc = savedFunc
+		katautils.GetKernelParamsFunc = savedFunc
 	}()
 
-	getKernelParamsFunc = func(needSystemd bool) []vc.Param {
+	katautils.GetKernelParamsFunc = func(needSystemd bool) []vc.Param {
 		return []vc.Param{
 			{
 				Key:   "",
@@ -950,24 +928,6 @@ func TestCreateCreateContainerFail(t *testing.T) {
 	}
 }
 
-func TestSetEphemeralStorageType(t *testing.T) {
-	assert := assert.New(t)
-
-	ociSpec := oci.CompatOCISpec{}
-	var ociMounts []specs.Mount
-	mount := specs.Mount{
-		Source: "/var/lib/kubelet/pods/366c3a77-4869-11e8-b479-507b9ddd5ce4/volumes/kubernetes.io~empty-dir/cache-volume",
-	}
-
-	ociMounts = append(ociMounts, mount)
-	ociSpec.Mounts = ociMounts
-	ociSpec = setEphemeralStorageType(ociSpec)
-
-	mountType := ociSpec.Mounts[0].Type
-	assert.Equal(mountType, "ephemeral",
-		"Unexpected mount type, got %s expected ephemeral", mountType)
-}
-
 func TestCreateCreateContainer(t *testing.T) {
 	assert := assert.New(t)
 
@@ -1013,59 +973,4 @@ func TestCreateCreateContainer(t *testing.T) {
 		assert.NoError(err)
 		os.RemoveAll(path)
 	}
-}
-
-func TestSetKernelParams(t *testing.T) {
-	assert := assert.New(t)
-
-	config := oci.RuntimeConfig{}
-
-	assert.Empty(config.HypervisorConfig.KernelParams)
-
-	err := setKernelParams(testContainerID, &config)
-	assert.NoError(err)
-
-	if needSystemd(config.HypervisorConfig) {
-		assert.NotEmpty(config.HypervisorConfig.KernelParams)
-	}
-}
-
-func TestSetKernelParamsUserOptionTakesPriority(t *testing.T) {
-	assert := assert.New(t)
-
-	initName := "init"
-	initValue := "/sbin/myinit"
-
-	ipName := "ip"
-	ipValue := "127.0.0.1"
-
-	params := []vc.Param{
-		{Key: initName, Value: initValue},
-		{Key: ipName, Value: ipValue},
-	}
-
-	hypervisorConfig := vc.HypervisorConfig{
-		KernelParams: params,
-	}
-
-	// Config containing user-specified kernel parameters
-	config := oci.RuntimeConfig{
-		HypervisorConfig: hypervisorConfig,
-	}
-
-	assert.NotEmpty(config.HypervisorConfig.KernelParams)
-
-	err := setKernelParams(testContainerID, &config)
-	assert.NoError(err)
-
-	kernelParams := config.HypervisorConfig.KernelParams
-
-	init, err := findLastParam(initName, kernelParams)
-	assert.NoError(err)
-	assert.Equal(initValue, init)
-
-	ip, err := findLastParam(ipName, kernelParams)
-	assert.NoError(err)
-	assert.Equal(ipValue, ip)
-
 }

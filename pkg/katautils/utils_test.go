@@ -23,6 +23,9 @@ const (
 	testFileMode = os.FileMode(0640)
 
 	testDisabledNeedNonRoot = "Test disabled as requires non-root user"
+
+	testSandboxID   = "99999999-9999-9999-99999999999999999"
+	testContainerID = "1"
 )
 
 var testDir = ""
