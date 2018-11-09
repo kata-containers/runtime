@@ -1395,8 +1395,10 @@ func createEndpoint(netInfo NetworkInfo, idx int, model NetInterworkingModel) (E
 		if socketPath != "" {
 			networkLogger().WithField("interface", netInfo.Iface.Name).Info("VhostUser network interface found")
 			endpoint, err = createVhostUserEndpoint(netInfo, socketPath)
-		} else {
+		} else if netInfo.Iface.Type == "veth" {
 			endpoint, err = createVirtualNetworkEndpoint(idx, netInfo.Iface.Name, model)
+		} else {
+			networkLogger().WithField("endpoint-type", netInfo.Iface.Type).Info("Skipping unsupported endpoint")
 		}
 	}
 
