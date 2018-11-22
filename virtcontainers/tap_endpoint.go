@@ -110,7 +110,7 @@ func (endpoint *TapEndpoint) HotDetach(h hypervisor, netNsCreated bool, netNsPat
 	return nil
 }
 
-func createTapNetworkEndpoint(idx int, ifName string) (*TapEndpoint, error) {
+func createTapNetworkEndpoint(idx int, ifName, tapIfName string) (*TapEndpoint, error) {
 	if idx < 0 {
 		return &TapEndpoint{}, fmt.Errorf("invalid network endpoint index: %d", idx)
 	}
@@ -128,6 +128,9 @@ func createTapNetworkEndpoint(idx int, ifName string) (*TapEndpoint, error) {
 	}
 	if ifName != "" {
 		endpoint.TapInterface.Name = ifName
+	}
+	if tapIfName != "" {
+		endpoint.TapInterface.TAPIface.Name = tapIfName
 	}
 
 	return endpoint, nil

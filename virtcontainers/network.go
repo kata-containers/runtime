@@ -1369,7 +1369,7 @@ func createEndpointsFromScan(networkNSPath string, config NetworkConfig) ([]Endp
 		}
 
 		if err := doNetNS(networkNSPath, func(_ ns.NetNS) error {
-			endpoint, errCreate = createEndpoint(netInfo, idx, config.InterworkingModel)
+			endpoint, errCreate = createEndpoint(netInfo, idx, config.InterworkingModel, "")
 			return errCreate
 		}); err != nil {
 			return []Endpoint{}, err
@@ -1390,7 +1390,7 @@ func createEndpointsFromScan(networkNSPath string, config NetworkConfig) ([]Endp
 	return endpoints, nil
 }
 
-func createEndpoint(netInfo NetworkInfo, idx int, model NetInterworkingModel) (Endpoint, error) {
+func createEndpoint(netInfo NetworkInfo, idx int, model NetInterworkingModel, devName string) (Endpoint, error) {
 	var endpoint Endpoint
 	// TODO: This is the incoming interface
 	// based on the incoming interface we should create
@@ -1427,7 +1427,7 @@ func createEndpoint(netInfo NetworkInfo, idx int, model NetInterworkingModel) (E
 			endpoint, err = createMacvtapNetworkEndpoint(netInfo)
 		} else if netInfo.Iface.Type == "tap" {
 			networkLogger().Info("tap interface found")
-			endpoint, err = createTapNetworkEndpoint(idx, netInfo.Iface.Name)
+			endpoint, err = createTapNetworkEndpoint(idx, netInfo.Iface.Name, devName)
 		} else if netInfo.Iface.Type == "veth" {
 			endpoint, err = createVethNetworkEndpoint(idx, netInfo.Iface.Name, model)
 		} else if netInfo.Iface.Type == "ipvlan" {

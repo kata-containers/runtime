@@ -1118,7 +1118,7 @@ func (s *Sandbox) AddInterface(inf *types.Interface) (*types.Interface, error) {
 		return nil, err
 	}
 
-	endpoint, err := createEndpoint(netInfo, len(s.networkNS.Endpoints), s.config.NetworkConfig.InterworkingModel)
+	endpoint, err := createEndpoint(netInfo, len(s.networkNS.Endpoints), s.config.NetworkConfig.InterworkingModel, inf.Device)
 	if err != nil {
 		return nil, err
 	}
