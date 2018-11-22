@@ -91,6 +91,17 @@ func create(containerID, bundlePath, console, pidFilePath string, detach bool,
 	kataLog = kataLog.WithField("container", containerID)
 	setExternalLoggers(kataLog)
 
+	if bundlePath == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+
+		kataLog.WithField("directory", cwd).Debug("Defaulting bundle path to current directory")
+
+		bundlePath = cwd
+	}
+
 	// Checks the MUST and MUST NOT from OCI runtime specification
 	if bundlePath, err = validCreateParams(containerID, bundlePath); err != nil {
 		return err
