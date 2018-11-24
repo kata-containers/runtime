@@ -552,6 +552,14 @@ func (q *qemu) startSandbox() error {
 	var strErr string
 	strErr, err = govmmQemu.LaunchQemu(q.qemuConfig, newQMPLogger())
 	if err != nil {
+		// Some programs such as containerd-shimv2 may have its own children reapers which has reaped the
+		// qemu's process before cmd.Wait in govmmQemu.LaunchQemu() to reap it. For this case, govmmQemu.LaunchQemu()
+		// will get an error contains substring of "no child processes", thus it's needed
+		// to ignore this error and deal it as success.
+		if strings.Contains(err.Error(), "no child processes") {
+			err = nil
+			return nil
+		}
 		return fmt.Errorf("%s", strErr)
 	}
 
