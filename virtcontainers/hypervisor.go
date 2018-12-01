@@ -18,6 +18,8 @@ import (
 // HypervisorType describes an hypervisor type.
 type HypervisorType string
 
+type operation int
+
 const (
 	// QemuHypervisor is the QEMU hypervisor.
 	QemuHypervisor HypervisorType = "qemu"

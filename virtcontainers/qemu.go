@@ -95,8 +95,6 @@ var defaultKernelParameters = []Param{
 	{"panic", "1"},
 }
 
-type operation int
-
 const (
 	addDevice operation = iota
 	removeDevice
