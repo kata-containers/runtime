@@ -1101,7 +1101,7 @@ func (s *Sandbox) generateNetInfo(inf *types.Interface) (NetworkInfo, error) {
 	return NetworkInfo{
 		Iface: NetlinkIface{
 			LinkAttrs: netlink.LinkAttrs{
-				Name:         inf.Name,
+				Name:         inf.Device,
 				HardwareAddr: hw,
 				MTU:          int(inf.Mtu),
 			},
