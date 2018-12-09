@@ -646,8 +646,10 @@ func TestAgentPathAPI(t *testing.T) {
 	c.UseVSock = true
 	err = k2.generateVMSocket(id, c)
 	assert.Nil(err)
-	_, ok = k2.vmSocket.(kataVSOCK)
+	s, ok := k2.vmSocket.(kataVSOCK)
 	assert.True(ok)
+	// Check that the VSOCK port is properly allocated
+	assert.Equal(s.port, uint32(vSockPort))
 }
 
 func TestAgentConfigure(t *testing.T) {

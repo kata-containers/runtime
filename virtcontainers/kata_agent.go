@@ -175,8 +175,18 @@ func (k *kataAgent) generateVMSocket(id string, c KataAgentConfig) error {
 	if c.UseVSock {
 		// We want to go through VSOCK. The VM VSOCK endpoint will be our gRPC.
 		k.Logger().Debug("agent: Using vsock VM socket endpoint")
-		// We dont know yet the context ID - set empty vsock configuration
-		k.vmSocket = kataVSOCK{}
+
+		vhostFd, contextID, err := utils.FindContextID()
+		if err != nil {
+			return err
+		}
+
+		k.vmSocket = kataVSOCK{
+			contextID: contextID,
+			port:      uint32(vSockPort),
+			vhostFd:   vhostFd,
+		}
+
 	} else {
 		k.Logger().Debug("agent: Using unix socket form VM socket endpoint")
 		// We need to generate a host UNIX socket path for the emulated serial port.
@@ -346,20 +356,13 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 
 	switch s := k.vmSocket.(type) {
 	case types.Socket:
-		err = h.addDevice(s, serialPortDev)
-		if err != nil {
+		if err := h.addDevice(s, serialPortDev); err != nil {
 			return err
 		}
 	case kataVSOCK:
-		s.vhostFd, s.contextID, err = utils.FindContextID()
-		if err != nil {
+		if err := h.addDevice(s, vSockPCIDev); err != nil {
 			return err
 		}
-		s.port = uint32(vSockPort)
-		if err = h.addDevice(s, vSockPCIDev); err != nil {
-			return err
-		}
-		k.vmSocket = s
 	default:
 		return vcTypes.ErrInvalidConfigType
 	}
