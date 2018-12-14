@@ -67,8 +67,20 @@
   revision = "79559b488d8848b53a8e34c330140c3fc37ee246"
 
 [[constraint]]
- name = "github.com/containerd/containerd"
- revision = "f05672357f56f26751a521175c5a96fc21fa8603"
+  name = "github.com/containerd/containerd"
+  revision = "f05672357f56f26751a521175c5a96fc21fa8603"
+
+[[constraint]]
+  name = "github.com/go-openapi/runtime"
+  revision = "aadb2cc7b8862fdab251bf60a8b9d2a951c9746c"
+
+[[constraint]]
+  name = "github.com/go-openapi/errors"
+  revision = "7a7ff1b7b8020f22574411a32f28b4d168d69237"
+
+[[constraint]]
+  name = "github.com/go-openapi/strfmt"
+  revision = "e471370ae57ac74eaf0afe816a66e4ddd7f1b027"
 
 [[override]]
   branch = "master"
