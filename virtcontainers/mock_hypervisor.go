@@ -105,3 +105,7 @@ func (m *mockHypervisor) getThreadIDs() (*threadIDs, error) {
 func (m *mockHypervisor) cleanup() error {
 	return nil
 }
+
+func (m *mockHypervisor) waitAgent(ctx context.Context) error {
+	return nil
+}

@@ -584,6 +584,33 @@ func (k *kataAgent) setProxy(sandbox *Sandbox, proxy proxy, pid int, url string)
 	return nil
 }
 
+func (k *kataAgent) checkAgent(sandbox *Sandbox) error {
+	savedCtx := k.ctx
+	ctx, cancel := context.WithTimeout(k.ctx, checkRequestTimeout)
+	k.ctx = ctx
+	defer func() {
+		cancel()
+		k.ctx = savedCtx
+	}()
+
+	// wait agent is running
+	switch k.vmSocket.(type) {
+	case Socket:
+		if err := sandbox.hypervisor.waitAgent(ctx); err != nil {
+			k.Logger().WithError(err).Error("Failed to check if agent is running")
+			return err
+		}
+	default:
+	}
+
+	// check grpc server is serving
+	if err := k.check(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 	span, _ := k.trace("startSandbox")
 	defer span.Finish()
@@ -604,8 +631,7 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 		hostname = hostname[:maxHostnameLen]
 	}
 
-	// check grpc server is serving
-	if err = k.check(); err != nil {
+	if err = k.checkAgent(sandbox); err != nil {
 		return err
 	}
 
@@ -1474,8 +1500,6 @@ type reqFunc func(context.Context, interface{}, ...golangGrpc.CallOption) (inter
 func (k *kataAgent) installReqFunc(c *kataclient.AgentClient) {
 	k.reqHandlers = make(map[string]reqFunc)
 	k.reqHandlers["grpc.CheckRequest"] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
-		ctx, cancel := context.WithTimeout(ctx, checkRequestTimeout)
-		defer cancel()
 		return k.client.Check(ctx, req.(*grpc.CheckRequest), opts...)
 	}
 	k.reqHandlers["grpc.ExecProcessRequest"] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {

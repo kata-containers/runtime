@@ -709,3 +709,7 @@ func (fc *firecracker) getThreadIDs() (*threadIDs, error) {
 func (fc *firecracker) cleanup() error {
 	return nil
 }
+
+func (fc *firecracker) waitAgent(ctx context.Context) error {
+	return nil
+}

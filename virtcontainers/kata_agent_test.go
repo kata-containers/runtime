@@ -16,8 +16,10 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	gpb "github.com/gogo/protobuf/types"
+	govmmQemu "github.com/intel/govmm/qemu"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
@@ -906,4 +908,52 @@ func TestKataCopyFile(t *testing.T) {
 
 	err = k.copyFile(src.Name(), dst.Name())
 	assert.NoError(err)
+}
+
+func TestCheckAgent(t *testing.T) {
+	assert := assert.New(t)
+
+	impl := &gRPCProxy{}
+
+	proxy := mock.ProxyGRPCMock{
+		GRPCImplementer: impl,
+		GRPCRegister:    gRPCRegister,
+	}
+
+	sockDir, err := testGenerateKataProxySockDir()
+	assert.Nil(err)
+	defer os.RemoveAll(sockDir)
+
+	testKataProxyURL := fmt.Sprintf(testKataProxyURLTempl, sockDir)
+	err = proxy.Start(testKataProxyURL)
+	assert.Nil(err)
+	defer proxy.Stop()
+
+	k := &kataAgent{
+		state: KataAgentState{
+			URL: testKataProxyURL,
+		},
+		ctx: context.Background(),
+	}
+	s := &Sandbox{
+		hypervisor: &qemu{
+			qmpEventCh: make(chan govmmQemu.QMPEvent),
+		},
+	}
+	k.vmSocket = kataVSOCK{}
+	err = k.checkAgent(s)
+	assert.Nil(err)
+
+	k.vmSocket = Socket{}
+	checkRequestTimeout = 500 * time.Millisecond
+	err = k.checkAgent(s)
+	assert.EqualError(err, "timeout")
+
+	s = &Sandbox{
+		hypervisor: &mockHypervisor{},
+	}
+	k.vmSocket = Socket{}
+	checkRequestTimeout = 500 * time.Millisecond
+	err = k.checkAgent(s)
+	assert.Nil(err)
 }

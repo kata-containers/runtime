@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	govmmQemu "github.com/intel/govmm/qemu"
 	"github.com/stretchr/testify/assert"
@@ -384,4 +385,92 @@ func TestQemuCleanup(t *testing.T) {
 
 	err := q.cleanup()
 	assert.Nil(err)
+}
+
+func TestWaitAgent(t *testing.T) {
+	assert := assert.New(t)
+
+	qemuConfig := newQemuConfig()
+	q := &qemu{
+		config: qemuConfig,
+	}
+
+	q.qmpShutdown()
+
+	q.qmpEventCh = make(chan govmmQemu.QMPEvent, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	err := q.waitAgent(ctx)
+	assert.Error(err)
+
+	// test with valid event
+	defaultKataDeviceID = "testChannel"
+	evData := make(map[string]interface{})
+	evData["id"] = defaultKataDeviceID
+	evData["open"] = true
+
+	go func(ev govmmQemu.QMPEvent) {
+		q.qmpEventCh <- ev
+	}(govmmQemu.QMPEvent{
+		Name: "VSERPORT_CHANGE",
+		Data: evData,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	err = q.waitAgent(ctx)
+	assert.NoError(err)
+
+	// test with invalid event
+	defaultKataDeviceID = "testChannel"
+	evData = make(map[string]interface{})
+	evData["id"] = defaultKataDeviceID
+	evData["open"] = "true string"
+
+	go func(ev govmmQemu.QMPEvent) {
+		q.qmpEventCh <- ev
+	}(govmmQemu.QMPEvent{
+		Name: "VSERPORT_CHANGE",
+		Data: evData,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	err = q.waitAgent(ctx)
+	assert.Error(err)
+
+	// test with incomplete event
+	defaultKataDeviceID = "testChannel"
+	evData = make(map[string]interface{})
+	evData["id"] = defaultKataDeviceID
+
+	go func(ev govmmQemu.QMPEvent) {
+		q.qmpEventCh <- ev
+	}(govmmQemu.QMPEvent{
+		Name: "VSERPORT_CHANGE",
+		Data: evData,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	err = q.waitAgent(ctx)
+	assert.Error(err)
+
+	// test with other event
+	defaultKataDeviceID = "testChannel"
+	evData = make(map[string]interface{})
+	evData["id"] = defaultKataDeviceID
+	evData["open"] = true
+
+	go func(ev govmmQemu.QMPEvent) {
+		q.qmpEventCh <- ev
+	}(govmmQemu.QMPEvent{
+		Name: "OTHER_EVENT",
+		Data: evData,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	err = q.waitAgent(ctx)
+	assert.Error(err)
 }

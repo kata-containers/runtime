@@ -607,4 +607,5 @@ type hypervisor interface {
 	hypervisorConfig() HypervisorConfig
 	getThreadIDs() (*threadIDs, error)
 	cleanup() error
+	waitAgent(ctx context.Context) error
 }

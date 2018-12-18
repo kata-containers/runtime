@@ -7,6 +7,7 @@ package virtcontainers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -61,6 +62,7 @@ type qemu struct {
 	config HypervisorConfig
 
 	qmpMonitorCh qmpChannel
+	qmpEventCh   chan govmmQemu.QMPEvent
 
 	qemuConfig govmmQemu.Config
 
@@ -567,7 +569,12 @@ func (q *qemu) waitSandbox(timeout int) error {
 		return fmt.Errorf("Invalid timeout %ds", timeout)
 	}
 
-	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
+	// The buffer should be enough to receive events during the boot of the VM
+	eventCh := make(chan govmmQemu.QMPEvent, 1024)
+	cfg := govmmQemu.QMPConfig{
+		EventCh: eventCh,
+		Logger:  newQMPLogger(),
+	}
 
 	var qmp *govmmQemu.QMP
 	var disconnectCh chan struct{}
@@ -592,7 +599,7 @@ func (q *qemu) waitSandbox(timeout int) error {
 	}
 	q.qmpMonitorCh.qmp = qmp
 	q.qmpMonitorCh.disconn = disconnectCh
-	defer q.qmpShutdown()
+	q.qmpEventCh = eventCh
 
 	qemuMajorVersion = ver.Major
 	qemuMinorVersion = ver.Minor
@@ -1488,4 +1495,45 @@ func (q *qemu) cleanup() error {
 	q.fds = []*os.File{}
 
 	return nil
+}
+
+func (q *qemu) waitAgent(ctx context.Context) error {
+	type eventData struct {
+		ID   string `json:"id,omitempty"`
+		Open bool   `json:"open,omitempty"`
+	}
+
+	if q.qmpEventCh == nil {
+		q.Logger().Warnf("Skip waiting agent because QMP event channel has not been initialized")
+		return nil
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout")
+		case event := <-q.qmpEventCh:
+			// see https://github.com/kata-containers/qemu/blob/qemu-lite-2.11.0/qapi/char.json#L520
+			if event.Name == "VSERPORT_CHANGE" {
+				eventDataJSON, err := json.Marshal(event.Data)
+				if err != nil {
+					q.Logger().Errorf("Marshal failed: %v", err)
+					continue
+				}
+
+				var data eventData
+				if err := json.Unmarshal(eventDataJSON, &data); err != nil {
+					q.Logger().Errorf("Unmarshal failed: %v", err)
+					continue
+				}
+
+				if data.ID == defaultKataDeviceID {
+					if data.Open {
+						q.Logger().Info("Wait agent event done")
+						return nil
+					}
+				}
+			}
+		}
+	}
 }
