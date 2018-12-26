@@ -18,12 +18,13 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
 	"github.com/kata-containers/runtime/virtcontainers/device/manager"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -1747,4 +1748,28 @@ func TestStartNetworkMonitor(t *testing.T) {
 
 	err = s.startNetworkMonitor()
 	assert.Nil(t, err)
+}
+
+func TestAddInterface(t *testing.T) {
+	s := &Sandbox{
+		id:      testSandboxID,
+		network: &defNetwork{},
+		config:  &SandboxConfig{},
+		networkNS: NetworkNamespace{
+			NetNsPath: fmt.Sprintf("/proc/%d/task/%d/ns/net", os.Getpid(), unix.Gettid()),
+			Endpoints: []Endpoint{},
+		},
+	}
+
+	link, err := netlink.LinkByIndex(2)
+	assert.Nil(t, err)
+
+	inf := &types.Interface{
+		Device: link.Attrs().Name,
+		Name:   "eth1",
+		HwAddr: "02:00:ca:fe:00:48",
+	}
+
+	_, err = s.AddInterface(inf)
+	assert.EqualError(t, err, "PhysicalEndpoint does not support Hot attach")
 }
