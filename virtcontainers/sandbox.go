@@ -795,7 +795,7 @@ func createSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Fac
 	return s, nil
 }
 
-func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (*Sandbox, error) {
+func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (_ *Sandbox, err error) {
 	span, ctx := trace(ctx, "newSandbox")
 	defer span.Finish()
 

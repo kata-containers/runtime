@@ -91,7 +91,7 @@ func setupProxy(h hypervisor, agent agent, config VMConfig, id string) (int, str
 }
 
 // NewVM creates a new VM based on provided VMConfig.
-func NewVM(ctx context.Context, config VMConfig) (*VM, error) {
+func NewVM(ctx context.Context, config VMConfig) (_ *VM, err error) {
 	var (
 		proxy proxy
 		pid   int

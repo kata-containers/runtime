@@ -62,11 +62,9 @@ func CreateSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Fac
 	return s, err
 }
 
-func createSandboxFromConfig(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (*Sandbox, error) {
+func createSandboxFromConfig(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (_ *Sandbox, err error) {
 	span, ctx := trace(ctx, "createSandboxFromConfig")
 	defer span.Finish()
-
-	var err error
 
 	// Create the sandbox.
 	s, err := createSandbox(ctx, sandboxConfig, factory)
