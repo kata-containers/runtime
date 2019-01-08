@@ -6,6 +6,7 @@
 package virtcontainers
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
+	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/safchain/ethtool"
 )
 
@@ -98,9 +100,31 @@ func (endpoint *PhysicalEndpoint) Detach(netNsCreated bool, netNsPath string) er
 	return bindNICToHost(endpoint)
 }
 
-// HotAttach for physical endpoint not supported yet
+// HotAttach for physical endpoint
 func (endpoint *PhysicalEndpoint) HotAttach(h hypervisor) error {
-	return fmt.Errorf("PhysicalEndpoint does not support Hot attach")
+	networkLogger().WithField("endpoint-type", "physical").Info("Attaching endpoint (hotplug)")
+
+	// Unbind physical interface from host driver and bind to vfio
+	// so that it can be passed to qemu.
+	if err := bindNICToVFIO(endpoint); err != nil {
+		return err
+	}
+
+	// Generate a unique ID to be used for hypervisor commandline fields
+	randBytes, err := utils.GenerateRandomBytes(8)
+	if err != nil {
+		return err
+	}
+	id := hex.EncodeToString(randBytes)
+
+	// TODO: use device manager as general device management entrance
+	d := config.VFIODev{
+		ID:  id,
+		BDF: endpoint.BDF,
+	}
+
+	_, err = h.hotplugAddDevice(d, vfioDev)
+	return err
 }
 
 // HotDetach for physical endpoint not supported yet
