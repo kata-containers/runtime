@@ -176,7 +176,7 @@ externals:
     description: "Moby project container manager"
     notes: "Docker Swarm requires an older version of Docker."
     url: "https://github.com/moby/moby"
-    version: "v18.06-ce"
+    version: "v18.09-ce"
     meta:
       swarm-version: "1.12.1"
 
