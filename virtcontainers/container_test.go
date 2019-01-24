@@ -20,7 +20,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
 	"github.com/kata-containers/runtime/virtcontainers/device/manager"
-	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -290,8 +290,8 @@ func TestCheckSandboxRunningNotRunningFailure(t *testing.T) {
 func TestCheckSandboxRunningSuccessful(t *testing.T) {
 	c := &Container{
 		sandbox: &Sandbox{
-			state: State{
-				State: StateRunning,
+			state: types.State{
+				State: types.StateRunning,
 			},
 		},
 	}
@@ -299,178 +299,28 @@ func TestCheckSandboxRunningSuccessful(t *testing.T) {
 	assert.Nil(t, err, "%v", err)
 }
 
-func TestContainerAddResources(t *testing.T) {
-	assert := assert.New(t)
-
-	c := &Container{
-		sandbox: &Sandbox{
-			storage: &filesystem{},
-		},
-	}
-	err := c.addResources()
-	assert.Nil(err)
-
-	c.config = &ContainerConfig{Annotations: make(map[string]string)}
-	c.config.Annotations[vcAnnotations.ContainerTypeKey] = string(PodSandbox)
-	err = c.addResources()
-	assert.Nil(err)
-
-	c.config.Annotations[vcAnnotations.ContainerTypeKey] = string(PodContainer)
-	err = c.addResources()
-	assert.Nil(err)
-
-	vCPUs := uint32(5)
-	memByte := int64(104857600)
-	c.config.Resources = ContainerResources{
-		VCPUs:   vCPUs,
-		MemByte: memByte,
-	}
-	c.sandbox = &Sandbox{
-		hypervisor: &mockHypervisor{},
-		agent:      &noopAgent{},
-		storage:    &filesystem{},
-	}
-	err = c.addResources()
-	assert.Nil(err)
-}
-
-func TestContainerRemoveResources(t *testing.T) {
-	assert := assert.New(t)
-
-	c := &Container{
-		sandbox: &Sandbox{
-			storage: &filesystem{},
-		},
-	}
-
-	err := c.addResources()
-	assert.Nil(err)
-
-	c.config = &ContainerConfig{Annotations: make(map[string]string)}
-	c.config.Annotations[vcAnnotations.ContainerTypeKey] = string(PodSandbox)
-	err = c.removeResources()
-	assert.Nil(err)
-
-	c.config.Annotations[vcAnnotations.ContainerTypeKey] = string(PodContainer)
-	err = c.removeResources()
-	assert.Nil(err)
-
-	vCPUs := uint32(5)
-	c.config.Resources = ContainerResources{
-		VCPUs: vCPUs,
-	}
-
-	c.sandbox = &Sandbox{
-		hypervisor: &mockHypervisor{},
-		storage:    &filesystem{},
-	}
-
-	err = c.removeResources()
-	assert.Nil(err)
-}
-
-func TestContainerUpdateResources(t *testing.T) {
-	assert := assert.New(t)
-
-	sandbox := &Sandbox{
-		hypervisor: &mockHypervisor{},
-		agent:      &noopAgent{},
-		storage:    &filesystem{},
-	}
-
-	c := &Container{
-		sandbox: sandbox,
-	}
-	c.config = &ContainerConfig{Annotations: make(map[string]string)}
-
-	// VCPUs is equal to zero
-	oldResource := ContainerResources{
-		VCPUs:   0,
-		MemByte: 0,
-	}
-
-	newResource := ContainerResources{
-		VCPUs:   0,
-		MemByte: 104857600,
-	}
-
-	err := c.updateResources(oldResource, newResource)
-	assert.Nil(err)
-
-	// MemByte is equal to zero
-	newResource = ContainerResources{
-		VCPUs:   5,
-		MemByte: 0,
-	}
-
-	err = c.updateResources(oldResource, newResource)
-	assert.Nil(err)
-
-	// oldResource is equal to newResource
-	oldResource = ContainerResources{
-		VCPUs:   5,
-		MemByte: 104857600,
-	}
-
-	newResource = ContainerResources{
-		VCPUs:   5,
-		MemByte: 104857600,
-	}
-
-	err = c.updateResources(oldResource, newResource)
-	assert.Nil(err)
-
-	// memory hotplug and cpu hotplug
-	oldResource = ContainerResources{
-		VCPUs:   5,
-		MemByte: 104857600,
-	}
-
-	newResource = ContainerResources{
-		VCPUs:   10,
-		MemByte: 209715200,
-	}
-
-	err = c.updateResources(oldResource, newResource)
-	assert.Nil(err)
-
-	// memory hot remove and cpu hot remove
-	oldResource = ContainerResources{
-		VCPUs:   10,
-		MemByte: 209715200,
-	}
-
-	newResource = ContainerResources{
-		VCPUs:   5,
-		MemByte: 104857600,
-	}
-
-	err = c.updateResources(oldResource, newResource)
-	assert.Nil(err)
-}
-
 func TestContainerEnterErrorsOnContainerStates(t *testing.T) {
 	assert := assert.New(t)
 	c := &Container{
 		sandbox: &Sandbox{
-			state: State{
-				State: StateRunning,
+			state: types.State{
+				State: types.StateRunning,
 			},
 		},
 	}
-	cmd := Cmd{}
+	cmd := types.Cmd{}
 
 	// Container state undefined
 	_, err := c.enter(cmd)
 	assert.Error(err)
 
 	// Container paused
-	c.state.State = StatePaused
+	c.state.State = types.StatePaused
 	_, err = c.enter(cmd)
 	assert.Error(err)
 
 	// Container stopped
-	c.state.State = StateStopped
+	c.state.State = types.StateStopped
 	_, err = c.enter(cmd)
 	assert.Error(err)
 }
@@ -479,8 +329,8 @@ func TestContainerWaitErrorState(t *testing.T) {
 	assert := assert.New(t)
 	c := &Container{
 		sandbox: &Sandbox{
-			state: State{
-				State: StateRunning,
+			state: types.State{
+				State: types.StateRunning,
 			},
 		},
 	}
@@ -491,12 +341,12 @@ func TestContainerWaitErrorState(t *testing.T) {
 	assert.Error(err)
 
 	// Container paused
-	c.state.State = StatePaused
+	c.state.State = types.StatePaused
 	_, err = c.wait(processID)
 	assert.Error(err)
 
 	// Container stopped
-	c.state.State = StateStopped
+	c.state.State = types.StateStopped
 	_, err = c.wait(processID)
 	assert.Error(err)
 }
@@ -505,8 +355,8 @@ func TestKillContainerErrorState(t *testing.T) {
 	assert := assert.New(t)
 	c := &Container{
 		sandbox: &Sandbox{
-			state: State{
-				State: StateRunning,
+			state: types.State{
+				State: types.StateRunning,
 			},
 		},
 	}
@@ -515,7 +365,7 @@ func TestKillContainerErrorState(t *testing.T) {
 	assert.Error(err)
 
 	// Container stopped
-	c.state.State = StateStopped
+	c.state.State = types.StateStopped
 	err = c.kill(syscall.SIGKILL, true)
 	assert.Error(err)
 }
@@ -524,8 +374,8 @@ func TestWinsizeProcessErrorState(t *testing.T) {
 	assert := assert.New(t)
 	c := &Container{
 		sandbox: &Sandbox{
-			state: State{
-				State: StateRunning,
+			state: types.State{
+				State: types.StateRunning,
 			},
 		},
 	}
@@ -536,12 +386,12 @@ func TestWinsizeProcessErrorState(t *testing.T) {
 	assert.Error(err)
 
 	// Container paused
-	c.state.State = StatePaused
+	c.state.State = types.StatePaused
 	err = c.winsizeProcess(processID, 100, 200)
 	assert.Error(err)
 
 	// Container stopped
-	c.state.State = StateStopped
+	c.state.State = types.StateStopped
 	err = c.winsizeProcess(processID, 100, 200)
 	assert.Error(err)
 }
@@ -550,8 +400,8 @@ func TestProcessIOStream(t *testing.T) {
 	assert := assert.New(t)
 	c := &Container{
 		sandbox: &Sandbox{
-			state: State{
-				State: StateRunning,
+			state: types.State{
+				State: types.StateRunning,
 			},
 		},
 	}
@@ -562,12 +412,12 @@ func TestProcessIOStream(t *testing.T) {
 	assert.Error(err)
 
 	// Container paused
-	c.state.State = StatePaused
+	c.state.State = types.StatePaused
 	_, _, _, err = c.ioStream(processID)
 	assert.Error(err)
 
 	// Container stopped
-	c.state.State = StateStopped
+	c.state.State = types.StateStopped
 	_, _, _, err = c.ioStream(processID)
 	assert.Error(err)
 }

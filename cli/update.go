@@ -13,7 +13,9 @@ import (
 	"strconv"
 
 	"github.com/docker/go-units"
-	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/virtcontainers/types"
+
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -132,7 +134,7 @@ other options are ignored.
 			return err
 		}
 
-		span, _ := trace(ctx, "update")
+		span, _ := katautils.Trace(ctx, "update")
 		defer span.Finish()
 
 		if context.Args().Present() == false {
@@ -163,8 +165,8 @@ other options are ignored.
 		span.SetTag("sandbox", sandboxID)
 
 		// container MUST be running
-		if status.State.State != vc.StateRunning {
-			return fmt.Errorf("Container %s is not running", containerID)
+		if state := status.State.State; !(state == types.StateRunning || state == types.StateReady) {
+			return fmt.Errorf("Container %s is not running or Ready, the state is %s", containerID, state)
 		}
 
 		r := specs.LinuxResources{

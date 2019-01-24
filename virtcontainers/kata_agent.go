@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,8 +25,9 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	ns "github.com/kata-containers/runtime/virtcontainers/pkg/nsenter"
-	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	opentracing "github.com/opentracing/opentracing-go"
 
@@ -34,6 +36,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/net/context"
+	"golang.org/x/sys/unix"
 	golangGrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcStatus "google.golang.org/grpc/status"
@@ -57,12 +60,15 @@ var (
 	// CAP_NET_BIND_SERVICE capability may bind to these port numbers.
 	vSockPort            = 1024
 	kata9pDevType        = "9p"
+	kataMmioBlkDevType   = "mmioblk"
 	kataBlkDevType       = "blk"
 	kataSCSIDevType      = "scsi"
+	kataNvdimmDevType    = "nvdimm"
 	sharedDir9pOptions   = []string{"trans=virtio,version=9p2000.L,cache=mmap", "nodev"}
 	shmDir               = "shm"
 	kataEphemeralDevType = "ephemeral"
 	ephemeralPath        = filepath.Join(kataGuestSandboxDir, kataEphemeralDevType)
+	grpcMaxDataSize      = int64(1024 * 1024)
 )
 
 // KataAgentConfig is a structure storing information needed
@@ -73,7 +79,7 @@ type KataAgentConfig struct {
 }
 
 type kataVSOCK struct {
-	contextID uint32
+	contextID uint64
 	port      uint32
 	vhostFd   *os.File
 }
@@ -146,7 +152,7 @@ func (k *kataAgent) generateVMSocket(id string, c KataAgentConfig) error {
 			return err
 		}
 
-		k.vmSocket = Socket{
+		k.vmSocket = types.Socket{
 			DeviceID: defaultKataDeviceID,
 			ID:       defaultKataID,
 			HostPath: kataSock,
@@ -196,7 +202,7 @@ func (k *kataAgent) init(ctx context.Context, sandbox *Sandbox, config interface
 
 func (k *kataAgent) agentURL() (string, error) {
 	switch s := k.vmSocket.(type) {
-	case Socket:
+	case types.Socket:
 		return s.HostPath, nil
 	case kataVSOCK:
 		return s.String(), nil
@@ -205,11 +211,11 @@ func (k *kataAgent) agentURL() (string, error) {
 	}
 }
 
-func (k *kataAgent) capabilities() capabilities {
-	var caps capabilities
+func (k *kataAgent) capabilities() types.Capabilities {
+	var caps types.Capabilities
 
 	// add all capabilities supported by agent
-	caps.setBlockDeviceSupport()
+	caps.SetBlockDeviceSupport()
 
 	return caps
 }
@@ -228,7 +234,7 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 	}
 
 	switch s := k.vmSocket.(type) {
-	case Socket:
+	case types.Socket:
 		err := h.addDevice(s, serialPortDev)
 		if err != nil {
 			return err
@@ -252,9 +258,16 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 		k.proxyBuiltIn = true
 	}
 
-	// Adding the shared volume.
+	// Neither create shared directory nor add 9p device if hypervisor
+	// doesn't support filesystem sharing.
+	caps := h.capabilities()
+	if !caps.IsFsSharingSupported() {
+		return nil
+	}
+
+	// Create shared directory and add the shared volume if filesystem sharing is supported.
 	// This volume contains all bind mounted container bundles.
-	sharedVolume := Volume{
+	sharedVolume := types.Volume{
 		MountTag: mountGuest9pTag,
 		HostPath: sharePath,
 	}
@@ -273,7 +286,7 @@ func (k *kataAgent) createSandbox(sandbox *Sandbox) error {
 	return k.configure(sandbox.hypervisor, sandbox.id, k.getSharePath(sandbox.id), k.proxyBuiltIn, nil)
 }
 
-func cmdToKataProcess(cmd Cmd) (process *grpc.Process, err error) {
+func cmdToKataProcess(cmd types.Cmd) (process *grpc.Process, err error) {
 	var i uint64
 	var extraGids []uint32
 
@@ -339,7 +352,7 @@ func cmdToKataProcess(cmd Cmd) (process *grpc.Process, err error) {
 	return process, nil
 }
 
-func cmdEnvsToStringSlice(ev []EnvVar) []string {
+func cmdEnvsToStringSlice(ev []types.EnvVar) []string {
 	var env []string
 
 	for _, e := range ev {
@@ -350,7 +363,7 @@ func cmdEnvsToStringSlice(ev []EnvVar) []string {
 	return env
 }
 
-func (k *kataAgent) exec(sandbox *Sandbox, c Container, cmd Cmd) (*Process, error) {
+func (k *kataAgent) exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*Process, error) {
 	span, _ := k.trace("exec")
 	defer span.Finish()
 
@@ -386,7 +399,7 @@ func (k *kataAgent) exec(sandbox *Sandbox, c Container, cmd Cmd) (*Process, erro
 		k.state.URL, cmd, []ns.NSType{}, enterNSList)
 }
 
-func (k *kataAgent) updateInterface(ifc *types.Interface) (*types.Interface, error) {
+func (k *kataAgent) updateInterface(ifc *vcTypes.Interface) (*vcTypes.Interface, error) {
 	// send update interface request
 	ifcReq := &grpc.UpdateInterfaceRequest{
 		Interface: k.convertToKataAgentInterface(ifc),
@@ -398,13 +411,13 @@ func (k *kataAgent) updateInterface(ifc *types.Interface) (*types.Interface, err
 			"resulting-interface": fmt.Sprintf("%+v", resultingInterface),
 		}).WithError(err).Error("update interface request failed")
 	}
-	if resultInterface, ok := resultingInterface.(*types.Interface); ok {
+	if resultInterface, ok := resultingInterface.(*vcTypes.Interface); ok {
 		return resultInterface, err
 	}
 	return nil, err
 }
 
-func (k *kataAgent) updateInterfaces(interfaces []*types.Interface) error {
+func (k *kataAgent) updateInterfaces(interfaces []*vcTypes.Interface) error {
 	for _, ifc := range interfaces {
 		if _, err := k.updateInterface(ifc); err != nil {
 			return err
@@ -413,7 +426,7 @@ func (k *kataAgent) updateInterfaces(interfaces []*types.Interface) error {
 	return nil
 }
 
-func (k *kataAgent) updateRoutes(routes []*types.Route) ([]*types.Route, error) {
+func (k *kataAgent) updateRoutes(routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
 	if routes != nil {
 		routesReq := &grpc.UpdateRoutesRequest{
 			Routes: &grpc.Routes{
@@ -436,7 +449,7 @@ func (k *kataAgent) updateRoutes(routes []*types.Route) ([]*types.Route, error) 
 	return nil, nil
 }
 
-func (k *kataAgent) listInterfaces() ([]*types.Interface, error) {
+func (k *kataAgent) listInterfaces() ([]*vcTypes.Interface, error) {
 	req := &grpc.ListInterfacesRequest{}
 	resultingInterfaces, err := k.sendReq(req)
 	if err != nil {
@@ -449,7 +462,7 @@ func (k *kataAgent) listInterfaces() ([]*types.Interface, error) {
 	return nil, err
 }
 
-func (k *kataAgent) listRoutes() ([]*types.Route, error) {
+func (k *kataAgent) listRoutes() ([]*vcTypes.Route, error) {
 	req := &grpc.ListRoutesRequest{}
 	resultingRoutes, err := k.sendReq(req)
 	if err != nil {
@@ -537,6 +550,17 @@ func (k *kataAgent) getAgentURL() (string, error) {
 	return k.agentURL()
 }
 
+func (k *kataAgent) reuseAgent(agent agent) error {
+	a, ok := agent.(*kataAgent)
+	if !ok {
+		return fmt.Errorf("Bug: get a wrong type of agent")
+	}
+
+	k.installReqFunc(a.client)
+	k.client = a.client
+	return nil
+}
+
 func (k *kataAgent) setProxy(sandbox *Sandbox, proxy proxy, pid int, url string) error {
 	if url == "" {
 		var err error
@@ -601,22 +625,28 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 		return err
 	}
 
-	sharedDir9pOptions = append(sharedDir9pOptions, fmt.Sprintf("msize=%d", sandbox.config.HypervisorConfig.Msize9p))
+	storages := []*grpc.Storage{}
+	caps := sandbox.hypervisor.capabilities()
 
-	// We mount the shared directory in a predefined location
-	// in the guest.
-	// This is where at least some of the host config files
-	// (resolv.conf, etc...) and potentially all container
-	// rootfs will reside.
-	sharedVolume := &grpc.Storage{
-		Driver:     kata9pDevType,
-		Source:     mountGuest9pTag,
-		MountPoint: kataGuestSharedDir,
-		Fstype:     type9pFs,
-		Options:    sharedDir9pOptions,
+	// append 9p shared volume to storages only if filesystem sharing is supported
+	if caps.IsFsSharingSupported() {
+		sharedDir9pOptions = append(sharedDir9pOptions, fmt.Sprintf("msize=%d", sandbox.config.HypervisorConfig.Msize9p))
+
+		// We mount the shared directory in a predefined location
+		// in the guest.
+		// This is where at least some of the host config files
+		// (resolv.conf, etc...) and potentially all container
+		// rootfs will reside.
+		sharedVolume := &grpc.Storage{
+			Driver:     kata9pDevType,
+			Source:     mountGuest9pTag,
+			MountPoint: kataGuestSharedDir,
+			Fstype:     type9pFs,
+			Options:    sharedDir9pOptions,
+		}
+
+		storages = append(storages, sharedVolume)
 	}
-
-	storages := []*grpc.Storage{sharedVolume}
 
 	if sandbox.shmSize > 0 {
 		path := filepath.Join(kataGuestSandboxDir, shmDir)
@@ -691,6 +721,30 @@ func (k *kataAgent) replaceOCIMountSource(spec *specs.Spec, guestMounts []Mount)
 	return nil
 }
 
+func (k *kataAgent) removeIgnoredOCIMount(spec *specs.Spec, ignoredMounts []Mount) error {
+	var mounts []specs.Mount
+
+	for _, m := range spec.Mounts {
+		found := false
+		for _, ignoredMount := range ignoredMounts {
+			if ignoredMount.Source == m.Source {
+				k.Logger().WithField("removed-mount", m.Source).Debug("Removing OCI mount")
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			mounts = append(mounts, m)
+		}
+	}
+
+	// Replace the OCI mounts with the updated list.
+	spec.Mounts = mounts
+
+	return nil
+}
+
 func (k *kataAgent) replaceOCIMountsForStorages(spec *specs.Spec, volumeStorages []*grpc.Storage) error {
 	ociMounts := spec.Mounts
 	var index int
@@ -720,16 +774,17 @@ func (k *kataAgent) replaceOCIMountsForStorages(spec *specs.Spec, volumeStorages
 	return nil
 }
 
-func constraintGRPCSpec(grpcSpec *grpc.Spec, systemdCgroup bool) {
+func constraintGRPCSpec(grpcSpec *grpc.Spec, systemdCgroup bool, passSeccomp bool) {
 	// Disable Hooks since they have been handled on the host and there is
 	// no reason to send them to the agent. It would make no sense to try
 	// to apply them on the guest.
 	grpcSpec.Hooks = nil
 
-	// Disable Seccomp since they cannot be handled properly by the agent
-	// until we provide a guest image with libseccomp support. More details
-	// here: https://github.com/kata-containers/agent/issues/104
-	grpcSpec.Linux.Seccomp = nil
+	// Pass seccomp only if disable_guest_seccomp is set to false in
+	// configuration.toml and guest image is seccomp capable.
+	if passSeccomp == false {
+		grpcSpec.Linux.Seccomp = nil
+	}
 
 	// By now only CPU constraints are supported
 	// Issue: https://github.com/kata-containers/runtime/issues/158
@@ -820,12 +875,20 @@ func (k *kataAgent) appendDevices(deviceList []*grpc.Device, c *Container) []*gr
 			ContainerPath: dev.ContainerPath,
 		}
 
-		if d.SCSIAddr == "" {
+		switch c.sandbox.config.HypervisorConfig.BlockDeviceDriver {
+		case config.VirtioMmio:
+			kataDevice.Type = kataMmioBlkDevType
+			kataDevice.Id = d.VirtPath
+			kataDevice.VmPath = d.VirtPath
+		case config.VirtioBlock:
 			kataDevice.Type = kataBlkDevType
 			kataDevice.Id = d.PCIAddr
-		} else {
+		case config.VirtioSCSI:
 			kataDevice.Type = kataSCSIDevType
 			kataDevice.Id = d.SCSIAddr
+		case config.Nvdimm:
+			kataDevice.Type = kataNvdimmDevType
+			kataDevice.VmPath = fmt.Sprintf("/dev/pmem%s", d.NvdimmID)
 		}
 
 		deviceList = append(deviceList, kataDevice)
@@ -872,7 +935,10 @@ func (k *kataAgent) buildContainerRootfs(sandbox *Sandbox, c *Container, rootPat
 			return nil, fmt.Errorf("malformed block drive")
 		}
 
-		if sandbox.config.HypervisorConfig.BlockDeviceDriver == VirtioBlock {
+		if sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioMmio {
+			rootfs.Driver = kataMmioBlkDevType
+			rootfs.Source = blockDrive.VirtPath
+		} else if sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioBlock {
 			rootfs.Driver = kataBlkDevType
 			rootfs.Source = blockDrive.PCIAddr
 		} else {
@@ -945,7 +1011,7 @@ func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process,
 	}
 
 	// Handle container mounts
-	newMounts, err := c.mountSharedDirMounts(kataHostSharedDir, kataGuestSharedDir)
+	newMounts, ignoredMounts, err := c.mountSharedDirMounts(kataHostSharedDir, kataGuestSharedDir)
 	if err != nil {
 		return nil, err
 	}
@@ -956,6 +1022,11 @@ func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process,
 	// We replace all OCI mount sources that match our container mount
 	// with the right source path (The guest one).
 	if err = k.replaceOCIMountSource(ociSpec, newMounts); err != nil {
+		return nil, err
+	}
+
+	// Remove all mounts that should be ignored from the spec
+	if err = k.removeIgnoredOCIMount(ociSpec, ignoredMounts); err != nil {
 		return nil, err
 	}
 
@@ -986,9 +1057,11 @@ func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process,
 		return nil, err
 	}
 
+	passSeccomp := !sandbox.config.DisableGuestSeccomp && sandbox.seccompSupported
+
 	// We need to constraint the spec to make sure we're not passing
 	// irrelevant information to the agent.
-	constraintGRPCSpec(grpcSpec, sandbox.config.SystemdCgroup)
+	constraintGRPCSpec(grpcSpec, sandbox.config.SystemdCgroup, passSeccomp)
 
 	k.handleShm(grpcSpec, sandbox)
 
@@ -1075,9 +1148,12 @@ func (k *kataAgent) handleBlockVolumes(c *Container) []*grpc.Storage {
 			k.Logger().Error("malformed block drive")
 			continue
 		}
-		if c.sandbox.config.HypervisorConfig.BlockDeviceDriver == VirtioBlock {
+		if c.sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioBlock {
 			vol.Driver = kataBlkDevType
 			vol.Source = blockDrive.PCIAddr
+		} else if c.sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioMmio {
+			vol.Driver = kataMmioBlkDevType
+			vol.Source = blockDrive.VirtPath
 		} else {
 			vol.Driver = kataSCSIDevType
 			vol.Source = blockDrive.SCSIAddr
@@ -1479,6 +1555,12 @@ func (k *kataAgent) installReqFunc(c *kataclient.AgentClient) {
 	k.reqHandlers["grpc.GuestDetailsRequest"] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
 		return k.client.GetGuestDetails(ctx, req.(*grpc.GuestDetailsRequest), opts...)
 	}
+	k.reqHandlers["grpc.CopyFileRequest"] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
+		return k.client.CopyFile(ctx, req.(*grpc.CopyFileRequest), opts...)
+	}
+	k.reqHandlers["grpc.SetGuestDateTimeRequest"] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
+		return k.client.SetGuestDateTime(ctx, req.(*grpc.SetGuestDateTimeRequest), opts...)
+	}
 }
 
 func (k *kataAgent) sendReq(request interface{}) (interface{}, error) {
@@ -1552,6 +1634,15 @@ func (k *kataAgent) getGuestDetails(req *grpc.GuestDetailsRequest) (*grpc.GuestD
 	return resp.(*grpc.GuestDetailsResponse), nil
 }
 
+func (k *kataAgent) setGuestDateTime(tv time.Time) error {
+	_, err := k.sendReq(&grpc.SetGuestDateTimeRequest{
+		Sec:  tv.Unix(),
+		Usec: int64(tv.Nanosecond() / 1e3),
+	})
+
+	return err
+}
+
 func (k *kataAgent) convertToKataAgentIPFamily(ipFamily int) aTypes.IPFamily {
 	switch ipFamily {
 	case netlink.FAMILY_V4:
@@ -1574,7 +1665,7 @@ func (k *kataAgent) convertToIPFamily(ipFamily aTypes.IPFamily) int {
 	return netlink.FAMILY_V4
 }
 
-func (k *kataAgent) convertToKataAgentIPAddresses(ipAddrs []*types.IPAddress) (aIPAddrs []*aTypes.IPAddress) {
+func (k *kataAgent) convertToKataAgentIPAddresses(ipAddrs []*vcTypes.IPAddress) (aIPAddrs []*aTypes.IPAddress) {
 	for _, ipAddr := range ipAddrs {
 		if ipAddr == nil {
 			continue
@@ -1592,13 +1683,13 @@ func (k *kataAgent) convertToKataAgentIPAddresses(ipAddrs []*types.IPAddress) (a
 	return aIPAddrs
 }
 
-func (k *kataAgent) convertToIPAddresses(aIPAddrs []*aTypes.IPAddress) (ipAddrs []*types.IPAddress) {
+func (k *kataAgent) convertToIPAddresses(aIPAddrs []*aTypes.IPAddress) (ipAddrs []*vcTypes.IPAddress) {
 	for _, aIPAddr := range aIPAddrs {
 		if aIPAddr == nil {
 			continue
 		}
 
-		ipAddr := &types.IPAddress{
+		ipAddr := &vcTypes.IPAddress{
 			Family:  k.convertToIPFamily(aIPAddr.Family),
 			Address: aIPAddr.Address,
 			Mask:    aIPAddr.Mask,
@@ -1610,7 +1701,7 @@ func (k *kataAgent) convertToIPAddresses(aIPAddrs []*aTypes.IPAddress) (ipAddrs 
 	return ipAddrs
 }
 
-func (k *kataAgent) convertToKataAgentInterface(iface *types.Interface) *aTypes.Interface {
+func (k *kataAgent) convertToKataAgentInterface(iface *vcTypes.Interface) *aTypes.Interface {
 	if iface == nil {
 		return nil
 	}
@@ -1625,13 +1716,13 @@ func (k *kataAgent) convertToKataAgentInterface(iface *types.Interface) *aTypes.
 	}
 }
 
-func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) (ifaces []*types.Interface) {
+func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) (ifaces []*vcTypes.Interface) {
 	for _, aIface := range aIfaces {
 		if aIface == nil {
 			continue
 		}
 
-		iface := &types.Interface{
+		iface := &vcTypes.Interface{
 			Device:      aIface.Device,
 			Name:        aIface.Name,
 			IPAddresses: k.convertToIPAddresses(aIface.IPAddresses),
@@ -1646,7 +1737,7 @@ func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) (ifaces []*
 	return ifaces
 }
 
-func (k *kataAgent) convertToKataAgentRoutes(routes []*types.Route) (aRoutes []*aTypes.Route) {
+func (k *kataAgent) convertToKataAgentRoutes(routes []*vcTypes.Route) (aRoutes []*aTypes.Route) {
 	for _, route := range routes {
 		if route == nil {
 			continue
@@ -1666,13 +1757,13 @@ func (k *kataAgent) convertToKataAgentRoutes(routes []*types.Route) (aRoutes []*
 	return aRoutes
 }
 
-func (k *kataAgent) convertToRoutes(aRoutes []*aTypes.Route) (routes []*types.Route) {
+func (k *kataAgent) convertToRoutes(aRoutes []*aTypes.Route) (routes []*vcTypes.Route) {
 	for _, aRoute := range aRoutes {
 		if aRoute == nil {
 			continue
 		}
 
-		route := &types.Route{
+		route := &vcTypes.Route{
 			Dest:    aRoute.Dest,
 			Gateway: aRoute.Gateway,
 			Device:  aRoute.Device,
@@ -1684,4 +1775,71 @@ func (k *kataAgent) convertToRoutes(aRoutes []*aTypes.Route) (routes []*types.Ro
 	}
 
 	return routes
+}
+
+func (k *kataAgent) copyFile(src, dst string) error {
+	var st unix.Stat_t
+
+	err := unix.Stat(src, &st)
+	if err != nil {
+		return fmt.Errorf("Could not get file %s information: %v", src, err)
+	}
+
+	b, err := ioutil.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("Could not read file %s: %v", src, err)
+	}
+
+	fileSize := int64(len(b))
+
+	k.Logger().WithFields(logrus.Fields{
+		"source": src,
+		"dest":   dst,
+	}).Debugf("Copying file from host to guest")
+
+	cpReq := &grpc.CopyFileRequest{
+		Path:     dst,
+		DirMode:  uint32(dirMode),
+		FileMode: st.Mode,
+		FileSize: fileSize,
+		Uid:      int32(st.Uid),
+		Gid:      int32(st.Gid),
+	}
+
+	// Handle the special case where the file is empty
+	if fileSize == 0 {
+		_, err = k.sendReq(cpReq)
+		return err
+	}
+
+	// Copy file by parts if it's needed
+	remainingBytes := fileSize
+	offset := int64(0)
+	for remainingBytes > 0 {
+		bytesToCopy := int64(len(b))
+		if bytesToCopy > grpcMaxDataSize {
+			bytesToCopy = grpcMaxDataSize
+		}
+
+		cpReq.Data = b[:bytesToCopy]
+		cpReq.Offset = offset
+
+		if _, err = k.sendReq(cpReq); err != nil {
+			return fmt.Errorf("Could not send CopyFile request: %v", err)
+		}
+
+		b = b[bytesToCopy:]
+		remainingBytes -= bytesToCopy
+		offset += grpcMaxDataSize
+	}
+
+	return nil
+}
+
+func (k *kataAgent) cleanup(id string) {
+	path := k.getSharePath(id)
+	k.Logger().WithField("path", path).Infof("cleanup agent")
+	if err := os.RemoveAll(path); err != nil {
+		k.Logger().WithError(err).Errorf("failed to cleanup vm share path %s", path)
+	}
 }

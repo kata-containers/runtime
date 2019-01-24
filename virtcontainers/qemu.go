@@ -8,19 +8,24 @@ package virtcontainers
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
+	"unsafe"
 
 	govmmQemu "github.com/intel/govmm/qemu"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
+	"golang.org/x/sys/unix"
 )
 
 // romFile is the file name of the ROM that can be used for virtio-pci devices.
@@ -43,7 +48,7 @@ type CPUDevice struct {
 
 // QemuState keeps Qemu's state
 type QemuState struct {
-	Bridges []Bridge
+	Bridges []types.PCIBridge
 	// HotpluggedCPUs is the list of CPUs that were hot-added
 	HotpluggedVCPUs      []CPUDevice
 	HotpluggedMemory     int
@@ -72,6 +77,8 @@ type qemu struct {
 	fds []*os.File
 
 	ctx context.Context
+
+	nvdimmCount int
 }
 
 const (
@@ -94,8 +101,6 @@ var qemuMinorVersion int
 var defaultKernelParameters = []Param{
 	{"panic", "1"},
 }
-
-type operation int
 
 const (
 	addDevice operation = iota
@@ -158,7 +163,7 @@ func (q *qemu) kernelParameters() string {
 }
 
 // Adds all capabilities supported by qemu implementation of hypervisor interface
-func (q *qemu) capabilities() capabilities {
+func (q *qemu) capabilities() types.Capabilities {
 	span, _ := q.trace("capabilities")
 	defer span.Finish()
 
@@ -204,12 +209,9 @@ func (q *qemu) trace(name string) (opentracing.Span, context.Context) {
 	return span, ctx
 }
 
-// init intializes the Qemu structure.
-func (q *qemu) init(ctx context.Context, id string, hypervisorConfig *HypervisorConfig, storage resourceStorage) error {
-	// save
-	q.ctx = ctx
-
-	span, _ := q.trace("init")
+// setup sets the Qemu structure up.
+func (q *qemu) setup(id string, hypervisorConfig *HypervisorConfig, storage resourceStorage) error {
+	span, _ := q.trace("setup")
 	defer span.Finish()
 
 	err := hypervisorConfig.valid()
@@ -221,6 +223,20 @@ func (q *qemu) init(ctx context.Context, id string, hypervisorConfig *Hypervisor
 	q.storage = storage
 	q.config = *hypervisorConfig
 	q.arch = newQemuArch(q.config)
+
+	initrdPath, err := q.config.InitrdAssetPath()
+	if err != nil {
+		return err
+	}
+	imagePath, err := q.config.ImageAssetPath()
+	if err != nil {
+		return err
+	}
+	if initrdPath == "" && imagePath != "" {
+		q.nvdimmCount = 1
+	} else {
+		q.nvdimmCount = 0
+	}
 
 	if err = q.storage.fetchHypervisorState(q.id, &q.state); err != nil {
 		q.Logger().Debug("Creating bridges")
@@ -371,7 +387,7 @@ func (q *qemu) buildDevices(initrdPath string) ([]govmmQemu.Device, *govmmQemu.I
 	}
 
 	var ioThread *govmmQemu.IOThread
-	if q.config.BlockDeviceDriver == VirtioSCSI {
+	if q.config.BlockDeviceDriver == config.VirtioSCSI {
 		devices, ioThread = q.arch.appendSCSIController(devices, q.config.EnableIOThreads)
 	}
 
@@ -400,9 +416,16 @@ func (q *qemu) setupTemplate(knobs *govmmQemu.Knobs, memory *govmmQemu.Memory) g
 }
 
 // createSandbox is the Hypervisor sandbox creation implementation for govmmQemu.
-func (q *qemu) createSandbox() error {
+func (q *qemu) createSandbox(ctx context.Context, id string, hypervisorConfig *HypervisorConfig, storage resourceStorage) error {
+	// Save the tracing context
+	q.ctx = ctx
+
 	span, _ := q.trace("createSandbox")
 	defer span.Finish()
+
+	if err := q.setup(id, hypervisorConfig, storage); err != nil {
+		return err
+	}
 
 	machine, err := q.getQemuMachine()
 	if err != nil {
@@ -512,7 +535,7 @@ func (q *qemu) createSandbox() error {
 }
 
 // startSandbox will start the Sandbox's VM.
-func (q *qemu) startSandbox() error {
+func (q *qemu) startSandbox(timeout int) error {
 	span, _ := q.trace("startSandbox")
 	defer span.Finish()
 
@@ -534,6 +557,7 @@ func (q *qemu) startSandbox() error {
 				q.Logger().WithError(err).Error("After launching Qemu")
 			}
 		}
+		q.fds = []*os.File{}
 	}()
 
 	vmPath := filepath.Join(RunVMStoragePath, q.id)
@@ -555,7 +579,7 @@ func (q *qemu) startSandbox() error {
 		return fmt.Errorf("%s", strErr)
 	}
 
-	return nil
+	return q.waitSandbox(timeout)
 }
 
 // waitSandbox will wait for the Sandbox's VM to be up and running.
@@ -630,9 +654,25 @@ func (q *qemu) stopSandbox() error {
 		return err
 	}
 
-	err = os.RemoveAll(filepath.Join(RunVMStoragePath, q.id))
+	// cleanup vm path
+	dir := filepath.Join(RunVMStoragePath, q.id)
+
+	// If it's a symlink, remove both dir and the target.
+	// This can happen when vm template links a sandbox to a vm.
+	link, err := filepath.EvalSymlinks(dir)
 	if err != nil {
-		q.Logger().WithError(err).Error("Fail to clean up vm directory")
+		// Well, it's just cleanup failure. Let's ignore it.
+		q.Logger().WithError(err).WithField("dir", dir).Warn("failed to resolve vm path")
+	}
+	q.Logger().WithField("link", link).WithField("dir", dir).Infof("cleanup vm path")
+
+	if err := os.RemoveAll(dir); err != nil {
+		q.Logger().WithError(err).Warnf("failed to remove vm path %s", dir)
+	}
+	if link != dir && link != "" {
+		if err := os.RemoveAll(link); err != nil {
+			q.Logger().WithError(err).WithField("link", link).Warn("failed to remove resolved vm path")
+		}
 	}
 
 	return nil
@@ -699,25 +739,25 @@ func (q *qemu) qmpShutdown() {
 	}
 }
 
-func (q *qemu) addDeviceToBridge(ID string) (string, Bridge, error) {
+func (q *qemu) addDeviceToBridge(ID string) (string, types.PCIBridge, error) {
 	var err error
 	var addr uint32
 
 	// looking for an empty address in the bridges
 	for _, b := range q.state.Bridges {
-		addr, err = b.addDevice(ID)
+		addr, err = b.AddDevice(ID)
 		if err == nil {
 			return fmt.Sprintf("%02x", addr), b, nil
 		}
 	}
 
-	return "", Bridge{}, err
+	return "", types.PCIBridge{}, err
 }
 
 func (q *qemu) removeDeviceFromBridge(ID string) error {
 	var err error
 	for _, b := range q.state.Bridges {
-		err = b.removeDevice(ID)
+		err = b.RemoveDevice(ID)
 		if err == nil {
 			// device was removed correctly
 			return nil
@@ -725,6 +765,69 @@ func (q *qemu) removeDeviceFromBridge(ID string) error {
 	}
 
 	return err
+}
+
+func (q *qemu) hotplugAddBlockDevice(drive *config.BlockDrive, op operation, devID string) error {
+	var err error
+
+	if q.config.BlockDeviceDriver == config.Nvdimm {
+		var blocksize int64
+		file, err := os.Open(drive.File)
+		if err != nil {
+			return err
+		}
+		if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, file.Fd(), unix.BLKGETSIZE64, uintptr(unsafe.Pointer(&blocksize))); err != 0 {
+			return err
+		}
+		if err = q.qmpMonitorCh.qmp.ExecuteNVDIMMDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, drive.File, blocksize); err != nil {
+			q.Logger().WithError(err).Errorf("Failed to add NVDIMM device %s", drive.File)
+			return err
+		}
+		drive.NvdimmID = strconv.Itoa(q.nvdimmCount)
+		q.nvdimmCount++
+		return nil
+	}
+
+	if q.config.BlockDeviceCacheSet {
+		err = q.qmpMonitorCh.qmp.ExecuteBlockdevAddWithCache(q.qmpMonitorCh.ctx, drive.File, drive.ID, q.config.BlockDeviceCacheDirect, q.config.BlockDeviceCacheNoflush)
+	} else {
+		err = q.qmpMonitorCh.qmp.ExecuteBlockdevAdd(q.qmpMonitorCh.ctx, drive.File, drive.ID)
+	}
+	if err != nil {
+		return err
+	}
+
+	if q.config.BlockDeviceDriver == config.VirtioBlock {
+		driver := "virtio-blk-pci"
+		addr, bridge, err := q.addDeviceToBridge(drive.ID)
+		if err != nil {
+			return err
+		}
+
+		// PCI address is in the format bridge-addr/device-addr eg. "03/02"
+		drive.PCIAddr = fmt.Sprintf("%02x", bridge.Addr) + "/" + addr
+
+		if err = q.qmpMonitorCh.qmp.ExecutePCIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, addr, bridge.ID, romFile, true, q.arch.runNested()); err != nil {
+			return err
+		}
+	} else {
+		driver := "scsi-hd"
+
+		// Bus exposed by the SCSI Controller
+		bus := scsiControllerID + ".0"
+
+		// Get SCSI-id and LUN based on the order of attaching drives.
+		scsiID, lun, err := utils.GetSCSIIdLun(drive.Index)
+		if err != nil {
+			return err
+		}
+
+		if err = q.qmpMonitorCh.qmp.ExecuteSCSIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, bus, romFile, scsiID, lun, true, q.arch.runNested()); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (q *qemu) hotplugBlockDevice(drive *config.BlockDrive, op operation) error {
@@ -736,41 +839,9 @@ func (q *qemu) hotplugBlockDevice(drive *config.BlockDrive, op operation) error 
 	devID := "virtio-" + drive.ID
 
 	if op == addDevice {
-		if err := q.qmpMonitorCh.qmp.ExecuteBlockdevAdd(q.qmpMonitorCh.ctx, drive.File, drive.ID); err != nil {
-			return err
-		}
-
-		if q.config.BlockDeviceDriver == VirtioBlock {
-			driver := "virtio-blk-pci"
-			addr, bridge, err := q.addDeviceToBridge(drive.ID)
-			if err != nil {
-				return err
-			}
-
-			// PCI address is in the format bridge-addr/device-addr eg. "03/02"
-			drive.PCIAddr = fmt.Sprintf("%02x", bridge.Addr) + "/" + addr
-
-			if err = q.qmpMonitorCh.qmp.ExecutePCIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, addr, bridge.ID, romFile, true); err != nil {
-				return err
-			}
-		} else {
-			driver := "scsi-hd"
-
-			// Bus exposed by the SCSI Controller
-			bus := scsiControllerID + ".0"
-
-			// Get SCSI-id and LUN based on the order of attaching drives.
-			scsiID, lun, err := utils.GetSCSIIdLun(drive.Index)
-			if err != nil {
-				return err
-			}
-
-			if err = q.qmpMonitorCh.qmp.ExecuteSCSIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, bus, romFile, scsiID, lun, true); err != nil {
-				return err
-			}
-		}
+		err = q.hotplugAddBlockDevice(drive, op, devID)
 	} else {
-		if q.config.BlockDeviceDriver == VirtioBlock {
+		if q.config.BlockDeviceDriver == config.VirtioBlock {
 			if err := q.removeDeviceFromBridge(drive.ID); err != nil {
 				return err
 			}
@@ -785,7 +856,7 @@ func (q *qemu) hotplugBlockDevice(drive *config.BlockDrive, op operation) error 
 		}
 	}
 
-	return nil
+	return err
 }
 
 func (q *qemu) hotplugVFIODevice(device *config.VFIODev, op operation) error {
@@ -867,18 +938,20 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) error {
 		return err
 	}
 	var tap TapInterface
+	devID := "virtio-" + tap.ID
+
+	switch endpoint.Type() {
+	case VethEndpointType:
+		drive := endpoint.(*VethEndpoint)
+		tap = drive.NetPair.TapInterface
+	case TapEndpointType:
+		drive := endpoint.(*TapEndpoint)
+		tap = drive.TapInterface
+	default:
+		return fmt.Errorf("this endpoint is not supported")
+	}
 
 	if op == addDevice {
-		switch endpoint.Type() {
-		case VethEndpointType:
-			drive := endpoint.(*VethEndpoint)
-			tap = drive.NetPair.TapInterface
-		case TapEndpointType:
-			drive := endpoint.(*TapEndpoint)
-			tap = drive.TapInterface
-		default:
-			return fmt.Errorf("this endpoint is not supported")
-		}
 
 		if err = q.hotAddNetDevice(tap.Name, endpoint.HardwareAddr(), tap.VMFds, tap.VhostFds); err != nil {
 			return err
@@ -891,34 +964,28 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) error {
 		pciAddr := fmt.Sprintf("%02x/%s", bridge.Addr, addr)
 		endpoint.SetPciAddr(pciAddr)
 
-		devID := "virtio-" + tap.ID
-		if err = q.qmpMonitorCh.qmp.ExecuteNetPCIDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, romFile, int(q.config.NumVCPUs)); err != nil {
+		var machine govmmQemu.Machine
+		machine, err = q.getQemuMachine()
+		if err != nil {
 			return err
 		}
-	} else {
-		switch endpoint.Type() {
-		case VethEndpointType:
-			drive := endpoint.(*VethEndpoint)
-			tap = drive.NetPair.TapInterface
-		case TapEndpointType:
-			drive := endpoint.(*TapEndpoint)
-			tap = drive.TapInterface
-		default:
-			return fmt.Errorf("this endpoint is not supported")
+		if machine.Type == QemuCCWVirtio {
+			return q.qmpMonitorCh.qmp.ExecuteNetCCWDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, int(q.config.NumVCPUs))
 		}
-
-		if err := q.removeDeviceFromBridge(tap.ID); err != nil {
-			return err
-		}
-
-		devID := "virtio-" + tap.ID
-		if err := q.qmpMonitorCh.qmp.ExecuteDeviceDel(q.qmpMonitorCh.ctx, devID); err != nil {
-			return err
-		}
-		if err := q.qmpMonitorCh.qmp.ExecuteNetdevDel(q.qmpMonitorCh.ctx, tap.Name); err != nil {
-			return err
-		}
+		return q.qmpMonitorCh.qmp.ExecuteNetPCIDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, romFile, int(q.config.NumVCPUs), q.arch.runNested())
 	}
+
+	if err := q.removeDeviceFromBridge(tap.ID); err != nil {
+		return err
+	}
+
+	if err := q.qmpMonitorCh.qmp.ExecuteDeviceDel(q.qmpMonitorCh.ctx, devID); err != nil {
+		return err
+	}
+	if err := q.qmpMonitorCh.qmp.ExecuteNetdevDel(q.qmpMonitorCh.ctx, tap.Name); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1077,34 +1144,52 @@ func (q *qemu) hotplugMemory(memDev *memoryDevice, op operation) (int, error) {
 	if memDev.sizeMB < 0 {
 		return 0, fmt.Errorf("cannot hotplug negative size (%d) memory", memDev.sizeMB)
 	}
+	memLog := q.Logger().WithField("hotplug", "memory")
 
-	// We do not support memory hot unplug.
-	if op == removeDevice {
-		// Dont fail for now, until we fix it.
-		// We return that we only unplugged 0
-		q.Logger().Warn("hot-remove VM memory not supported")
-		return 0, nil
-	}
-
+	memLog.WithField("hotplug-memory-mb", memDev.sizeMB).Debug("requested memory hotplug")
 	err := q.qmpSetup()
 	if err != nil {
 		return 0, err
 	}
 
-	maxMem, err := q.hostMemMB()
-	if err != nil {
-		return 0, err
-	}
-
-	// calculate current memory
 	currentMemory := int(q.config.MemorySize) + q.state.HotpluggedMemory
 
-	// Don't exceed the maximum amount of memory
-	if currentMemory+memDev.sizeMB > int(maxMem) {
-		return 0, fmt.Errorf("Unable to hotplug %d MiB memory, the SB has %d MiB and the maximum amount is %d MiB",
-			memDev.sizeMB, currentMemory, q.config.MemorySize)
+	if memDev.sizeMB == 0 {
+		memLog.Debug("hotplug is not required")
+		return 0, nil
 	}
 
+	switch op {
+	case removeDevice:
+		memLog.WithField("operation", "remove").Debugf("Requested to remove memory: %d MB", memDev.sizeMB)
+		// Dont fail but warn that this is not supported.
+		memLog.Warn("hot-remove VM memory not supported")
+		return 0, nil
+	case addDevice:
+		memLog.WithField("operation", "add").Debugf("Requested to add memory: %d MB", memDev.sizeMB)
+		maxMem, err := q.hostMemMB()
+		if err != nil {
+			return 0, err
+		}
+
+		// Don't exceed the maximum amount of memory
+		if currentMemory+memDev.sizeMB > int(maxMem) {
+			// Fixme: return a typed error
+			return 0, fmt.Errorf("Unable to hotplug %d MiB memory, the SB has %d MiB and the maximum amount is %d MiB",
+				memDev.sizeMB, currentMemory, maxMem)
+		}
+		memoryAdded, err := q.hotplugAddMemory(memDev)
+		if err != nil {
+			return memoryAdded, err
+		}
+		return memoryAdded, nil
+	default:
+		return 0, fmt.Errorf("invalid operation %v", op)
+	}
+
+}
+
+func (q *qemu) hotplugAddMemory(memDev *memoryDevice) (int, error) {
 	memoryDevices, err := q.qmpMonitorCh.qmp.ExecQueryMemoryDevices(q.qmpMonitorCh.ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to query memory devices: %v", err)
@@ -1113,12 +1198,7 @@ func (q *qemu) hotplugMemory(memDev *memoryDevice, op operation) (int, error) {
 	if len(memoryDevices) != 0 {
 		memDev.slot = memoryDevices[len(memoryDevices)-1].Data.Slot + 1
 	}
-
-	return q.hotplugAddMemory(memDev)
-}
-
-func (q *qemu) hotplugAddMemory(memDev *memoryDevice) (int, error) {
-	err := q.qmpMonitorCh.qmp.ExecHotplugMemory(q.qmpMonitorCh.ctx, "memory-backend-ram", "mem"+strconv.Itoa(memDev.slot), "", memDev.sizeMB)
+	err = q.qmpMonitorCh.qmp.ExecHotplugMemory(q.qmpMonitorCh.ctx, "memory-backend-ram", "mem"+strconv.Itoa(memDev.slot), "", memDev.sizeMB)
 	if err != nil {
 		q.Logger().WithError(err).Error("hotplug memory")
 		return 0, err
@@ -1144,13 +1224,14 @@ func (q *qemu) resumeSandbox() error {
 
 // addDevice will add extra devices to Qemu command line.
 func (q *qemu) addDevice(devInfo interface{}, devType deviceType) error {
+	var err error
 	span, _ := q.trace("addDevice")
 	defer span.Finish()
 
 	switch v := devInfo.(type) {
-	case Volume:
+	case types.Volume:
 		q.qemuConfig.Devices = q.arch.append9PVolume(q.qemuConfig.Devices, v)
-	case Socket:
+	case types.Socket:
 		q.qemuConfig.Devices = q.arch.appendSocket(q.qemuConfig.Devices, v)
 	case kataVSOCK:
 		q.fds = append(q.fds, v.vhostFd)
@@ -1160,14 +1241,14 @@ func (q *qemu) addDevice(devInfo interface{}, devType deviceType) error {
 	case config.BlockDrive:
 		q.qemuConfig.Devices = q.arch.appendBlockDevice(q.qemuConfig.Devices, v)
 	case config.VhostUserDeviceAttrs:
-		q.qemuConfig.Devices = q.arch.appendVhostUserDevice(q.qemuConfig.Devices, v)
+		q.qemuConfig.Devices, err = q.arch.appendVhostUserDevice(q.qemuConfig.Devices, v)
 	case config.VFIODev:
 		q.qemuConfig.Devices = q.arch.appendVFIODevice(q.qemuConfig.Devices, v)
 	default:
 		break
 	}
 
-	return nil
+	return err
 }
 
 // getSandboxConsole builds the path of the console where we can read
@@ -1241,8 +1322,79 @@ func (q *qemu) disconnect() {
 	q.qmpShutdown()
 }
 
+// resizeMemory get a request to update the VM memory to reqMemMB
+// Memory update is managed with two approaches
+// Add memory to VM:
+// When memory is required to be added we hotplug memory
+// Remove Memory from VM/ Return memory to host.
+//
+// Memory unplug can be slow and it cannot be guaranteed.
+// Additionally, the unplug has not small granularly it has to be
+// the memory to remove has to be at least the size of one slot.
+// To return memory back we are resizing the VM memory balloon.
+// A longer term solution is evaluate solutions like virtio-mem
+func (q *qemu) resizeMemory(reqMemMB uint32, memoryBlockSizeMB uint32) (uint32, error) {
+
+	currentMemory := q.config.MemorySize + uint32(q.state.HotpluggedMemory)
+	err := q.qmpSetup()
+	if err != nil {
+		return 0, err
+	}
+	switch {
+	case currentMemory < reqMemMB:
+		//hotplug
+		addMemMB := reqMemMB - currentMemory
+		memHotplugMB, err := calcHotplugMemMiBSize(addMemMB, memoryBlockSizeMB)
+		if err != nil {
+			return currentMemory, err
+		}
+
+		addMemDevice := &memoryDevice{
+			sizeMB: int(memHotplugMB),
+		}
+		data, err := q.hotplugAddDevice(addMemDevice, memoryDev)
+		if err != nil {
+			return currentMemory, err
+		}
+		memoryAdded, ok := data.(int)
+		if !ok {
+			return currentMemory, fmt.Errorf("Could not get the memory added, got %+v", data)
+		}
+		currentMemory += uint32(memoryAdded)
+	case currentMemory > reqMemMB:
+		//hotunplug
+		addMemMB := currentMemory - reqMemMB
+		memHotunplugMB, err := calcHotplugMemMiBSize(addMemMB, memoryBlockSizeMB)
+		if err != nil {
+			return currentMemory, err
+		}
+
+		addMemDevice := &memoryDevice{
+			sizeMB: int(memHotunplugMB),
+		}
+		data, err := q.hotplugRemoveDevice(addMemDevice, memoryDev)
+		if err != nil {
+			return currentMemory, err
+		}
+		memoryRemoved, ok := data.(int)
+		if !ok {
+			return currentMemory, fmt.Errorf("Could not get the memory removed, got %+v", data)
+		}
+		//FIXME: This is to check memory hotplugRemoveDevice reported 0, as this is not supported.
+		// In the future if this is implemented this validation should be removed.
+		if memoryRemoved != 0 {
+			return currentMemory, fmt.Errorf("memory hot unplug is not supported, something went wrong")
+		}
+		currentMemory -= uint32(memoryRemoved)
+	}
+
+	// currentMemory is the current memory (updated) of the VM, return to caller to allow verify
+	// the current VM memory state.
+	return currentMemory, nil
+}
+
 // genericAppendBridges appends to devices the given bridges
-func genericAppendBridges(devices []govmmQemu.Device, bridges []Bridge, machineType string) []govmmQemu.Device {
+func genericAppendBridges(devices []govmmQemu.Device, bridges []types.PCIBridge, machineType string) []govmmQemu.Device {
 	bus := defaultPCBridgeBus
 	switch machineType {
 	case QemuQ35, QemuVirt:
@@ -1251,7 +1403,7 @@ func genericAppendBridges(devices []govmmQemu.Device, bridges []Bridge, machineT
 
 	for idx, b := range bridges {
 		t := govmmQemu.PCIBridge
-		if b.Type == pcieBridge {
+		if b.Type == types.PCIE {
 			t = govmmQemu.PCIEBridge
 		}
 
@@ -1273,9 +1425,9 @@ func genericAppendBridges(devices []govmmQemu.Device, bridges []Bridge, machineT
 	return devices
 }
 
-func genericBridges(number uint32, machineType string) []Bridge {
-	var bridges []Bridge
-	var bt bridgeType
+func genericBridges(number uint32, machineType string) []types.PCIBridge {
+	var bridges []types.PCIBridge
+	var bt types.PCIType
 
 	switch machineType {
 	case QemuQ35:
@@ -1283,17 +1435,19 @@ func genericBridges(number uint32, machineType string) []Bridge {
 		// qemu-2.10 will introduce pcie bridges
 		fallthrough
 	case QemuPC:
-		bt = pciBridge
+		bt = types.PCI
 	case QemuVirt:
-		bt = pcieBridge
+		bt = types.PCIE
 	case QemuPseries:
-		bt = pciBridge
+		bt = types.PCI
+	case QemuCCWVirtio:
+		bt = types.PCI
 	default:
 		return nil
 	}
 
 	for i := uint32(0); i < number; i++ {
-		bridges = append(bridges, Bridge{
+		bridges = append(bridges, types.PCIBridge{
 			Type:    bt,
 			ID:      fmt.Sprintf("%s-bridge-%d", bt, i),
 			Address: make(map[uint32]string),
@@ -1303,12 +1457,11 @@ func genericBridges(number uint32, machineType string) []Bridge {
 	return bridges
 }
 
-func genericMemoryTopology(memoryMb, hostMemoryMb uint64, slots uint8) govmmQemu.Memory {
-	// NVDIMM device needs memory space 1024MB
+func genericMemoryTopology(memoryMb, hostMemoryMb uint64, slots uint8, memoryOffset uint32) govmmQemu.Memory {
+	// image NVDIMM device needs memory space 1024MB
 	// See https://github.com/clearcontainers/runtime/issues/380
-	memoryOffset := 1024
+	memoryOffset += 1024
 
-	// add 1G memory space for nvdimm device (vm guest image)
 	memMax := fmt.Sprintf("%dM", hostMemoryMb+uint64(memoryOffset))
 
 	mem := fmt.Sprintf("%dM", memoryMb)
@@ -1344,4 +1497,60 @@ func (q *qemu) getThreadIDs() (*threadIDs, error) {
 		}
 	}
 	return &tid, nil
+}
+
+func calcHotplugMemMiBSize(mem uint32, memorySectionSizeMB uint32) (uint32, error) {
+	if memorySectionSizeMB == 0 {
+		return mem, nil
+	}
+
+	// TODO: hot add memory aligned to memory section should be more properly. See https://github.com/kata-containers/runtime/pull/624#issuecomment-419656853
+	return uint32(math.Ceil(float64(mem)/float64(memorySectionSizeMB))) * memorySectionSizeMB, nil
+}
+
+func (q *qemu) resizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCPUs uint32, err error) {
+
+	currentVCPUs = q.config.NumVCPUs + uint32(len(q.state.HotpluggedVCPUs))
+	newVCPUs = currentVCPUs
+	switch {
+	case currentVCPUs < reqVCPUs:
+		//hotplug
+		addCPUs := reqVCPUs - currentVCPUs
+		data, err := q.hotplugAddDevice(addCPUs, cpuDev)
+		if err != nil {
+			return currentVCPUs, newVCPUs, err
+		}
+		vCPUsAdded, ok := data.(uint32)
+		if !ok {
+			return currentVCPUs, newVCPUs, fmt.Errorf("Could not get the vCPUs added, got %+v", data)
+		}
+		newVCPUs += vCPUsAdded
+	case currentVCPUs > reqVCPUs:
+		//hotunplug
+		removeCPUs := currentVCPUs - reqVCPUs
+		data, err := q.hotplugRemoveDevice(removeCPUs, cpuDev)
+		if err != nil {
+			return currentVCPUs, newVCPUs, err
+		}
+		vCPUsRemoved, ok := data.(uint32)
+		if !ok {
+			return currentVCPUs, newVCPUs, fmt.Errorf("Could not get the vCPUs removed, got %+v", data)
+		}
+		newVCPUs -= vCPUsRemoved
+	}
+	return currentVCPUs, newVCPUs, nil
+}
+
+func (q *qemu) cleanup() error {
+	span, _ := q.trace("cleanup")
+	defer span.Finish()
+
+	for _, fd := range q.fds {
+		if err := fd.Close(); err != nil {
+			q.Logger().WithError(err).Warn("failed closing fd")
+		}
+	}
+	q.fds = []*os.File{}
+
+	return nil
 }

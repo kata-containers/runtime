@@ -60,6 +60,21 @@ assets:
   hypervisor:
     description: "Component used to create virtual machines"
 
+    firecracker:
+      description: "Firecracker micro-Hypervisor"
+      url: "https://github.com/firecracker-microvm/firecracker"
+      version: "v0.12.0"
+
+    nemu:
+      description: "Modern Hypervisor for the Cloud"
+      url: "https://github.com/intel/nemu"
+      version: "release-2018-11-29"
+
+    nemu-ovmf:
+      description: "OVMF firmware used by nemu hypervisor"
+      url: "https://github.com/intel/ovmf-virt"
+      version: "0.6"
+
     qemu-lite:
       description: "lightweight VMM that uses KVM"
       url: "https://github.com/kata-containers/qemu"
@@ -70,7 +85,11 @@ assets:
       description: "VMM that uses KVM"
       url: "https://github.com/qemu/qemu"
       version: "stable-2.11"
-
+      architecture:
+        aarch64:
+          branch: "master"
+          tag: "v3.1.0-rc2"
+          commit: "47c1cc30e440860aa695358f7c2dd0b9d7b53d16"
   image:
     description: |
       Root filesystem disk image used to boot the guest virtual
@@ -82,6 +101,9 @@ assets:
         version: "latest"
       ppc64le:
         name: "centos"
+        version: "latest"
+      s390x:
+        name: "ubuntu"
         version: "latest"
       x86_64:
         name: &default-image-name "clearlinux"
@@ -99,6 +121,9 @@ assets:
         name: &default-initrd-name "alpine"
         version: &default-initrd-version "3.7"
       ppc64le:
+        name: *default-initrd-name
+        version: *default-initrd-version
+      s390x:
         name: *default-initrd-name
         version: *default-initrd-version
       x86_64:

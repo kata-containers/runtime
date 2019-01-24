@@ -11,13 +11,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
+	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
@@ -25,7 +26,6 @@ import (
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/manager"
-	"github.com/kata-containers/runtime/virtcontainers/utils"
 )
 
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/major.h
@@ -67,7 +67,7 @@ type Process struct {
 // ContainerStatus describes a container status.
 type ContainerStatus struct {
 	ID        string
-	State     State
+	State     types.State
 	PID       int
 	StartTime time.Time
 	RootFs    string
@@ -211,7 +211,7 @@ type ContainerConfig struct {
 	ReadonlyRootfs bool
 
 	// Cmd specifies the command to run on a container
-	Cmd Cmd
+	Cmd types.Cmd
 
 	// Annotations allow clients to store arbitrary values,
 	// for example to add additional status values required
@@ -224,7 +224,7 @@ type ContainerConfig struct {
 	DeviceInfos []config.DeviceInfo
 
 	// Resources container resources
-	Resources ContainerResources
+	Resources specs.LinuxResources
 }
 
 // valid checks that the container configuration is valid.
@@ -274,7 +274,7 @@ type Container struct {
 	configPath    string
 	containerPath string
 
-	state State
+	state types.State
 
 	process Process
 
@@ -400,11 +400,12 @@ func (c *Container) storeContainer() error {
 
 // setContainerState sets both the in-memory and on-disk state of the
 // container.
-func (c *Container) setContainerState(state stateString) error {
+func (c *Container) setContainerState(state types.StateString) error {
 	if state == "" {
 		return errNeedState
 	}
 
+	c.Logger().Debugf("Setting container state from %v to %v", c.state.State, state)
 	// update in-memory state
 	c.state.State = state
 
@@ -432,13 +433,59 @@ func (c *Container) createContainersDirs() error {
 	return nil
 }
 
+func (c *Container) shareFiles(m Mount, idx int, hostSharedDir, guestSharedDir string) (string, bool, error) {
+	randBytes, err := utils.GenerateRandomBytes(8)
+	if err != nil {
+		return "", false, err
+	}
+
+	filename := fmt.Sprintf("%s-%s-%s", c.id, hex.EncodeToString(randBytes), filepath.Base(m.Destination))
+	guestDest := filepath.Join(guestSharedDir, filename)
+
+	// copy file to contaier's rootfs if filesystem sharing is not supported, otherwise
+	// bind mount it in the shared directory.
+	caps := c.sandbox.hypervisor.capabilities()
+	if !caps.IsFsSharingSupported() {
+		c.Logger().Debug("filesystem sharing is not supported, files will be copied")
+
+		fileInfo, err := os.Stat(m.Source)
+		if err != nil {
+			return "", false, err
+		}
+
+		// Ignore the mount if this is not a regular file (excludes
+		// directory, socket, device, ...) as it cannot be handled by
+		// a simple copy. But this should not be treated as an error,
+		// only as a limitation.
+		if !fileInfo.Mode().IsRegular() {
+			c.Logger().WithField("ignored-file", m.Source).Debug("Ignoring non-regular file as FS sharing not supported")
+			return "", true, nil
+		}
+
+		if err := c.sandbox.agent.copyFile(m.Source, guestDest); err != nil {
+			return "", false, err
+		}
+	} else {
+		// These mounts are created in the shared dir
+		mountDest := filepath.Join(hostSharedDir, c.sandbox.id, filename)
+		if err := bindMount(c.ctx, m.Source, mountDest, false); err != nil {
+			return "", false, err
+		}
+		// Save HostPath mount value into the mount list of the container.
+		c.mounts[idx].HostPath = mountDest
+	}
+
+	return guestDest, false, nil
+}
+
 // mountSharedDirMounts handles bind-mounts by bindmounting to the host shared
 // directory which is mounted through 9pfs in the VM.
 // It also updates the container mount list with the HostPath info, and store
 // container mounts to the storage. This way, we will have the HostPath info
 // available when we will need to unmount those mounts.
-func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) ([]Mount, error) {
+func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) ([]Mount, []Mount, error) {
 	var sharedDirMounts []Mount
+	var ignoredMounts []Mount
 	for idx, m := range c.mounts {
 		if isSystemMount(m.Destination) || m.Type != "bind" {
 			continue
@@ -456,12 +503,12 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 		if len(m.BlockDeviceID) > 0 {
 			// Attach this block device, all other devices passed in the config have been attached at this point
 			if err := c.sandbox.devManager.AttachDevice(m.BlockDeviceID, c.sandbox); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			if err := c.sandbox.storeSandboxDevices(); err != nil {
 				//TODO: roll back?
-				return nil, err
+				return nil, nil, err
 			}
 			continue
 		}
@@ -473,21 +520,16 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 			continue
 		}
 
-		randBytes, err := utils.GenerateRandomBytes(8)
+		guestDest, ignore, err := c.shareFiles(m, idx, hostSharedDir, guestSharedDir)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		// These mounts are created in the shared dir
-		filename := fmt.Sprintf("%s-%s-%s", c.id, hex.EncodeToString(randBytes), filepath.Base(m.Destination))
-		mountDest := filepath.Join(hostSharedDir, c.sandbox.id, filename)
-
-		if err := bindMount(c.ctx, m.Source, mountDest, false); err != nil {
-			return nil, err
+		// Expand the list of mounts to ignore.
+		if ignore {
+			ignoredMounts = append(ignoredMounts, Mount{Source: m.Source})
+			continue
 		}
-
-		// Save HostPath mount value into the mount list of the container.
-		c.mounts[idx].HostPath = mountDest
 
 		// Check if mount is readonly, let the agent handle the readonly mount
 		// within the VM.
@@ -499,7 +541,7 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 		}
 
 		sharedDirMount := Mount{
-			Source:      filepath.Join(guestSharedDir, filename),
+			Source:      guestDest,
 			Destination: m.Destination,
 			Type:        m.Type,
 			Options:     m.Options,
@@ -510,10 +552,10 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 	}
 
 	if err := c.storeMounts(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return sharedDirMounts, nil
+	return sharedDirMounts, ignoredMounts, nil
 }
 
 func (c *Container) unmountHostMounts() error {
@@ -526,7 +568,7 @@ func (c *Container) unmountHostMounts() error {
 			span, _ := c.trace("unmount")
 			span.SetTag("host-path", m.HostPath)
 
-			if err := syscall.Unmount(m.HostPath, 0); err != nil {
+			if err := syscall.Unmount(m.HostPath, syscall.MNT_DETACH); err != nil {
 				c.Logger().WithFields(logrus.Fields{
 					"host-path": m.HostPath,
 					"error":     err,
@@ -573,7 +615,7 @@ func newContainer(sandbox *Sandbox, contConfig ContainerConfig) (*Container, err
 		runPath:       filepath.Join(runStoragePath, sandbox.id, contConfig.ID),
 		configPath:    filepath.Join(configStoragePath, sandbox.id, contConfig.ID),
 		containerPath: filepath.Join(sandbox.id, contConfig.ID),
-		state:         State{},
+		state:         types.State{},
 		process:       Process{},
 		mounts:        contConfig.Mounts,
 		ctx:           sandbox.ctx,
@@ -658,9 +700,6 @@ func newContainer(sandbox *Sandbox, contConfig ContainerConfig) (*Container, err
 // - Unplug CPU and memory resources from the VM.
 // - Unplug devices from the VM.
 func (c *Container) rollbackFailingContainerCreation() {
-	if err := c.removeResources(); err != nil {
-		c.Logger().WithError(err).Error("rollback failed removeResources()")
-	}
 	if err := c.detachDevices(); err != nil {
 		c.Logger().WithError(err).Error("rollback failed detachDevices()")
 	}
@@ -674,7 +713,7 @@ func (c *Container) checkBlockDeviceSupport() bool {
 		agentCaps := c.sandbox.agent.capabilities()
 		hypervisorCaps := c.sandbox.hypervisor.capabilities()
 
-		if agentCaps.isBlockDeviceSupported() && hypervisorCaps.isBlockDeviceHotplugSupported() {
+		if agentCaps.IsBlockDeviceSupported() && hypervisorCaps.IsBlockDeviceHotplugSupported() {
 			return true
 		}
 	}
@@ -684,15 +723,7 @@ func (c *Container) checkBlockDeviceSupport() bool {
 
 // createContainer creates and start a container inside a Sandbox. It has to be
 // called only when a new container, not known by the sandbox, has to be created.
-func createContainer(sandbox *Sandbox, contConfig ContainerConfig) (c *Container, err error) {
-	if sandbox == nil {
-		return nil, errNeedSandbox
-	}
-
-	c, err = newContainer(sandbox, contConfig)
-	if err != nil {
-		return
-	}
+func (c *Container) create() (err error) {
 
 	if err = c.createContainersDirs(); err != nil {
 		return
@@ -717,10 +748,6 @@ func createContainer(sandbox *Sandbox, contConfig ContainerConfig) (c *Container
 		return
 	}
 
-	if err = c.addResources(); err != nil {
-		return
-	}
-
 	// Deduce additional system mount info that should be handled by the agent
 	// inside the VM
 	c.getSystemMountInfo()
@@ -729,16 +756,16 @@ func createContainer(sandbox *Sandbox, contConfig ContainerConfig) (c *Container
 		return
 	}
 
-	process, err := sandbox.agent.createContainer(c.sandbox, c)
+	process, err := c.sandbox.agent.createContainer(c.sandbox, c)
 	if err != nil {
-		return c, err
+		return err
 	}
 	c.process = *process
 
 	// If this is a sandbox container, store the pid for sandbox
 	ann := c.GetAnnotations()
 	if ann[annotations.ContainerTypeKey] == string(PodSandbox) {
-		sandbox.setSandboxPid(c.process.Pid)
+		c.sandbox.setSandboxPid(c.process.Pid)
 	}
 
 	// Store the container process returned by the agent.
@@ -746,16 +773,16 @@ func createContainer(sandbox *Sandbox, contConfig ContainerConfig) (c *Container
 		return
 	}
 
-	if err = c.setContainerState(StateReady); err != nil {
+	if err = c.setContainerState(types.StateReady); err != nil {
 		return
 	}
 
-	return c, nil
+	return nil
 }
 
 func (c *Container) delete() error {
-	if c.state.State != StateReady &&
-		c.state.State != StateStopped {
+	if c.state.State != types.StateReady &&
+		c.state.State != types.StateStopped {
 		return fmt.Errorf("Container not ready or stopped, impossible to delete")
 	}
 
@@ -777,7 +804,7 @@ func (c *Container) checkSandboxRunning(cmd string) error {
 		return fmt.Errorf("Cmd cannot be empty")
 	}
 
-	if c.sandbox.state.State != StateRunning {
+	if c.sandbox.state.State != types.StateRunning {
 		return fmt.Errorf("Sandbox not running, impossible to %s the container", cmd)
 	}
 
@@ -802,12 +829,12 @@ func (c *Container) start() error {
 		return err
 	}
 
-	if c.state.State != StateReady &&
-		c.state.State != StateStopped {
+	if c.state.State != types.StateReady &&
+		c.state.State != types.StateStopped {
 		return fmt.Errorf("Container not ready or stopped, impossible to start")
 	}
 
-	if err := c.state.validTransition(c.state.State, StateRunning); err != nil {
+	if err := c.state.ValidTransition(c.state.State, types.StateRunning); err != nil {
 		return err
 	}
 
@@ -820,7 +847,7 @@ func (c *Container) start() error {
 		return err
 	}
 
-	return c.setContainerState(StateRunning)
+	return c.setContainerState(types.StateRunning)
 }
 
 func (c *Container) stop() error {
@@ -834,16 +861,16 @@ func (c *Container) stop() error {
 	//
 	// This has to be handled before the transition validation since this
 	// is an exception.
-	if c.state.State == StateStopped {
+	if c.state.State == types.StateStopped {
 		c.Logger().Info("Container already stopped")
 		return nil
 	}
 
-	if c.sandbox.state.State != StateReady && c.sandbox.state.State != StateRunning {
+	if c.sandbox.state.State != types.StateReady && c.sandbox.state.State != types.StateRunning {
 		return fmt.Errorf("Sandbox not ready or running, impossible to stop the container")
 	}
 
-	if err := c.state.validTransition(c.state.State, StateStopped); err != nil {
+	if err := c.state.ValidTransition(c.state.State, types.StateStopped); err != nil {
 		return err
 	}
 
@@ -904,10 +931,6 @@ func (c *Container) stop() error {
 		return err
 	}
 
-	if err := c.removeResources(); err != nil {
-		return err
-	}
-
 	if err := c.detachDevices(); err != nil {
 		return err
 	}
@@ -916,16 +939,16 @@ func (c *Container) stop() error {
 		return err
 	}
 
-	return c.setContainerState(StateStopped)
+	return c.setContainerState(types.StateStopped)
 }
 
-func (c *Container) enter(cmd Cmd) (*Process, error) {
+func (c *Container) enter(cmd types.Cmd) (*Process, error) {
 	if err := c.checkSandboxRunning("enter"); err != nil {
 		return nil, err
 	}
 
-	if c.state.State != StateReady &&
-		c.state.State != StateRunning {
+	if c.state.State != types.StateReady &&
+		c.state.State != types.StateRunning {
 		return nil, fmt.Errorf("Container not ready or running, " +
 			"impossible to enter")
 	}
@@ -939,8 +962,8 @@ func (c *Container) enter(cmd Cmd) (*Process, error) {
 }
 
 func (c *Container) wait(processID string) (int32, error) {
-	if c.state.State != StateReady &&
-		c.state.State != StateRunning {
+	if c.state.State != types.StateReady &&
+		c.state.State != types.StateRunning {
 		return 0, fmt.Errorf("Container not ready or running, " +
 			"impossible to wait")
 	}
@@ -953,11 +976,11 @@ func (c *Container) kill(signal syscall.Signal, all bool) error {
 }
 
 func (c *Container) signalProcess(processID string, signal syscall.Signal, all bool) error {
-	if c.sandbox.state.State != StateReady && c.sandbox.state.State != StateRunning {
+	if c.sandbox.state.State != types.StateReady && c.sandbox.state.State != types.StateRunning {
 		return fmt.Errorf("Sandbox not ready or running, impossible to signal the container")
 	}
 
-	if c.state.State != StateReady && c.state.State != StateRunning && c.state.State != StatePaused {
+	if c.state.State != types.StateReady && c.state.State != types.StateRunning && c.state.State != types.StatePaused {
 		return fmt.Errorf("Container not ready, running or paused, impossible to signal the container")
 	}
 
@@ -965,7 +988,7 @@ func (c *Container) signalProcess(processID string, signal syscall.Signal, all b
 }
 
 func (c *Container) winsizeProcess(processID string, height, width uint32) error {
-	if c.state.State != StateReady && c.state.State != StateRunning {
+	if c.state.State != types.StateReady && c.state.State != types.StateRunning {
 		return fmt.Errorf("Container not ready or running, impossible to signal the container")
 	}
 
@@ -973,7 +996,7 @@ func (c *Container) winsizeProcess(processID string, height, width uint32) error
 }
 
 func (c *Container) ioStream(processID string) (io.WriteCloser, io.Reader, io.Reader, error) {
-	if c.state.State != StateReady && c.state.State != StateRunning {
+	if c.state.State != types.StateReady && c.state.State != types.StateRunning {
 		return nil, nil, nil, fmt.Errorf("Container not ready or running, impossible to signal the container")
 	}
 
@@ -987,7 +1010,7 @@ func (c *Container) processList(options ProcessListOptions) (ProcessList, error)
 		return nil, err
 	}
 
-	if c.state.State != StateRunning {
+	if c.state.State != types.StateRunning {
 		return nil, fmt.Errorf("Container not running, impossible to list processes")
 	}
 
@@ -1006,28 +1029,32 @@ func (c *Container) update(resources specs.LinuxResources) error {
 		return err
 	}
 
-	if c.state.State != StateRunning {
-		return fmt.Errorf("Container not running, impossible to update")
+	if state := c.state.State; !(state == types.StateRunning || state == types.StateReady) {
+		return fmt.Errorf("Container(%s) not running or ready, impossible to update", state)
 	}
 
-	// fetch current configuration
-	currentConfig, err := c.sandbox.storage.fetchContainerConfig(c.sandbox.id, c.id)
-	if err != nil {
-		return err
+	if c.config.Resources.CPU == nil {
+		c.config.Resources.CPU = &specs.LinuxCPU{}
 	}
 
-	newResources := ContainerResources{
-		VCPUs: uint32(utils.ConstraintsToVCPUs(*resources.CPU.Quota, *resources.CPU.Period)),
-		// do page align to memory, as cgroup memory.limit_in_bytes will be aligned to page when effect.
-		// TODO use GetGuestDetails to get the guest OS page size.
-		MemByte: (*resources.Memory.Limit >> 12) << 12,
+	if cpu := resources.CPU; cpu != nil {
+		if p := cpu.Period; p != nil && *p != 0 {
+			c.config.Resources.CPU.Period = p
+		}
+		if q := cpu.Quota; q != nil && *q != 0 {
+			c.config.Resources.CPU.Quota = q
+		}
 	}
 
-	if err := c.updateResources(currentConfig.Resources, newResources); err != nil {
-		return err
+	if c.config.Resources.Memory == nil {
+		c.config.Resources.Memory = &specs.LinuxMemory{}
 	}
 
-	if err := c.storeContainer(); err != nil {
+	if mem := resources.Memory; mem != nil && mem.Limit != nil {
+		c.config.Resources.Memory.Limit = mem.Limit
+	}
+
+	if err := c.sandbox.updateResources(); err != nil {
 		return err
 	}
 
@@ -1039,7 +1066,7 @@ func (c *Container) pause() error {
 		return err
 	}
 
-	if c.state.State != StateRunning && c.state.State != StateReady {
+	if c.state.State != types.StateRunning && c.state.State != types.StateReady {
 		return fmt.Errorf("Container not running or ready, impossible to pause")
 	}
 
@@ -1047,7 +1074,7 @@ func (c *Container) pause() error {
 		return err
 	}
 
-	return c.setContainerState(StatePaused)
+	return c.setContainerState(types.StatePaused)
 }
 
 func (c *Container) resume() error {
@@ -1055,7 +1082,7 @@ func (c *Container) resume() error {
 		return err
 	}
 
-	if c.state.State != StatePaused {
+	if c.state.State != types.StatePaused {
 		return fmt.Errorf("Container not paused, impossible to resume")
 	}
 
@@ -1063,7 +1090,7 @@ func (c *Container) resume() error {
 		return err
 	}
 
-	return c.setContainerState(StateRunning)
+	return c.setContainerState(types.StateRunning)
 }
 
 func (c *Container) hotplugDrive() error {
@@ -1217,193 +1244,5 @@ func (c *Container) detachDevices() error {
 	if err := c.sandbox.storeSandboxDevices(); err != nil {
 		return err
 	}
-	return nil
-}
-
-func (c *Container) addResources() error {
-	if c.config == nil {
-		return nil
-	}
-
-	addResources := ContainerResources{
-		VCPUs:   c.config.Resources.VCPUs,
-		MemByte: c.config.Resources.MemByte,
-	}
-
-	if err := c.updateResources(ContainerResources{0, 0}, addResources); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Container) removeResources() error {
-	if c.config == nil {
-		return nil
-	}
-
-	// In order to don't remove vCPUs used by other containers, we have to remove
-	// only the vCPUs assigned to the container
-	config, err := c.sandbox.storage.fetchContainerConfig(c.sandbox.id, c.id)
-	if err != nil {
-		// don't fail, let's use the default configuration
-		config = *c.config
-	}
-
-	vCPUs := config.Resources.VCPUs
-	if vCPUs != 0 {
-		virtLog.Debugf("hot removing %d vCPUs", vCPUs)
-		if _, err := c.sandbox.hypervisor.hotplugRemoveDevice(vCPUs, cpuDev); err != nil {
-			return err
-		}
-	}
-	// hot remove memory unsupported
-
-	return nil
-}
-
-func (c *Container) updateVCPUResources(oldResources ContainerResources, newResources *ContainerResources) error {
-	var vCPUs uint32
-	oldVCPUs := oldResources.VCPUs
-	newVCPUs := newResources.VCPUs
-
-	// Update vCPUs is not possible if oldVCPUs and newVCPUs are equal.
-	// Don't fail, the constraint still can be applied in the cgroup.
-	if oldVCPUs == newVCPUs {
-		c.Logger().WithFields(logrus.Fields{
-			"old-vcpus": fmt.Sprintf("%d", oldVCPUs),
-			"new-vcpus": fmt.Sprintf("%d", newVCPUs),
-		}).Debug("the actual number of vCPUs will not be modified")
-		return nil
-	} else if oldVCPUs < newVCPUs {
-		// hot add vCPUs
-		vCPUs = newVCPUs - oldVCPUs
-		virtLog.Debugf("hot adding %d vCPUs", vCPUs)
-		data, err := c.sandbox.hypervisor.hotplugAddDevice(vCPUs, cpuDev)
-		if err != nil {
-			return err
-		}
-		vcpusAdded, ok := data.(uint32)
-		if !ok {
-			return fmt.Errorf("Could not get the number of vCPUs added, got %+v", data)
-		}
-		// recalculate the actual number of vCPUs if a different number of vCPUs was added
-		newResources.VCPUs = oldVCPUs + vcpusAdded
-		if err := c.sandbox.agent.onlineCPUMem(vcpusAdded, true); err != nil {
-			return err
-		}
-	} else {
-		// hot remove vCPUs
-		vCPUs = oldVCPUs - newVCPUs
-		virtLog.Debugf("hot removing %d vCPUs", vCPUs)
-		data, err := c.sandbox.hypervisor.hotplugRemoveDevice(vCPUs, cpuDev)
-		if err != nil {
-			return err
-		}
-		vcpusRemoved, ok := data.(uint32)
-		if !ok {
-			return fmt.Errorf("Could not get the number of vCPUs removed, got %+v", data)
-		}
-		// recalculate the actual number of vCPUs if a different number of vCPUs was removed
-		newResources.VCPUs = oldVCPUs - vcpusRemoved
-	}
-
-	return nil
-}
-
-// calculate hotplug memory size with memory block size of guestos
-func (c *Container) calcHotplugMemMiBSize(memByte int64) (uint32, error) {
-	memoryBlockSize := int64(c.sandbox.state.GuestMemoryBlockSizeMB)
-	if memoryBlockSize == 0 {
-		return uint32(memByte >> 20), nil
-	}
-
-	// TODO: hot add memory aligned to memory section should be more properly. See https://github.com/kata-containers/runtime/pull/624#issuecomment-419656853
-	return uint32(int64(math.Ceil(float64(memByte)/float64(memoryBlockSize<<20))) * memoryBlockSize), nil
-}
-
-func (c *Container) updateMemoryResources(oldResources ContainerResources, newResources *ContainerResources) error {
-	oldMemByte := oldResources.MemByte
-	newMemByte := newResources.MemByte
-	c.Logger().WithFields(logrus.Fields{
-		"old-mem": fmt.Sprintf("%dByte", oldMemByte),
-		"new-mem": fmt.Sprintf("%dByte", newMemByte),
-	}).Debug("Request update memory")
-
-	if oldMemByte == newMemByte {
-		c.Logger().WithFields(logrus.Fields{
-			"old-mem": fmt.Sprintf("%dByte", oldMemByte),
-			"new-mem": fmt.Sprintf("%dByte", newMemByte),
-		}).Debug("the actual number of Mem will not be modified")
-		return nil
-	} else if oldMemByte < newMemByte {
-		// hot add memory
-		addMemByte := newMemByte - oldMemByte
-		memHotplugMB, err := c.calcHotplugMemMiBSize(addMemByte)
-		if err != nil {
-			return err
-		}
-
-		virtLog.Debugf("hotplug %dMB mem", memHotplugMB)
-		addMemDevice := &memoryDevice{
-			sizeMB: int(memHotplugMB),
-		}
-		data, err := c.sandbox.hypervisor.hotplugAddDevice(addMemDevice, memoryDev)
-		if err != nil {
-			return err
-		}
-		memoryAdded, ok := data.(int)
-		if !ok {
-			return fmt.Errorf("Could not get the memory added, got %+v", data)
-		}
-		newResources.MemByte = oldMemByte + int64(memoryAdded)<<20
-		if err := c.sandbox.agent.onlineCPUMem(0, false); err != nil {
-			return err
-		}
-	} else {
-		// Try to remove a memory device with the difference
-		// from new memory and old memory
-		removeMem := &memoryDevice{
-			sizeMB: int((oldMemByte - newMemByte) >> 20),
-		}
-
-		data, err := c.sandbox.hypervisor.hotplugRemoveDevice(removeMem, memoryDev)
-		if err != nil {
-			return err
-		}
-		memoryRemoved, ok := data.(int)
-		if !ok {
-			return fmt.Errorf("Could not get the memory added, got %+v", data)
-		}
-		newResources.MemByte = oldMemByte - int64(memoryRemoved)<<20
-	}
-
-	return nil
-}
-
-func (c *Container) updateResources(oldResources, newResources ContainerResources) error {
-	// initialize with oldResources
-	c.config.Resources.VCPUs = oldResources.VCPUs
-	c.config.Resources.MemByte = oldResources.MemByte
-
-	// Cpu is not updated if period and/or quota not set
-	if newResources.VCPUs != 0 {
-		if err := c.updateVCPUResources(oldResources, &newResources); err != nil {
-			return err
-		}
-		// Set container's config VCPUs field only
-		c.config.Resources.VCPUs = newResources.VCPUs
-	}
-
-	// Memory is not updated if memory limit not set
-	if newResources.MemByte != 0 {
-		if err := c.updateMemoryResources(oldResources, &newResources); err != nil {
-			return err
-		}
-
-		// Set container's config MemByte field only
-		c.config.Resources.MemByte = newResources.MemByte
-	}
-
 	return nil
 }

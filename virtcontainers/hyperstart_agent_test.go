@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/kata-containers/runtime/virtcontainers/pkg/hyperstart"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 )
@@ -36,7 +37,7 @@ func TestHyperstartGenerateSocketsSuccessful(t *testing.T) {
 
 	h.generateSockets(sandbox, config)
 
-	expectedSockets := []Socket{
+	expectedSockets := []types.Socket{
 		{
 			DeviceID: fmt.Sprintf(defaultDeviceIDTemplate, 0),
 			ID:       fmt.Sprintf(defaultIDTemplate, 0),
@@ -67,7 +68,7 @@ func TestHyperstartGenerateSocketsSuccessfulNoPathProvided(t *testing.T) {
 
 	h.generateSockets(sandbox, config)
 
-	expectedSockets := []Socket{
+	expectedSockets := []types.Socket{
 		{
 			DeviceID: fmt.Sprintf(defaultDeviceIDTemplate, 0),
 			ID:       fmt.Sprintf(defaultIDTemplate, 0),
@@ -260,4 +261,12 @@ func TestHyperGetAgentUrl(t *testing.T) {
 	url, err := h.getAgentURL()
 	assert.Nil(err)
 	assert.Empty(url)
+}
+
+func TestHyperCopyFile(t *testing.T) {
+	assert := assert.New(t)
+	h := &hyper{}
+
+	err := h.copyFile("", "")
+	assert.Nil(err)
 }

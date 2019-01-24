@@ -7,6 +7,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -81,18 +82,13 @@ func TestCCCheckCLIFunction(t *testing.T) {
 			{archGenuineIntel, "lm vmx sse4_1", false},
 		}
 
-		moduleData = []testModuleData{
-			{filepath.Join(sysModuleDir, "kvm_intel/parameters/unrestricted_guest"), false, "Y"},
-			{filepath.Join(sysModuleDir, "kvm_intel/parameters/nested"), false, "Y"},
-		}
+		moduleData = []testModuleData{}
 	} else if cpuType == cpuTypeAMD {
 		cpuData = []testCPUData{
 			{archAuthenticAMD, "lm svm sse4_1", false},
 		}
 
-		moduleData = []testModuleData{
-			{filepath.Join(sysModuleDir, "kvm_amd/parameters/nested"), false, "1"},
-		}
+		moduleData = []testModuleData{}
 	}
 
 	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0666)
@@ -396,7 +392,7 @@ func TestCheckHostIsVMContainerCapable(t *testing.T) {
 	}
 
 	err = hostIsVMContainerCapable(details)
-	assert.Error(err)
+	assert.Nil(err)
 }
 
 func TestArchKernelParamHandler(t *testing.T) {
@@ -488,8 +484,36 @@ func TestKvmIsUsable(t *testing.T) {
 	assert.Error(err)
 }
 
+type TestDataa struct {
+	contents       string
+	expectedVendor string
+	expectedModel  string
+	expectError    bool
+}
+
 func TestGetCPUDetails(t *testing.T) {
-	genericTestGetCPUDetails(t)
+	const validVendorName = "a vendor"
+	validVendor := fmt.Sprintf(`%s  : %s`, archCPUVendorField, validVendorName)
+
+	const validModelName = "some CPU model"
+	validModel := fmt.Sprintf(`%s   : %s`, archCPUModelField, validModelName)
+
+	validContents := fmt.Sprintf(`
+a       : b
+%s
+foo     : bar
+%s
+`, validVendor, validModel)
+
+	data := []TestDataa{
+		{"", "", "", true},
+		{"invalid", "", "", true},
+		{archCPUVendorField, "", "", true},
+		{validVendor, "", "", true},
+		{validModel, "", "", true},
+		{validContents, validVendorName, validModelName, false},
+	}
+	genericTestGetCPUDetails(t, validVendor, validModel, validContents, data)
 }
 
 func TestSetCPUtype(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kata-containers/runtime/pkg/katautils"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -59,7 +60,7 @@ func createModules(assert *assert.Assertions, cpuInfoFile string, moduleData []t
 		}
 
 		err = hostIsVMContainerCapable(details)
-		if fileExists(cpuInfoFile) {
+		if katautils.FileExists(cpuInfoFile) {
 			assert.NoError(err)
 		} else {
 			assert.Error(err)
@@ -137,36 +138,7 @@ func makeCPUInfoFile(path, vendorID, flags string) error {
 	return ioutil.WriteFile(path, contents.Bytes(), testFileMode)
 }
 
-func genericTestGetCPUDetails(t *testing.T) {
-	type testData struct {
-		contents       string
-		expectedVendor string
-		expectedModel  string
-		expectError    bool
-	}
-
-	const validVendorName = "a vendor"
-	validVendor := fmt.Sprintf(`%s  : %s`, archCPUVendorField, validVendorName)
-
-	const validModelName = "some CPU model"
-	validModel := fmt.Sprintf(`%s   : %s`, archCPUModelField, validModelName)
-
-	validContents := fmt.Sprintf(`
-a       : b
-%s
-foo     : bar
-%s
-`, validVendor, validModel)
-
-	data := []testData{
-		{"", "", "", true},
-		{"invalid", "", "", true},
-		{archCPUVendorField, "", "", true},
-		{validVendor, "", "", true},
-		{validModel, "", "", true},
-		{validContents, validVendorName, validModelName, false},
-	}
-
+func genericTestGetCPUDetails(t *testing.T, validVendor string, validModel string, validContents string, data []TestDataa) {
 	tmpdir, err := ioutil.TempDir("", "")
 	if err != nil {
 		panic(err)
@@ -448,15 +420,15 @@ func TestCheckHaveKernelModule(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	savedModInfoCmd := modInfoCmd
+	savedModProbeCmd := modProbeCmd
 	savedSysModuleDir := sysModuleDir
 
 	// XXX: override (fake the modprobe command failing)
-	modInfoCmd = "false"
+	modProbeCmd = "false"
 	sysModuleDir = filepath.Join(dir, "sys/module")
 
 	defer func() {
-		modInfoCmd = savedModInfoCmd
+		modProbeCmd = savedModProbeCmd
 		sysModuleDir = savedSysModuleDir
 	}()
 
@@ -471,13 +443,13 @@ func TestCheckHaveKernelModule(t *testing.T) {
 	assert.False(result)
 
 	// XXX: override - make our fake "modprobe" succeed
-	modInfoCmd = "true"
+	modProbeCmd = "true"
 
 	result = haveKernelModule(module)
 	assert.True(result)
 
 	// disable "modprobe" again
-	modInfoCmd = "false"
+	modProbeCmd = "false"
 
 	fooDir := filepath.Join(sysModuleDir, module)
 	err = os.MkdirAll(fooDir, testDirMode)
@@ -498,15 +470,15 @@ func TestCheckCheckKernelModules(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	savedModInfoCmd := modInfoCmd
+	savedModProbeCmd := modProbeCmd
 	savedSysModuleDir := sysModuleDir
 
 	// XXX: override (fake the modprobe command failing)
-	modInfoCmd = "false"
+	modProbeCmd = "false"
 	sysModuleDir = filepath.Join(dir, "sys/module")
 
 	defer func() {
-		modInfoCmd = savedModInfoCmd
+		modProbeCmd = savedModProbeCmd
 		sysModuleDir = savedSysModuleDir
 	}()
 
@@ -590,15 +562,15 @@ func TestCheckCheckKernelModulesUnreadableFile(t *testing.T) {
 		},
 	}
 
-	savedModInfoCmd := modInfoCmd
+	savedModProbeCmd := modProbeCmd
 	savedSysModuleDir := sysModuleDir
 
 	// XXX: override (fake the modprobe command failing)
-	modInfoCmd = "false"
+	modProbeCmd = "false"
 	sysModuleDir = filepath.Join(dir, "sys/module")
 
 	defer func() {
-		modInfoCmd = savedModInfoCmd
+		modProbeCmd = savedModProbeCmd
 		sysModuleDir = savedSysModuleDir
 	}()
 
@@ -637,15 +609,15 @@ func TestCheckCheckKernelModulesInvalidFileContents(t *testing.T) {
 		},
 	}
 
-	savedModInfoCmd := modInfoCmd
+	savedModProbeCmd := modProbeCmd
 	savedSysModuleDir := sysModuleDir
 
 	// XXX: override (fake the modprobe command failing)
-	modInfoCmd = "false"
+	modProbeCmd = "false"
 	sysModuleDir = filepath.Join(dir, "sys/module")
 
 	defer func() {
-		modInfoCmd = savedModInfoCmd
+		modProbeCmd = savedModProbeCmd
 		sysModuleDir = savedSysModuleDir
 	}()
 
@@ -700,15 +672,15 @@ func TestCheckKernelParamHandler(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	savedModInfoCmd := modInfoCmd
+	savedModProbeCmd := modProbeCmd
 	savedSysModuleDir := sysModuleDir
 
 	// XXX: override (fake the modprobe command failing)
-	modInfoCmd = "false"
+	modProbeCmd = "false"
 	sysModuleDir = filepath.Join(dir, "sys/module")
 
 	defer func() {
-		modInfoCmd = savedModInfoCmd
+		modProbeCmd = savedModProbeCmd
 		sysModuleDir = savedSysModuleDir
 	}()
 

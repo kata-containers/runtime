@@ -8,12 +8,22 @@ package virtcontainers
 import (
 	"context"
 	"os"
+
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 type mockHypervisor struct {
 }
 
-func (m *mockHypervisor) init(ctx context.Context, id string, hypervisorConfig *HypervisorConfig, storage resourceStorage) error {
+func (m *mockHypervisor) capabilities() types.Capabilities {
+	return types.Capabilities{}
+}
+
+func (m *mockHypervisor) hypervisorConfig() HypervisorConfig {
+	return HypervisorConfig{}
+}
+
+func (m *mockHypervisor) createSandbox(ctx context.Context, id string, hypervisorConfig *HypervisorConfig, storage resourceStorage) error {
 	err := hypervisorConfig.valid()
 	if err != nil {
 		return err
@@ -22,23 +32,7 @@ func (m *mockHypervisor) init(ctx context.Context, id string, hypervisorConfig *
 	return nil
 }
 
-func (m *mockHypervisor) capabilities() capabilities {
-	return capabilities{}
-}
-
-func (m *mockHypervisor) hypervisorConfig() HypervisorConfig {
-	return HypervisorConfig{}
-}
-
-func (m *mockHypervisor) createSandbox() error {
-	return nil
-}
-
-func (m *mockHypervisor) startSandbox() error {
-	return nil
-}
-
-func (m *mockHypervisor) waitSandbox(timeout int) error {
+func (m *mockHypervisor) startSandbox(timeout int) error {
 	return nil
 }
 
@@ -87,10 +81,21 @@ func (m *mockHypervisor) getSandboxConsole(sandboxID string) (string, error) {
 	return "", nil
 }
 
+func (m *mockHypervisor) resizeMemory(memMB uint32, memorySectionSizeMB uint32) (uint32, error) {
+	return 0, nil
+}
+func (m *mockHypervisor) resizeVCPUs(cpus uint32) (uint32, uint32, error) {
+	return 0, 0, nil
+}
+
 func (m *mockHypervisor) disconnect() {
 }
 
 func (m *mockHypervisor) getThreadIDs() (*threadIDs, error) {
 	vcpus := []int{os.Getpid()}
 	return &threadIDs{vcpus}, nil
+}
+
+func (m *mockHypervisor) cleanup() error {
+	return nil
 }

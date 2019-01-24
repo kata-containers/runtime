@@ -12,7 +12,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -26,7 +25,9 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
 	deviceManager "github.com/kata-containers/runtime/virtcontainers/device/manager"
-	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/vishvananda/netlink"
 )
 
@@ -36,274 +37,10 @@ const (
 	vmStartTimeout = 10
 )
 
-// stateString is a string representing a sandbox state.
-type stateString string
-
-const (
-	// StateReady represents a sandbox/container that's ready to be run
-	StateReady stateString = "ready"
-
-	// StateRunning represents a sandbox/container that's currently running.
-	StateRunning stateString = "running"
-
-	// StatePaused represents a sandbox/container that has been paused.
-	StatePaused stateString = "paused"
-
-	// StateStopped represents a sandbox/container that has been stopped.
-	StateStopped stateString = "stopped"
-)
-
-// State is a sandbox state structure.
-type State struct {
-	State stateString `json:"state"`
-
-	BlockDeviceID string
-	// Index of the block device passed to hypervisor.
-	BlockIndex int `json:"blockIndex"`
-
-	// File system of the rootfs incase it is block device
-	Fstype string `json:"fstype"`
-
-	// Pid is the process id of the sandbox container which is the first
-	// container to be started.
-	Pid int `json:"pid"`
-
-	// GuestMemoryBlockSizeMB is the size of memory block of guestos
-	GuestMemoryBlockSizeMB uint32 `json:"guestMemoryBlockSize"`
-}
-
-// valid checks that the sandbox state is valid.
-func (state *State) valid() bool {
-	for _, validState := range []stateString{StateReady, StateRunning, StatePaused, StateStopped} {
-		if state.State == validState {
-			return true
-		}
-	}
-
-	return false
-}
-
-// validTransition returns an error if we want to move to
-// an unreachable state.
-func (state *State) validTransition(oldState stateString, newState stateString) error {
-	if state.State != oldState {
-		return fmt.Errorf("Invalid state %s (Expecting %s)", state.State, oldState)
-	}
-
-	switch state.State {
-	case StateReady:
-		if newState == StateRunning || newState == StateStopped {
-			return nil
-		}
-
-	case StateRunning:
-		if newState == StatePaused || newState == StateStopped {
-			return nil
-		}
-
-	case StatePaused:
-		if newState == StateRunning || newState == StateStopped {
-			return nil
-		}
-
-	case StateStopped:
-		if newState == StateRunning {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("Can not move from %s to %s",
-		state.State, newState)
-}
-
-// Volume is a shared volume between the host and the VM,
-// defined by its mount tag and its host path.
-type Volume struct {
-	// MountTag is a label used as a hint to the guest.
-	MountTag string
-
-	// HostPath is the host filesystem path for this volume.
-	HostPath string
-}
-
-// Volumes is a Volume list.
-type Volumes []Volume
-
-// Set assigns volume values from string to a Volume.
-func (v *Volumes) Set(volStr string) error {
-	if volStr == "" {
-		return fmt.Errorf("volStr cannot be empty")
-	}
-
-	volSlice := strings.Split(volStr, " ")
-	const expectedVolLen = 2
-	const volDelimiter = ":"
-
-	for _, vol := range volSlice {
-		volArgs := strings.Split(vol, volDelimiter)
-
-		if len(volArgs) != expectedVolLen {
-			return fmt.Errorf("Wrong string format: %s, expecting only %v parameters separated with %q",
-				vol, expectedVolLen, volDelimiter)
-		}
-
-		if volArgs[0] == "" || volArgs[1] == "" {
-			return fmt.Errorf("Volume parameters cannot be empty")
-		}
-
-		volume := Volume{
-			MountTag: volArgs[0],
-			HostPath: volArgs[1],
-		}
-
-		*v = append(*v, volume)
-	}
-
-	return nil
-}
-
-// String converts a Volume to a string.
-func (v *Volumes) String() string {
-	var volSlice []string
-
-	for _, volume := range *v {
-		volSlice = append(volSlice, fmt.Sprintf("%s:%s", volume.MountTag, volume.HostPath))
-	}
-
-	return strings.Join(volSlice, " ")
-}
-
-// Socket defines a socket to communicate between
-// the host and any process inside the VM.
-type Socket struct {
-	DeviceID string
-	ID       string
-	HostPath string
-	Name     string
-}
-
-// Sockets is a Socket list.
-type Sockets []Socket
-
-// Set assigns socket values from string to a Socket.
-func (s *Sockets) Set(sockStr string) error {
-	if sockStr == "" {
-		return fmt.Errorf("sockStr cannot be empty")
-	}
-
-	sockSlice := strings.Split(sockStr, " ")
-	const expectedSockCount = 4
-	const sockDelimiter = ":"
-
-	for _, sock := range sockSlice {
-		sockArgs := strings.Split(sock, sockDelimiter)
-
-		if len(sockArgs) != expectedSockCount {
-			return fmt.Errorf("Wrong string format: %s, expecting only %v parameters separated with %q", sock, expectedSockCount, sockDelimiter)
-		}
-
-		for _, a := range sockArgs {
-			if a == "" {
-				return fmt.Errorf("Socket parameters cannot be empty")
-			}
-		}
-
-		socket := Socket{
-			DeviceID: sockArgs[0],
-			ID:       sockArgs[1],
-			HostPath: sockArgs[2],
-			Name:     sockArgs[3],
-		}
-
-		*s = append(*s, socket)
-	}
-
-	return nil
-}
-
-// String converts a Socket to a string.
-func (s *Sockets) String() string {
-	var sockSlice []string
-
-	for _, sock := range *s {
-		sockSlice = append(sockSlice, fmt.Sprintf("%s:%s:%s:%s", sock.DeviceID, sock.ID, sock.HostPath, sock.Name))
-	}
-
-	return strings.Join(sockSlice, " ")
-}
-
-// EnvVar is a key/value structure representing a command
-// environment variable.
-type EnvVar struct {
-	Var   string
-	Value string
-}
-
-// LinuxCapabilities specify the capabilities to keep when executing
-// the process inside the container.
-type LinuxCapabilities struct {
-	// Bounding is the set of capabilities checked by the kernel.
-	Bounding []string
-	// Effective is the set of capabilities checked by the kernel.
-	Effective []string
-	// Inheritable is the capabilities preserved across execve.
-	Inheritable []string
-	// Permitted is the limiting superset for effective capabilities.
-	Permitted []string
-	// Ambient is the ambient set of capabilities that are kept.
-	Ambient []string
-}
-
-// Cmd represents a command to execute in a running container.
-type Cmd struct {
-	Args                []string
-	Envs                []EnvVar
-	SupplementaryGroups []string
-
-	// Note that these fields *MUST* remain as strings.
-	//
-	// The reason being that we want runtimes to be able to support CLI
-	// operations like "exec --user=". That option allows the
-	// specification of a user (either as a string username or a numeric
-	// UID), and may optionally also include a group (groupame or GID).
-	//
-	// Since this type is the interface to allow the runtime to specify
-	// the user and group the workload can run as, these user and group
-	// fields cannot be encoded as integer values since that would imply
-	// the runtime itself would need to perform a UID/GID lookup on the
-	// user-specified username/groupname. But that isn't practically
-	// possible given that to do so would require the runtime to access
-	// the image to allow it to interrogate the appropriate databases to
-	// convert the username/groupnames to UID/GID values.
-	//
-	// Note that this argument applies solely to the _runtime_ supporting
-	// a "--user=" option when running in a "standalone mode" - there is
-	// no issue when the runtime is called by a container manager since
-	// all the user and group mapping is handled by the container manager
-	// and specified to the runtime in terms of UID/GID's in the
-	// configuration file generated by the container manager.
-	User         string
-	PrimaryGroup string
-	WorkDir      string
-	Console      string
-	Capabilities LinuxCapabilities
-
-	Interactive     bool
-	Detach          bool
-	NoNewPrivileges bool
-}
-
-// Resources describes VM resources configuration.
-type Resources struct {
-	// Memory is the amount of available memory in MiB.
-	Memory      uint
-	MemorySlots uint8
-}
-
 // SandboxStatus describes a sandbox status.
 type SandboxStatus struct {
 	ID               string
-	State            State
+	State            types.State
 	Hypervisor       HypervisorType
 	HypervisorConfig HypervisorConfig
 	Agent            AgentType
@@ -337,11 +74,12 @@ type SandboxConfig struct {
 	NetworkConfig NetworkConfig
 
 	// Volumes is a list of shared volumes between the host and the Sandbox.
-	Volumes []Volume
+	Volumes []types.Volume
 
 	// Containers describe the list of containers within a Sandbox.
 	// This list can be empty and populated by adding containers
 	// to the Sandbox a posteriori.
+	//TODO: this should be a map to avoid duplicated containers
 	Containers []ContainerConfig
 
 	// Annotations keys must be unique strings and must be name-spaced
@@ -353,12 +91,14 @@ type SandboxConfig struct {
 	// SharePidNs sets all containers to share the same sandbox level pid namespace.
 	SharePidNs bool
 
-	// Stateful keeps sandbox resources in memory across APIs. Users will be responsible
+	// types.Stateful keeps sandbox resources in memory across APIs. Users will be responsible
 	// for calling Release() to release the memory resources.
 	Stateful bool
 
 	// SystemdCgroup enables systemd cgroup support
 	SystemdCgroup bool
+
+	DisableGuestSeccomp bool
 }
 
 func (s *Sandbox) trace(name string) (opentracing.Span, context.Context) {
@@ -473,14 +213,14 @@ type Sandbox struct {
 
 	devManager api.DeviceManager
 
-	volumes []Volume
+	volumes []types.Volume
 
 	containers map[string]*Container
 
 	runPath    string
 	configPath string
 
-	state State
+	state types.State
 
 	networkNS NetworkNamespace
 
@@ -488,9 +228,10 @@ type Sandbox struct {
 
 	wg *sync.WaitGroup
 
-	shmSize    uint64
-	sharePidNs bool
-	stateful   bool
+	shmSize          uint64
+	sharePidNs       bool
+	stateful         bool
+	seccompSupported bool
 
 	ctx context.Context
 
@@ -620,7 +361,7 @@ func (s *Sandbox) Status() SandboxStatus {
 
 // Monitor returns a error channel for watcher to watch at
 func (s *Sandbox) Monitor() (chan error, error) {
-	if s.state.State != StateRunning {
+	if s.state.State != types.StateRunning {
 		return nil, fmt.Errorf("Sandbox is not running")
 	}
 
@@ -635,7 +376,7 @@ func (s *Sandbox) Monitor() (chan error, error) {
 
 // WaitProcess waits on a container process and return its exit code
 func (s *Sandbox) WaitProcess(containerID, processID string) (int32, error) {
-	if s.state.State != StateRunning {
+	if s.state.State != types.StateRunning {
 		return 0, fmt.Errorf("Sandbox not running")
 	}
 
@@ -650,7 +391,7 @@ func (s *Sandbox) WaitProcess(containerID, processID string) (int32, error) {
 // SignalProcess sends a signal to a process of a container when all is false.
 // When all is true, it sends the signal to all processes of a container.
 func (s *Sandbox) SignalProcess(containerID, processID string, signal syscall.Signal, all bool) error {
-	if s.state.State != StateRunning {
+	if s.state.State != types.StateRunning {
 		return fmt.Errorf("Sandbox not running")
 	}
 
@@ -664,7 +405,7 @@ func (s *Sandbox) SignalProcess(containerID, processID string, signal syscall.Si
 
 // WinsizeProcess resizes the tty window of a process
 func (s *Sandbox) WinsizeProcess(containerID, processID string, height, width uint32) error {
-	if s.state.State != StateRunning {
+	if s.state.State != types.StateRunning {
 		return fmt.Errorf("Sandbox not running")
 	}
 
@@ -678,7 +419,7 @@ func (s *Sandbox) WinsizeProcess(containerID, processID string, height, width ui
 
 // IOStream returns stdin writer, stdout reader and stderr reader of a process
 func (s *Sandbox) IOStream(containerID, processID string) (io.WriteCloser, io.Reader, io.Reader, error) {
-	if s.state.State != StateRunning {
+	if s.state.State != types.StateRunning {
 		return nil, nil, nil, fmt.Errorf("Sandbox not running")
 	}
 
@@ -694,26 +435,26 @@ func createAssets(ctx context.Context, sandboxConfig *SandboxConfig) error {
 	span, _ := trace(ctx, "createAssets")
 	defer span.Finish()
 
-	kernel, err := newAsset(sandboxConfig, kernelAsset)
+	kernel, err := types.NewAsset(sandboxConfig.Annotations, types.KernelAsset)
 	if err != nil {
 		return err
 	}
 
-	image, err := newAsset(sandboxConfig, imageAsset)
+	image, err := types.NewAsset(sandboxConfig.Annotations, types.ImageAsset)
 	if err != nil {
 		return err
 	}
 
-	initrd, err := newAsset(sandboxConfig, initrdAsset)
+	initrd, err := types.NewAsset(sandboxConfig.Annotations, types.InitrdAsset)
 	if err != nil {
 		return err
 	}
 
 	if image != nil && initrd != nil {
-		return fmt.Errorf("%s and %s cannot be both set", imageAsset, initrdAsset)
+		return fmt.Errorf("%s and %s cannot be both set", types.ImageAsset, types.InitrdAsset)
 	}
 
-	for _, a := range []*asset{kernel, image, initrd} {
+	for _, a := range []*types.Asset{kernel, image, initrd} {
 		if err := sandboxConfig.HypervisorConfig.addCustomAsset(a); err != nil {
 			return err
 		}
@@ -732,6 +473,10 @@ func (s *Sandbox) getAndStoreGuestDetails() error {
 
 	if guestDetailRes != nil {
 		s.state.GuestMemoryBlockSizeMB = uint32(guestDetailRes.MemBlockSizeBytes >> 20)
+		if guestDetailRes.AgentDetails != nil {
+			s.seccompSupported = guestDetailRes.AgentDetails.SupportsSeccomp
+		}
+
 		if err = s.storage.storeSandboxResource(s.id, stateFileType, s.state); err != nil {
 			return err
 		}
@@ -786,7 +531,7 @@ func createSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Fac
 	}
 
 	// Set sandbox state
-	if err := s.setSandboxState(StateReady); err != nil {
+	if err := s.setSandboxState(types.StateReady); err != nil {
 		return nil, err
 	}
 
@@ -822,7 +567,7 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 		containers:      map[string]*Container{},
 		runPath:         filepath.Join(runStoragePath, sandboxConfig.ID),
 		configPath:      filepath.Join(configStoragePath, sandboxConfig.ID),
-		state:           State{},
+		state:           types.State{},
 		annotationsLock: &sync.RWMutex{},
 		wg:              &sync.WaitGroup{},
 		shmSize:         sandboxConfig.ShmSize,
@@ -852,11 +597,7 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 		}
 	}()
 
-	if err = s.hypervisor.init(ctx, s.id, &sandboxConfig.HypervisorConfig, s.storage); err != nil {
-		return nil, err
-	}
-
-	if err = s.hypervisor.createSandbox(); err != nil {
+	if err = s.hypervisor.createSandbox(ctx, s.id, &sandboxConfig.HypervisorConfig, s.storage); err != nil {
 		return nil, err
 	}
 
@@ -923,7 +664,7 @@ func fetchSandbox(ctx context.Context, sandboxID string) (sandbox *Sandbox, err 
 
 	// This sandbox already exists, we don't need to recreate the containers in the guest.
 	// We only need to fetch the containers from storage and create the container structs.
-	if err := sandbox.newContainers(); err != nil {
+	if err := sandbox.fetchContainers(); err != nil {
 		return nil, err
 	}
 
@@ -975,9 +716,9 @@ func (s *Sandbox) removeContainer(containerID string) error {
 // Delete deletes an already created sandbox.
 // The VM in which the sandbox is running will be shut down.
 func (s *Sandbox) Delete() error {
-	if s.state.State != StateReady &&
-		s.state.State != StatePaused &&
-		s.state.State != StateStopped {
+	if s.state.State != types.StateReady &&
+		s.state.State != types.StatePaused &&
+		s.state.State != types.StateStopped {
 		return fmt.Errorf("Sandbox not ready, paused or stopped, impossible to delete")
 	}
 
@@ -998,6 +739,12 @@ func (s *Sandbox) Delete() error {
 	if s.monitor != nil {
 		s.monitor.stop()
 	}
+
+	if err := s.hypervisor.cleanup(); err != nil {
+		s.Logger().WithError(err).Error("failed to cleanup hypervisor")
+	}
+
+	s.agent.cleanup(s.id)
 
 	return s.storage.deleteSandboxResources(s.id, nil)
 }
@@ -1081,7 +828,7 @@ func (s *Sandbox) removeNetwork() error {
 	return s.network.remove(s, s.factory != nil)
 }
 
-func (s *Sandbox) generateNetInfo(inf *types.Interface) (NetworkInfo, error) {
+func (s *Sandbox) generateNetInfo(inf *vcTypes.Interface) (NetworkInfo, error) {
 	hw, err := net.ParseMAC(inf.HwAddr)
 	if err != nil {
 		return NetworkInfo{}, err
@@ -1112,7 +859,7 @@ func (s *Sandbox) generateNetInfo(inf *types.Interface) (NetworkInfo, error) {
 }
 
 // AddInterface adds new nic to the sandbox.
-func (s *Sandbox) AddInterface(inf *types.Interface) (*types.Interface, error) {
+func (s *Sandbox) AddInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
 	netInfo, err := s.generateNetInfo(inf)
 	if err != nil {
 		return nil, err
@@ -1143,7 +890,7 @@ func (s *Sandbox) AddInterface(inf *types.Interface) (*types.Interface, error) {
 }
 
 // RemoveInterface removes a nic of the sandbox.
-func (s *Sandbox) RemoveInterface(inf *types.Interface) (*types.Interface, error) {
+func (s *Sandbox) RemoveInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
 	for i, endpoint := range s.networkNS.Endpoints {
 		if endpoint.HardwareAddr() == inf.HwAddr {
 			s.Logger().WithField("endpoint-type", endpoint.Type()).Info("Hot detaching endpoint")
@@ -1161,17 +908,17 @@ func (s *Sandbox) RemoveInterface(inf *types.Interface) (*types.Interface, error
 }
 
 // ListInterfaces lists all nics and their configurations in the sandbox.
-func (s *Sandbox) ListInterfaces() ([]*types.Interface, error) {
+func (s *Sandbox) ListInterfaces() ([]*vcTypes.Interface, error) {
 	return s.agent.listInterfaces()
 }
 
 // UpdateRoutes updates the sandbox route table (e.g. for portmapping support).
-func (s *Sandbox) UpdateRoutes(routes []*types.Route) ([]*types.Route, error) {
+func (s *Sandbox) UpdateRoutes(routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
 	return s.agent.updateRoutes(routes)
 }
 
 // ListRoutes lists all routes and their configurations in the sandbox.
-func (s *Sandbox) ListRoutes() ([]*types.Route, error) {
+func (s *Sandbox) ListRoutes() ([]*vcTypes.Route, error) {
 	return s.agent.listRoutes()
 }
 
@@ -1202,12 +949,8 @@ func (s *Sandbox) startVM() error {
 			return nil
 		}
 
-		return s.hypervisor.startSandbox()
+		return s.hypervisor.startSandbox(vmStartTimeout)
 	}); err != nil {
-		return err
-	}
-
-	if err := s.hypervisor.waitSandbox(vmStartTimeout); err != nil {
 		return err
 	}
 
@@ -1228,8 +971,17 @@ func (s *Sandbox) startVM() error {
 		}
 	}
 
-	// Store the network
 	s.Logger().Info("VM started")
+
+	// Once the hypervisor is done starting the sandbox,
+	// we want to guarantee that it is manageable.
+	// For that we need to ask the agent to start the
+	// sandbox inside the VM.
+	if err := s.agent.startSandbox(s); err != nil {
+		return err
+	}
+
+	s.Logger().Info("Agent started in the sandbox")
 
 	return nil
 }
@@ -1239,6 +991,12 @@ func (s *Sandbox) stopVM() error {
 	span, _ := s.trace("stopVM")
 	defer span.Finish()
 
+	s.Logger().Info("Stopping sandbox in the VM")
+	if err := s.agent.stopSandbox(s); err != nil {
+		s.Logger().WithError(err).WithField("sandboxid", s.id).Warning("Agent did not stop sandbox")
+	}
+
+	s.Logger().Info("Stopping VM")
 	return s.hypervisor.stopSandbox()
 }
 
@@ -1255,7 +1013,7 @@ func (s *Sandbox) addContainer(c *Container) error {
 // adds them to the sandbox. It does not create the containers
 // in the guest. This should only be used when fetching a
 // sandbox that already exists.
-func (s *Sandbox) newContainers() error {
+func (s *Sandbox) fetchContainers() error {
 	for _, contConfig := range s.config.Containers {
 		c, err := newContainer(s, contConfig)
 		if err != nil {
@@ -1271,9 +1029,25 @@ func (s *Sandbox) newContainers() error {
 }
 
 // CreateContainer creates a new container in the sandbox
+// This should be called only when the sandbox is already created.
+// It will add new container config to sandbox.config.Containers
 func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, error) {
 	// Create the container.
-	c, err := createContainer(s, contConfig)
+	c, err := newContainer(s, contConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update sandbox config.
+	s.config.Containers = append(s.config.Containers, contConfig)
+
+	// Sandbox is reponsable to update VM resources needed by Containers
+	s.updateResources()
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.create()
 	if err != nil {
 		return nil, err
 	}
@@ -1289,8 +1063,6 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 		return nil, err
 	}
 
-	// Update sandbox config.
-	s.config.Containers = append(s.config.Containers, contConfig)
 	err = s.storage.storeSandboxResource(s.id, configFileType, *(s.config))
 	if err != nil {
 		return nil, err
@@ -1316,6 +1088,7 @@ func (s *Sandbox) StartContainer(containerID string) (VCContainer, error) {
 	if err != nil {
 		return nil, err
 	}
+	//Fixme Container delete from sandbox, need to update resources
 
 	return c, nil
 }
@@ -1421,7 +1194,7 @@ func (s *Sandbox) StatusContainer(containerID string) (ContainerStatus, error) {
 
 // EnterContainer is the virtcontainers container command execution entry point.
 // EnterContainer enters an already running container and runs a given command.
-func (s *Sandbox) EnterContainer(containerID string, cmd Cmd) (VCContainer, *Process, error) {
+func (s *Sandbox) EnterContainer(containerID string, cmd types.Cmd) (VCContainer, *Process, error) {
 	// Fetch the container.
 	c, err := s.findContainer(containerID)
 	if err != nil {
@@ -1445,7 +1218,12 @@ func (s *Sandbox) UpdateContainer(containerID string, resources specs.LinuxResou
 		return err
 	}
 
-	return c.update(resources)
+	err = c.update(resources)
+	if err != nil {
+		return err
+	}
+
+	return c.storeContainer()
 }
 
 // StatsContainer return the stats of a running container
@@ -1493,13 +1271,21 @@ func (s *Sandbox) createContainers() error {
 	span, _ := s.trace("createContainers")
 	defer span.Finish()
 
+	if err := s.updateResources(); err != nil {
+		return err
+	}
+
 	for _, contConfig := range s.config.Containers {
-		newContainer, err := createContainer(s, contConfig)
+
+		c, err := newContainer(s, contConfig)
 		if err != nil {
 			return err
 		}
+		if err := c.create(); err != nil {
+			return err
+		}
 
-		if err := s.addContainer(newContainer); err != nil {
+		if err := s.addContainer(c); err != nil {
 			return err
 		}
 	}
@@ -1510,11 +1296,11 @@ func (s *Sandbox) createContainers() error {
 // Start starts a sandbox. The containers that are making the sandbox
 // will be started.
 func (s *Sandbox) Start() error {
-	if err := s.state.validTransition(s.state.State, StateRunning); err != nil {
+	if err := s.state.ValidTransition(s.state.State, types.StateRunning); err != nil {
 		return err
 	}
 
-	if err := s.setSandboxState(StateRunning); err != nil {
+	if err := s.setSandboxState(types.StateRunning); err != nil {
 		return err
 	}
 
@@ -1535,7 +1321,12 @@ func (s *Sandbox) Stop() error {
 	span, _ := s.trace("stop")
 	defer span.Finish()
 
-	if err := s.state.validTransition(s.state.State, StateStopped); err != nil {
+	if s.state.State == types.StateStopped {
+		s.Logger().Info("sandbox already stopped")
+		return nil
+	}
+
+	if err := s.state.ValidTransition(s.state.State, types.StateStopped); err != nil {
 		return err
 	}
 
@@ -1545,16 +1336,11 @@ func (s *Sandbox) Stop() error {
 		}
 	}
 
-	if err := s.agent.stopSandbox(s); err != nil {
+	if err := s.stopVM(); err != nil {
 		return err
 	}
 
-	s.Logger().Info("Stopping VM")
-	if err := s.hypervisor.stopSandbox(); err != nil {
-		return err
-	}
-
-	if err := s.setSandboxState(StateStopped); err != nil {
+	if err := s.setSandboxState(types.StateStopped); err != nil {
 		return err
 	}
 
@@ -1600,7 +1386,7 @@ func (s *Sandbox) enter(args []string) error {
 
 // setSandboxState sets both the in-memory and on-disk state of the
 // sandbox.
-func (s *Sandbox) setSandboxState(state stateString) error {
+func (s *Sandbox) setSandboxState(state types.StateString) error {
 	if state == "" {
 		return errNeedState
 	}
@@ -1615,21 +1401,21 @@ func (s *Sandbox) setSandboxState(state stateString) error {
 func (s *Sandbox) pauseSetStates() error {
 	// XXX: When a sandbox is paused, all its containers are forcibly
 	// paused too.
-	if err := s.setContainersState(StatePaused); err != nil {
+	if err := s.setContainersState(types.StatePaused); err != nil {
 		return err
 	}
 
-	return s.setSandboxState(StatePaused)
+	return s.setSandboxState(types.StatePaused)
 }
 
 func (s *Sandbox) resumeSetStates() error {
 	// XXX: Resuming a paused sandbox puts all containers back into the
 	// running state.
-	if err := s.setContainersState(StateRunning); err != nil {
+	if err := s.setContainersState(types.StateRunning); err != nil {
 		return err
 	}
 
-	return s.setSandboxState(StateRunning)
+	return s.setSandboxState(types.StateRunning)
 }
 
 // getAndSetSandboxBlockIndex retrieves sandbox block index and increments it for
@@ -1673,7 +1459,7 @@ func (s *Sandbox) setSandboxPid(pid int) error {
 	return s.storage.storeSandboxResource(s.id, stateFileType, s.state)
 }
 
-func (s *Sandbox) setContainersState(state stateString) error {
+func (s *Sandbox) setContainersState(state types.StateString) error {
 	if state == "" {
 		return errNeedState
 	}
@@ -1867,4 +1653,64 @@ func (s *Sandbox) AddDevice(info config.DeviceInfo) (api.Device, error) {
 	}
 
 	return b, nil
+}
+
+func (s *Sandbox) updateResources() error {
+	// the hypervisor.MemorySize is the amount of memory reserved for
+	// the VM and contaniners without memory limit
+
+	sumResources := specs.LinuxResources{
+		Memory: &specs.LinuxMemory{
+			Limit: new(int64),
+		},
+		CPU: &specs.LinuxCPU{
+			Period: new(uint64),
+			Quota:  new(int64),
+		},
+	}
+
+	for _, c := range s.config.Containers {
+		if m := c.Resources.Memory; m != nil && m.Limit != nil {
+			*sumResources.Memory.Limit += *m.Limit
+		}
+		if cpu := c.Resources.CPU; cpu != nil {
+			if cpu.Period != nil && cpu.Quota != nil {
+				*sumResources.CPU.Period += *cpu.Period
+				*sumResources.CPU.Quota += *cpu.Quota
+			}
+		}
+	}
+
+	sandboxVCPUs := uint32(utils.ConstraintsToVCPUs(*sumResources.CPU.Quota, *sumResources.CPU.Period))
+	sandboxVCPUs += s.hypervisor.hypervisorConfig().NumVCPUs
+
+	sandboxMemoryByte := int64(s.hypervisor.hypervisorConfig().MemorySize) << utils.MibToBytesShift
+	sandboxMemoryByte += *sumResources.Memory.Limit
+
+	// Update VCPUs
+	s.Logger().WithField("cpus-sandbox", sandboxVCPUs).Debugf("Request to hypervisor to update vCPUs")
+	oldCPUs, newCPUs, err := s.hypervisor.resizeVCPUs(sandboxVCPUs)
+	if err != nil {
+		return err
+	}
+	// The CPUs were increased, ask agent to online them
+	if oldCPUs < newCPUs {
+		vcpusAdded := newCPUs - oldCPUs
+		if err := s.agent.onlineCPUMem(vcpusAdded, true); err != nil {
+			return err
+		}
+	}
+	s.Logger().Debugf("Sandbox CPUs: %d", newCPUs)
+
+	// Update Memory
+	s.Logger().WithField("memory-sandbox-size-byte", sandboxMemoryByte).Debugf("Request to hypervisor to update memory")
+	newMemory, err := s.hypervisor.resizeMemory(uint32(sandboxMemoryByte>>utils.MibToBytesShift), s.state.GuestMemoryBlockSizeMB)
+	if err != nil {
+		return err
+	}
+	s.Logger().Debugf("Sandbox memory size: %d Byte", newMemory)
+	if err := s.agent.onlineCPUMem(0, false); err != nil {
+		return err
+	}
+	return nil
 }

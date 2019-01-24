@@ -7,9 +7,11 @@ package virtcontainers
 
 import (
 	"syscall"
+	"time"
 
 	"github.com/kata-containers/agent/protocols/grpc"
-	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/net/context"
 )
@@ -35,8 +37,8 @@ func (n *noopAgent) createSandbox(sandbox *Sandbox) error {
 }
 
 // capabilities returns empty capabilities, i.e no capabilties are supported.
-func (n *noopAgent) capabilities() capabilities {
-	return capabilities{}
+func (n *noopAgent) capabilities() types.Capabilities {
+	return types.Capabilities{}
 }
 
 // disconnect is the Noop agent connection closer. It does nothing.
@@ -45,7 +47,7 @@ func (n *noopAgent) disconnect() error {
 }
 
 // exec is the Noop agent command execution implementation. It does nothing.
-func (n *noopAgent) exec(sandbox *Sandbox, c Container, cmd Cmd) (*Process, error) {
+func (n *noopAgent) exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*Process, error) {
 	return nil, nil
 }
 
@@ -95,22 +97,22 @@ func (n *noopAgent) onlineCPUMem(cpus uint32, cpuOnly bool) error {
 }
 
 // updateInterface is the Noop agent Interface update implementation. It does nothing.
-func (n *noopAgent) updateInterface(inf *types.Interface) (*types.Interface, error) {
+func (n *noopAgent) updateInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
 	return nil, nil
 }
 
 // listInterfaces is the Noop agent Interfaces list implementation. It does nothing.
-func (n *noopAgent) listInterfaces() ([]*types.Interface, error) {
+func (n *noopAgent) listInterfaces() ([]*vcTypes.Interface, error) {
 	return nil, nil
 }
 
 // updateRoutes is the Noop agent Routes update implementation. It does nothing.
-func (n *noopAgent) updateRoutes(routes []*types.Route) ([]*types.Route, error) {
+func (n *noopAgent) updateRoutes(routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
 	return nil, nil
 }
 
 // listRoutes is the Noop agent Routes list implementation. It does nothing.
-func (n *noopAgent) listRoutes() ([]*types.Route, error) {
+func (n *noopAgent) listRoutes() ([]*vcTypes.Route, error) {
 	return nil, nil
 }
 
@@ -184,6 +186,11 @@ func (n *noopAgent) reseedRNG(data []byte) error {
 	return nil
 }
 
+// reuseAgent is the Noop agent reuser. It does nothing.
+func (n *noopAgent) reuseAgent(agent agent) error {
+	return nil
+}
+
 // getAgentURL is the Noop agent url getter. It returns nothing.
 func (n *noopAgent) getAgentURL() (string, error) {
 	return "", nil
@@ -197,4 +204,17 @@ func (n *noopAgent) setProxy(sandbox *Sandbox, proxy proxy, pid int, url string)
 // getGuestDetails is the Noop agent GuestDetails queryer. It does nothing.
 func (n *noopAgent) getGuestDetails(*grpc.GuestDetailsRequest) (*grpc.GuestDetailsResponse, error) {
 	return nil, nil
+}
+
+// setGuestDateTime is the Noop agent guest time setter. It does nothing.
+func (n *noopAgent) setGuestDateTime(time.Time) error {
+	return nil
+}
+
+// copyFile is the Noop agent copy file. It does nothing.
+func (n *noopAgent) copyFile(src, dst string) error {
+	return nil
+}
+
+func (n *noopAgent) cleanup(id string) {
 }

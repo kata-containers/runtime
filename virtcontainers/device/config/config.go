@@ -38,6 +38,20 @@ const (
 	VhostUserBlk = "vhost-user-blk-pci"
 )
 
+const (
+	// VirtioMmio means use virtio-mmio for mmio based drives
+	VirtioMmio = "virtio-mmio"
+
+	// VirtioBlock means use virtio-blk for hotplugging drives
+	VirtioBlock = "virtio-blk"
+
+	// VirtioSCSI means use virtio-scsi for hotplugging drives
+	VirtioSCSI = "virtio-scsi"
+
+	// Nvdimm means use nvdimm for hotplugging drives
+	Nvdimm = "nvdimm"
+)
+
 // Defining these as a variable instead of a const, to allow
 // overriding this in the tests.
 
@@ -98,12 +112,18 @@ type BlockDrive struct {
 	// Index assigned to the drive. In case of virtio-scsi, this is used as SCSI LUN index
 	Index int
 
+	// MmioAddr is used to identify the slot at which the drive is attached (order?).
+	MmioAddr string
+
 	// PCIAddr is the PCI address used to identify the slot at which the drive is attached.
 	PCIAddr string
 
 	// SCSI Address of the block device, in case the device is attached using SCSI driver
 	// SCSI address is in the format SCSI-Id:LUN
 	SCSIAddr string
+
+	// NvdimmID is the nvdimm id inside the VM
+	NvdimmID string
 
 	// VirtPath at which the device appears inside the VM, outside of the container mount namespace
 	VirtPath string

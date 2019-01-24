@@ -14,6 +14,7 @@ import (
 	govmmQemu "github.com/intel/govmm/qemu"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 )
 
@@ -23,6 +24,9 @@ type qemuArch interface {
 
 	// disableNestingChecks nesting checks will be ignored
 	disableNestingChecks()
+
+	// runNested indicates if the hypervisor runs in a nested environment
+	runNested() bool
 
 	// enableVhostNet vhost will be enabled
 	enableVhostNet()
@@ -41,10 +45,10 @@ type qemuArch interface {
 	kernelParameters(debug bool) []Param
 
 	//capabilities returns the capabilities supported by QEMU
-	capabilities() capabilities
+	capabilities() types.Capabilities
 
 	// bridges returns the number bridges for the machine type
-	bridges(number uint32) []Bridge
+	bridges(number uint32) []types.PCIBridge
 
 	// cpuTopology returns the CPU topology for the given amount of vcpus
 	cpuTopology(vcpus, maxvcpus uint32) govmmQemu.SMP
@@ -65,13 +69,13 @@ type qemuArch interface {
 	appendSCSIController(devices []govmmQemu.Device, enableIOThreads bool) ([]govmmQemu.Device, *govmmQemu.IOThread)
 
 	// appendBridges appends bridges to devices
-	appendBridges(devices []govmmQemu.Device, bridges []Bridge) []govmmQemu.Device
+	appendBridges(devices []govmmQemu.Device, bridges []types.PCIBridge) []govmmQemu.Device
 
 	// append9PVolume appends a 9P volume to devices
-	append9PVolume(devices []govmmQemu.Device, volume Volume) []govmmQemu.Device
+	append9PVolume(devices []govmmQemu.Device, volume types.Volume) []govmmQemu.Device
 
 	// appendSocket appends a socket to devices
-	appendSocket(devices []govmmQemu.Device, socket Socket) []govmmQemu.Device
+	appendSocket(devices []govmmQemu.Device, socket types.Socket) []govmmQemu.Device
 
 	// appendVSockPCI appends a vsock PCI to devices
 	appendVSockPCI(devices []govmmQemu.Device, vsock kataVSOCK) []govmmQemu.Device
@@ -83,7 +87,7 @@ type qemuArch interface {
 	appendBlockDevice(devices []govmmQemu.Device, drive config.BlockDrive) []govmmQemu.Device
 
 	// appendVhostUserDevice appends a vhost user device to devices
-	appendVhostUserDevice(devices []govmmQemu.Device, drive config.VhostUserDeviceAttrs) []govmmQemu.Device
+	appendVhostUserDevice(devices []govmmQemu.Device, drive config.VhostUserDeviceAttrs) ([]govmmQemu.Device, error)
 
 	// appendVFIODevice appends a VFIO device to devices
 	appendVFIODevice(devices []govmmQemu.Device, vfioDevice config.VFIODev) []govmmQemu.Device
@@ -100,6 +104,7 @@ type qemuArch interface {
 
 type qemuArchBase struct {
 	machineType           string
+	memoryOffset          uint32
 	nestedRun             bool
 	vhost                 bool
 	networkIndex          int
@@ -126,14 +131,6 @@ const (
 const bridgePCIStartAddr = 2
 
 const (
-	// VirtioBlock means use virtio-blk for hotplugging drives
-	VirtioBlock = "virtio-blk"
-
-	// VirtioSCSI means use virtio-scsi for hotplugging drives
-	VirtioSCSI = "virtio-scsi"
-)
-
-const (
 	// QemuPCLite is the QEMU pc-lite machine type for amd64
 	QemuPCLite = "pc-lite"
 
@@ -148,6 +145,9 @@ const (
 
 	// QemuPseries is a QEMU virt machine type for ppc64le
 	QemuPseries = "pseries"
+
+	// QemuCCWVirtio is a QEMU virt machine type for for s390x
+	QemuCCWVirtio = "s390-ccw-virtio"
 )
 
 // kernelParamsNonDebug is a list of the default kernel
@@ -183,6 +183,10 @@ func (q *qemuArchBase) enableNestingChecks() {
 
 func (q *qemuArchBase) disableNestingChecks() {
 	q.nestedRun = false
+}
+
+func (q *qemuArchBase) runNested() bool {
+	return q.nestedRun
 }
 
 func (q *qemuArchBase) enableVhostNet() {
@@ -224,19 +228,20 @@ func (q *qemuArchBase) kernelParameters(debug bool) []Param {
 	return params
 }
 
-func (q *qemuArchBase) capabilities() capabilities {
-	var caps capabilities
-	caps.setBlockDeviceHotplugSupport()
+func (q *qemuArchBase) capabilities() types.Capabilities {
+	var caps types.Capabilities
+	caps.SetBlockDeviceHotplugSupport()
+	caps.SetMultiQueueSupport()
 	return caps
 }
 
-func (q *qemuArchBase) bridges(number uint32) []Bridge {
-	var bridges []Bridge
+func (q *qemuArchBase) bridges(number uint32) []types.PCIBridge {
+	var bridges []types.PCIBridge
 
 	for i := uint32(0); i < number; i++ {
-		bridges = append(bridges, Bridge{
-			Type:    pciBridge,
-			ID:      fmt.Sprintf("%s-bridge-%d", pciBridge, i),
+		bridges = append(bridges, types.PCIBridge{
+			Type:    types.PCI,
+			ID:      fmt.Sprintf("%s-bridge-%d", types.PCI, i),
 			Address: make(map[uint32]string),
 		})
 	}
@@ -341,10 +346,10 @@ func (q *qemuArchBase) appendSCSIController(devices []govmmQemu.Device, enableIO
 }
 
 // appendBridges appends to devices the given bridges
-func (q *qemuArchBase) appendBridges(devices []govmmQemu.Device, bridges []Bridge) []govmmQemu.Device {
+func (q *qemuArchBase) appendBridges(devices []govmmQemu.Device, bridges []types.PCIBridge) []govmmQemu.Device {
 	for idx, b := range bridges {
 		t := govmmQemu.PCIBridge
-		if b.Type == pcieBridge {
+		if b.Type == types.PCIE {
 			t = govmmQemu.PCIEBridge
 		}
 
@@ -366,7 +371,7 @@ func (q *qemuArchBase) appendBridges(devices []govmmQemu.Device, bridges []Bridg
 	return devices
 }
 
-func (q *qemuArchBase) append9PVolume(devices []govmmQemu.Device, volume Volume) []govmmQemu.Device {
+func (q *qemuArchBase) append9PVolume(devices []govmmQemu.Device, volume types.Volume) []govmmQemu.Device {
 	if volume.MountTag == "" || volume.HostPath == "" {
 		return devices
 	}
@@ -391,7 +396,7 @@ func (q *qemuArchBase) append9PVolume(devices []govmmQemu.Device, volume Volume)
 	return devices
 }
 
-func (q *qemuArchBase) appendSocket(devices []govmmQemu.Device, socket Socket) []govmmQemu.Device {
+func (q *qemuArchBase) appendSocket(devices []govmmQemu.Device, socket types.Socket) []govmmQemu.Device {
 	devID := socket.ID
 	if len(devID) > maxDevIDSize {
 		devID = devID[:maxDevIDSize]
@@ -449,7 +454,7 @@ func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint Endpoi
 		devices = append(devices,
 			govmmQemu.NetDevice{
 				Type:          networkModelToQemuType(netPair.NetInterworkingModel),
-				Driver:        govmmQemu.VirtioNetPCI,
+				Driver:        govmmQemu.VirtioNet,
 				ID:            fmt.Sprintf("network-%d", q.networkIndex),
 				IFName:        netPair.TAPIface.Name,
 				MACAddress:    netPair.TAPIface.HardAddr,
@@ -466,7 +471,7 @@ func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint Endpoi
 		devices = append(devices,
 			govmmQemu.NetDevice{
 				Type:          govmmQemu.MACVTAP,
-				Driver:        govmmQemu.VirtioNetPCI,
+				Driver:        govmmQemu.VirtioNet,
 				ID:            fmt.Sprintf("network-%d", q.networkIndex),
 				IFName:        ep.Name(),
 				MACAddress:    ep.HardwareAddr(),
@@ -509,7 +514,7 @@ func (q *qemuArchBase) appendBlockDevice(devices []govmmQemu.Device, drive confi
 	return devices
 }
 
-func (q *qemuArchBase) appendVhostUserDevice(devices []govmmQemu.Device, attr config.VhostUserDeviceAttrs) []govmmQemu.Device {
+func (q *qemuArchBase) appendVhostUserDevice(devices []govmmQemu.Device, attr config.VhostUserDeviceAttrs) ([]govmmQemu.Device, error) {
 	qemuVhostUserDevice := govmmQemu.VhostUserDevice{}
 
 	switch attr.Type {
@@ -527,7 +532,7 @@ func (q *qemuArchBase) appendVhostUserDevice(devices []govmmQemu.Device, attr co
 
 	devices = append(devices, qemuVhostUserDevice)
 
-	return devices
+	return devices, nil
 }
 
 func (q *qemuArchBase) appendVFIODevice(devices []govmmQemu.Device, vfioDev config.VFIODev) []govmmQemu.Device {

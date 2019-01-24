@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Intel Corporation
+// Copyright (c) 2018 Intel Corporation
 // Copyright (c) 2018 HyperHQ Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -15,6 +15,7 @@ var defaultInitrdPath = "/usr/share/kata-containers/kata-containers-initrd.img"
 var defaultFirmwarePath = ""
 var defaultMachineAccelerators = ""
 var defaultShimPath = "/usr/libexec/kata-containers/kata-shim"
+var systemdUnitName = "kata-containers.target"
 
 const defaultKernelParams = ""
 const defaultMachineType = "pc"
@@ -23,10 +24,14 @@ const defaultVCPUCount uint32 = 1
 const defaultMaxVCPUCount uint32 = 0
 const defaultMemSize uint32 = 2048 // MiB
 const defaultMemSlots uint32 = 10
+const defaultMemOffset uint32 = 0 // MiB
 const defaultBridgesCount uint32 = 1
 const defaultInterNetworkingModel = "macvtap"
 const defaultDisableBlockDeviceUse bool = false
 const defaultBlockDeviceDriver = "virtio-scsi"
+const defaultBlockDeviceCacheSet bool = false
+const defaultBlockDeviceCacheDirect bool = false
+const defaultBlockDeviceCacheNoflush bool = false
 const defaultEnableIOThreads bool = false
 const defaultEnableMemPrealloc bool = false
 const defaultEnableHugePages bool = false

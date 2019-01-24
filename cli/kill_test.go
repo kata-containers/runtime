@@ -16,6 +16,7 @@ import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/vcmock"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -64,8 +65,8 @@ func TestProcessSignal(t *testing.T) {
 func testKillCLIFunctionTerminationSignalSuccessful(t *testing.T, sig string) {
 	assert := assert.New(t)
 
-	state := vc.State{
-		State: vc.StateRunning,
+	state := types.State{
+		State: types.StateRunning,
 	}
 
 	annotations := map[string]string{
@@ -122,8 +123,8 @@ func TestKillCLIFunctionSigtermSuccessful(t *testing.T) {
 func TestKillCLIFunctionNotTerminationSignalSuccessful(t *testing.T) {
 	assert := assert.New(t)
 
-	state := vc.State{
-		State: vc.StateRunning,
+	state := types.State{
+		State: types.StateRunning,
 	}
 
 	testingImpl.KillContainerFunc = testKillContainerFuncReturnNil
@@ -150,8 +151,8 @@ func TestKillCLIFunctionNotTerminationSignalSuccessful(t *testing.T) {
 func TestKillCLIFunctionNoSignalSuccessful(t *testing.T) {
 	assert := assert.New(t)
 
-	state := vc.State{
-		State: vc.StateRunning,
+	state := types.State{
+		State: types.StateRunning,
 	}
 
 	annotations := map[string]string{
@@ -200,8 +201,8 @@ func TestKillCLIFunctionNoSignalSuccessful(t *testing.T) {
 func TestKillCLIFunctionEnableAllSuccessful(t *testing.T) {
 	assert := assert.New(t)
 
-	state := vc.State{
-		State: vc.StateRunning,
+	state := types.State{
+		State: types.StateRunning,
 	}
 
 	annotations := map[string]string{
@@ -288,8 +289,8 @@ func TestKillCLIFunctionContainerNotExistFailure(t *testing.T) {
 func TestKillCLIFunctionInvalidSignalFailure(t *testing.T) {
 	assert := assert.New(t)
 
-	state := vc.State{
-		State: vc.StateRunning,
+	state := types.State{
+		State: types.StateRunning,
 	}
 
 	testingImpl.KillContainerFunc = testKillContainerFuncReturnNil
@@ -316,8 +317,8 @@ func TestKillCLIFunctionInvalidSignalFailure(t *testing.T) {
 func TestKillCLIFunctionStatePausedSuccessful(t *testing.T) {
 	assert := assert.New(t)
 
-	state := vc.State{
-		State: vc.StatePaused,
+	state := types.State{
+		State: types.StatePaused,
 	}
 
 	testingImpl.KillContainerFunc = testKillContainerFuncReturnNil
@@ -347,8 +348,8 @@ func TestKillCLIFunctionStatePausedSuccessful(t *testing.T) {
 func TestKillCLIFunctionInvalidStateStoppedFailure(t *testing.T) {
 	assert := assert.New(t)
 
-	state := vc.State{
-		State: vc.StateStopped,
+	state := types.State{
+		State: types.StateStopped,
 	}
 
 	testingImpl.KillContainerFunc = testKillContainerFuncReturnNil
@@ -375,8 +376,8 @@ func TestKillCLIFunctionInvalidStateStoppedFailure(t *testing.T) {
 func TestKillCLIFunctionKillContainerFailure(t *testing.T) {
 	assert := assert.New(t)
 
-	state := vc.State{
-		State: vc.StateRunning,
+	state := types.State{
+		State: types.StateRunning,
 	}
 
 	path, err := createTempContainerIDMapping(testContainerID, testSandboxID)
@@ -395,4 +396,34 @@ func TestKillCLIFunctionKillContainerFailure(t *testing.T) {
 	set.Parse([]string{testContainerID})
 
 	execCLICommandFunc(assert, killCLICommand, set, true)
+}
+
+func TestKillCLIFunctionInvalidStateStoppedAllSuccess(t *testing.T) {
+	assert := assert.New(t)
+
+	state := types.State{
+		State: types.StateStopped,
+	}
+
+	testingImpl.KillContainerFunc = testKillContainerFuncReturnNil
+
+	path, err := createTempContainerIDMapping(testContainerID, testSandboxID)
+	assert.NoError(err)
+	defer os.RemoveAll(path)
+
+	testingImpl.StatusContainerFunc = func(ctx context.Context, sandboxID, containerID string) (vc.ContainerStatus, error) {
+		return newSingleContainerStatus(testContainerID, state, map[string]string{}), nil
+	}
+
+	defer func() {
+		testingImpl.KillContainerFunc = nil
+		testingImpl.StatusContainerFunc = nil
+	}()
+
+	set := flag.NewFlagSet("", 0)
+	var all bool
+	set.BoolVar(&all, "all", false, "")
+	set.Parse([]string{"-all", testContainerID, "10"})
+
+	execCLICommandFunc(assert, killCLICommand, set, false)
 }

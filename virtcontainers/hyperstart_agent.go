@@ -22,7 +22,8 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/hyperstart"
 	ns "github.com/kata-containers/runtime/virtcontainers/pkg/nsenter"
-	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/net/context"
@@ -58,7 +59,7 @@ func (h *hyper) generateSockets(sandbox *Sandbox, c HyperConfig) {
 	}
 
 	for i := 0; i < len(sandboxSocketPaths); i++ {
-		s := Socket{
+		s := types.Socket{
 			DeviceID: fmt.Sprintf(defaultDeviceIDTemplate, i),
 			ID:       fmt.Sprintf(defaultIDTemplate, i),
 			HostPath: sandboxSocketPaths[i],
@@ -83,7 +84,7 @@ type hyper struct {
 	client  *proxyClient.Client
 	state   HyperAgentState
 
-	sockets []Socket
+	sockets []types.Socket
 
 	ctx context.Context
 }
@@ -99,7 +100,7 @@ func (h *hyper) Logger() *logrus.Entry {
 	return virtLog.WithField("subsystem", "hyper")
 }
 
-func (h *hyper) buildHyperContainerProcess(cmd Cmd) (*hyperstart.Process, error) {
+func (h *hyper) buildHyperContainerProcess(cmd types.Cmd) (*hyperstart.Process, error) {
 	var envVars []hyperstart.EnvironmentVar
 
 	for _, e := range cmd.Envs {
@@ -313,7 +314,7 @@ func (h *hyper) configure(hv hypervisor, id, sharePath string, builtin bool, con
 
 	// Adding the hyper shared volume.
 	// This volume contains all bind mounted container bundles.
-	sharedVolume := Volume{
+	sharedVolume := types.Volume{
 		MountTag: mountTag,
 		HostPath: sharePath,
 	}
@@ -329,17 +330,17 @@ func (h *hyper) createSandbox(sandbox *Sandbox) (err error) {
 	return h.configure(sandbox.hypervisor, "", h.getSharePath(sandbox.id), false, nil)
 }
 
-func (h *hyper) capabilities() capabilities {
-	var caps capabilities
+func (h *hyper) capabilities() types.Capabilities {
+	var caps types.Capabilities
 
 	// add all capabilities supported by agent
-	caps.setBlockDeviceSupport()
+	caps.SetBlockDeviceSupport()
 
 	return caps
 }
 
 // exec is the agent command execution implementation for hyperstart.
-func (h *hyper) exec(sandbox *Sandbox, c Container, cmd Cmd) (*Process, error) {
+func (h *hyper) exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*Process, error) {
 	token, err := h.attach()
 	if err != nil {
 		return nil, err
@@ -522,7 +523,8 @@ func (h *hyper) startOneContainer(sandbox *Sandbox, c *Container) error {
 
 	if c.state.Fstype != "" {
 		// Pass a drive name only in case of block driver
-		if sandbox.config.HypervisorConfig.BlockDeviceDriver == VirtioBlock {
+		if sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioBlock ||
+			sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioMmio {
 			driveName, err := utils.GetVirtDriveName(c.state.BlockIndex)
 			if err != nil {
 				return err
@@ -548,7 +550,7 @@ func (h *hyper) startOneContainer(sandbox *Sandbox, c *Container) error {
 	//TODO : Enter mount namespace
 
 	// Handle container mounts
-	newMounts, err := c.mountSharedDirMounts(defaultSharedDir, "")
+	newMounts, _, err := c.mountSharedDirMounts(defaultSharedDir, "")
 	if err != nil {
 		bindUnmountAllRootfs(c.ctx, defaultSharedDir, sandbox)
 		return err
@@ -609,7 +611,7 @@ func (h *hyper) startContainer(sandbox *Sandbox, c *Container) error {
 // stopContainer is the agent Container stopping implementation for hyperstart.
 func (h *hyper) stopContainer(sandbox *Sandbox, c Container) error {
 	// Nothing to be done in case the container has not been started.
-	if c.state.State == StateReady {
+	if c.state.State == types.StateReady {
 		return nil
 	}
 
@@ -647,7 +649,7 @@ func (h *hyper) stopOneContainer(sandboxID string, c Container) error {
 func (h *hyper) signalProcess(c *Container, processID string, signal syscall.Signal, all bool) error {
 	// Send the signal to the shim directly in case the container has not
 	// been started yet.
-	if c.state.State == StateReady {
+	if c.state.State == types.StateReady {
 		return signalShim(c.process.Pid, signal)
 	}
 
@@ -889,22 +891,22 @@ func (h *hyper) onlineCPUMem(cpus uint32, cpuOnly bool) error {
 	return nil
 }
 
-func (h *hyper) updateInterface(inf *types.Interface) (*types.Interface, error) {
+func (h *hyper) updateInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
 	// hyperstart-agent does not support update interface
 	return nil, nil
 }
 
-func (h *hyper) listInterfaces() ([]*types.Interface, error) {
+func (h *hyper) listInterfaces() ([]*vcTypes.Interface, error) {
 	// hyperstart-agent does not support list interfaces
 	return nil, nil
 }
 
-func (h *hyper) updateRoutes(routes []*types.Route) ([]*types.Route, error) {
+func (h *hyper) updateRoutes(routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
 	// hyperstart-agent does not support update routes
 	return nil, nil
 }
 
-func (h *hyper) listRoutes() ([]*types.Route, error) {
+func (h *hyper) listRoutes() ([]*vcTypes.Route, error) {
 	// hyperstart-agent does not support list routes
 	return nil, nil
 }
@@ -964,6 +966,17 @@ func (h *hyper) getAgentURL() (string, error) {
 	return "", nil
 }
 
+func (h *hyper) reuseAgent(agent agent) error {
+	a, ok := agent.(*hyper)
+	if !ok {
+		return fmt.Errorf("Bug: get a wrong type of agent")
+	}
+
+	h.client = a.client
+
+	return nil
+}
+
 func (h *hyper) setProxy(sandbox *Sandbox, proxy proxy, pid int, url string) error {
 	if url == "" {
 		return fmt.Errorf("invalid empty proxy url")
@@ -988,4 +1001,21 @@ func (h *hyper) setProxy(sandbox *Sandbox, proxy proxy, pid int, url string) err
 func (h *hyper) getGuestDetails(*grpc.GuestDetailsRequest) (*grpc.GuestDetailsResponse, error) {
 	// hyperstart-agent does not support getGuestDetails
 	return nil, nil
+}
+
+func (h *hyper) setGuestDateTime(time.Time) error {
+	// hyperstart-agent does not support setGuestDateTime
+	return nil
+}
+
+func (h *hyper) copyFile(src, dst string) error {
+	// hyperstart-agent does not support copyFile
+	return nil
+}
+
+func (h *hyper) cleanup(id string) {
+	path := h.getSharePath(id)
+	if err := os.RemoveAll(path); err != nil {
+		h.Logger().WithError(err).Errorf("failed to cleanup vm share path %s", path)
+	}
 }

@@ -12,17 +12,21 @@ import (
 
 	"github.com/kata-containers/runtime/pkg/katautils"
 	"github.com/sirupsen/logrus"
+	"regexp"
+	"strconv"
 )
 
 const (
 	cpuFlagsTag        = genericCPUFlagsTag
-	archCPUVendorField = genericCPUVendorField
-	archCPUModelField  = genericCPUModelField
+	archCPUVendorField = ""
+	archCPUModelField  = "model"
 )
 
 var (
 	ppc64CpuCmd     = "ppc64_cpu"
 	smtStatusOption = "--smt"
+	_               = genericCPUVendorField
+	_               = genericCPUModelField
 )
 
 // archRequiredCPUFlags maps a CPU flag value to search for and a
@@ -45,7 +49,8 @@ var archRequiredKernelModules = map[string]kernelModule{
 	},
 }
 
-func setCPUtype() {
+func setCPUtype() error {
+	return nil
 }
 
 func archHostCanCreateVMContainer() error {
@@ -66,7 +71,14 @@ func hostIsVMContainerCapable(details vmContainerCapableDetails) error {
 		return err
 	}
 
-	if strings.Contains(text, "POWER8") {
+	ae := regexp.MustCompile("[0-9]+")
+	re := regexp.MustCompile("POWER[0-9]")
+	powerProcessor, err := strconv.Atoi(ae.FindString(re.FindString(text)))
+	if err != nil {
+		kataLog.WithError(err).Error("Failed to find Power Processor number from ", details.cpuInfoFile)
+	}
+
+	if powerProcessor <= 8 {
 		if !isSMTOff() {
 			return fmt.Errorf("SMT is not Off. %s", failMessage)
 		}
@@ -94,8 +106,61 @@ func archKernelParamHandler(onVMM bool, fields logrus.Fields, msg string) bool {
 	return genericArchKernelParamHandler(onVMM, fields, msg)
 }
 
+func getPPC64leCPUInfo(cpuInfoFile string) (string, error) {
+	text, err := katautils.GetFileContents(cpuInfoFile)
+	if err != nil {
+		return "", err
+	}
+
+	if len(strings.TrimSpace(text)) == 0 {
+		return "", fmt.Errorf("Cannot determine CPU details")
+	}
+
+	return text, nil
+}
+
 func getCPUDetails() (vendor, model string, err error) {
-	return genericGetCPUDetails()
+
+	if vendor, model, err := genericGetCPUDetails(); err == nil {
+		return vendor, model, nil
+	}
+
+	cpuinfo, err := getPPC64leCPUInfo(procCPUInfo)
+	if err != nil {
+		return "", "", err
+	}
+
+	lines := strings.Split(cpuinfo, "\n")
+
+	for _, line := range lines {
+		if archCPUVendorField != "" {
+			if strings.HasPrefix(line, archCPUVendorField) {
+				fields := strings.Split(line, ":")
+				if len(fields) > 1 {
+					vendor = strings.TrimSpace(fields[1])
+				}
+			}
+		}
+
+		if archCPUModelField != "" {
+			if strings.HasPrefix(line, archCPUModelField) {
+				fields := strings.Split(line, ":")
+				if len(fields) > 1 {
+					model = strings.TrimSpace(fields[1])
+				}
+			}
+		}
+	}
+
+	if archCPUVendorField != "" && vendor == "" {
+		return "", "", fmt.Errorf("cannot find vendor field in file %v", procCPUInfo)
+	}
+
+	if archCPUModelField != "" && model == "" {
+		return "", "", fmt.Errorf("cannot find model field in file %v", procCPUInfo)
+	}
+
+	return vendor, model, nil
 }
 
 func isSMTOff() bool {

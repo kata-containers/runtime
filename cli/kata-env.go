@@ -14,6 +14,7 @@ import (
 	runtim "runtime"
 
 	"github.com/BurntSushi/toml"
+	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	vcUtils "github.com/kata-containers/runtime/virtcontainers/utils"
@@ -25,7 +26,7 @@ import (
 //
 // XXX: Increment for every change to the output format
 // (meaning any change to the EnvInfo type).
-const formatVersion = "1.0.19"
+const formatVersion = "1.0.20"
 
 // MetaInfo stores information on the format of the output itself
 type MetaInfo struct {
@@ -62,11 +63,13 @@ type RuntimeConfigInfo struct {
 
 // RuntimeInfo stores runtime details.
 type RuntimeInfo struct {
-	Version         RuntimeVersionInfo
-	Config          RuntimeConfigInfo
-	Debug           bool
-	DisableNewNetNs bool
-	Path            string
+	Version             RuntimeVersionInfo
+	Config              RuntimeConfigInfo
+	Debug               bool
+	Trace               bool
+	DisableGuestSeccomp bool
+	DisableNewNetNs     bool
+	Path                string
 }
 
 // RuntimeVersionInfo stores details of the runtime version
@@ -172,11 +175,13 @@ func getRuntimeInfo(configFile string, config oci.RuntimeConfig) RuntimeInfo {
 	runtimePath, _ := os.Executable()
 
 	return RuntimeInfo{
-		Debug:           config.Debug,
-		Version:         runtimeVersion,
-		Config:          runtimeConfig,
-		Path:            runtimePath,
-		DisableNewNetNs: config.DisableNewNetNs,
+		Debug:               config.Debug,
+		Trace:               config.Trace,
+		Version:             runtimeVersion,
+		Config:              runtimeConfig,
+		Path:                runtimePath,
+		DisableNewNetNs:     config.DisableNewNetNs,
+		DisableGuestSeccomp: config.DisableGuestSeccomp,
 	}
 }
 
@@ -274,7 +279,7 @@ func getNetmonInfo(config oci.RuntimeConfig) (NetmonInfo, error) {
 }
 
 func getCommandVersion(cmd string) (string, error) {
-	return runCommand([]string{cmd, "--version"})
+	return katautils.RunCommand([]string{cmd, "--version"})
 }
 
 func getShimInfo(config oci.RuntimeConfig) (ShimInfo, error) {
@@ -330,7 +335,10 @@ func getHypervisorInfo(config oci.RuntimeConfig) HypervisorInfo {
 }
 
 func getEnvInfo(configFile string, config oci.RuntimeConfig) (env EnvInfo, err error) {
-	setCPUtype()
+	err = setCPUtype()
+	if err != nil {
+		return EnvInfo{}, err
+	}
 
 	meta := getMetaInfo()
 
@@ -451,7 +459,7 @@ var kataEnvCLICommand = cli.Command{
 			return err
 		}
 
-		span, _ := trace(ctx, "kata-env")
+		span, _ := katautils.Trace(ctx, "kata-env")
 		defer span.Finish()
 
 		return handleSettings(defaultOutputFile, context)

@@ -52,11 +52,11 @@
 
 [[constraint]]
   name = "github.com/intel/govmm"
-  revision = "e82e8498c5a214b24ac75e0a05ace556bf91a9ab"
+  revision = "737f03de595e216116264cc74a58e5f2a1df789a"
 
 [[constraint]]
   name = "github.com/kata-containers/agent"
-  revision = "dd8f32c7a2e6e7effed9d12bac97e7d48473e684"
+  revision = "8e48125fa2a793706e5e660e95bdc9755f1cf474"
 
 [[constraint]]
   name = "github.com/containerd/cri-containerd"
@@ -65,6 +65,14 @@
 [[constraint]]
   name = "github.com/safchain/ethtool"
   revision = "79559b488d8848b53a8e34c330140c3fc37ee246"
+
+[[constraint]]
+ name = "github.com/containerd/containerd"
+ revision = "f05672357f56f26751a521175c5a96fc21fa8603"
+
+[[constraint]]
+  name = "github.com/firecracker-microvm/firecracker-go-sdk"
+  revision = "961461227bddf7e40a1d690634e866c343910f86"
 
 [[override]]
   branch = "master"

@@ -14,7 +14,9 @@ import (
 	"time"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 
+	"github.com/kata-containers/runtime/pkg/katautils"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -141,7 +143,7 @@ information is displayed once every 5 seconds.`,
 			return err
 		}
 
-		span, _ := trace(ctx, "events")
+		span, _ := katautils.Trace(ctx, "events")
 		defer span.Finish()
 
 		containerID := context.Args().First()
@@ -174,7 +176,7 @@ information is displayed once every 5 seconds.`,
 		span.SetTag("container", containerID)
 		span.SetTag("sandbox", sandboxID)
 
-		if status.State.State == vc.StateStopped {
+		if status.State.State == types.StateStopped {
 			return fmt.Errorf("container with id %s is not running", status.ID)
 		}
 

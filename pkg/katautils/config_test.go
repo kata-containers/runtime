@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Intel Corporation
+// Copyright (c) 2018 Intel Corporation
 // Copyright (c) 2018 HyperHQ Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -201,6 +201,11 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config testRuntimeConf
 		DisableNewNetNs: disableNewNetNs,
 	}
 
+	err = SetKernelParams(&runtimeConfig)
+	if err != nil {
+		return config, err
+	}
+
 	config = testRuntimeConfig{
 		RuntimeConfig:     runtimeConfig,
 		RuntimeConfigFile: configPath,
@@ -249,7 +254,7 @@ func testLoadConfiguration(t *testing.T, dir string,
 					assert.NoError(t, err)
 				}
 
-				resolvedConfigPath, config, _, err := LoadConfiguration(file, ignoreLogging, false)
+				resolvedConfigPath, config, err := LoadConfiguration(file, ignoreLogging, false)
 				if expectFail {
 					assert.Error(t, err)
 
@@ -558,7 +563,7 @@ func TestMinimalRuntimeConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, config, _, err := LoadConfiguration(configPath, false, false)
+	_, config, err := LoadConfiguration(configPath, false, false)
 	if err == nil {
 		t.Fatalf("Expected loadConfiguration to fail as shim path does not exist: %+v", config)
 	}
@@ -583,7 +588,7 @@ func TestMinimalRuntimeConfig(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, config, _, err = LoadConfiguration(configPath, false, false)
+	_, config, err = LoadConfiguration(configPath, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -635,6 +640,10 @@ func TestMinimalRuntimeConfig(t *testing.T) {
 		ShimConfig: expectedShimConfig,
 
 		NetmonConfig: expectedNetmonConfig,
+	}
+	err = SetKernelParams(&expectedConfig)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	if reflect.DeepEqual(config, expectedConfig) == false {
@@ -712,7 +721,7 @@ func TestMinimalRuntimeConfigWithVsock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, config, _, err := LoadConfiguration(configPath, false, false)
+	_, config, err := LoadConfiguration(configPath, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1148,6 +1157,10 @@ func TestShimDefaults(t *testing.T) {
 	assert.False(s.debug())
 	s.Debug = true
 	assert.True(s.debug())
+
+	assert.False(s.trace())
+	s.Tracing = true
+	assert.True(s.trace())
 }
 
 func TestGetDefaultConfigFilePaths(t *testing.T) {
@@ -1374,6 +1387,33 @@ func TestUpdateRuntimeConfigurationFactoryConfig(t *testing.T) {
 	assert.Equal(expectedFactoryConfig, config.FactoryConfig)
 }
 
+func TestUpdateRuntimeConfigurationInvalidKernelParams(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.NotEqual(defaultAgent, vc.HyperstartAgent)
+
+	config := oci.RuntimeConfig{}
+
+	tomlConf := tomlConfig{}
+
+	savedFunc := GetKernelParamsFunc
+	defer func() {
+		GetKernelParamsFunc = savedFunc
+	}()
+
+	GetKernelParamsFunc = func(needSystemd bool) []vc.Param {
+		return []vc.Param{
+			{
+				Key:   "",
+				Value: "",
+			},
+		}
+	}
+
+	err := updateRuntimeConfig("", tomlConf, &config)
+	assert.EqualError(err, "Empty kernel parameter")
+}
+
 func TestCheckHypervisorConfig(t *testing.T) {
 	assert := assert.New(t)
 
@@ -1496,4 +1536,83 @@ func TestCheckNetNsConfig(t *testing.T) {
 	}
 	err = checkNetNsConfig(config)
 	assert.Error(err)
+}
+
+func TestCheckFactoryConfig(t *testing.T) {
+	assert := assert.New(t)
+
+	type testData struct {
+		factoryEnabled bool
+		imagePath      string
+		initrdPath     string
+		expectError    bool
+	}
+
+	data := []testData{
+		{false, "", "", false},
+		{false, "image", "", false},
+		{false, "", "initrd", false},
+
+		{true, "", "initrd", false},
+		{true, "image", "", true},
+	}
+
+	for i, d := range data {
+		config := oci.RuntimeConfig{
+			HypervisorConfig: vc.HypervisorConfig{
+				ImagePath:  d.imagePath,
+				InitrdPath: d.initrdPath,
+			},
+
+			FactoryConfig: oci.FactoryConfig{
+				Template: d.factoryEnabled,
+			},
+		}
+
+		err := checkFactoryConfig(config)
+
+		if d.expectError {
+			assert.Error(err, "test %d (%+v)", i, d)
+		} else {
+			assert.NoError(err, "test %d (%+v)", i, d)
+		}
+	}
+}
+
+func TestCheckNetNsConfigShimTrace(t *testing.T) {
+	assert := assert.New(t)
+
+	type testData struct {
+		disableNetNs bool
+		networkModel vc.NetInterworkingModel
+		shimTrace    bool
+		expectError  bool
+	}
+
+	data := []testData{
+		{false, vc.NetXConnectMacVtapModel, false, false},
+		{false, vc.NetXConnectMacVtapModel, true, true},
+		{true, vc.NetXConnectMacVtapModel, true, true},
+		{true, vc.NetXConnectMacVtapModel, false, true},
+		{true, vc.NetXConnectNoneModel, false, false},
+		{true, vc.NetXConnectNoneModel, true, false},
+	}
+
+	for i, d := range data {
+		config := oci.RuntimeConfig{
+			DisableNewNetNs:   d.disableNetNs,
+			InterNetworkModel: d.networkModel,
+			ShimConfig: vc.ShimConfig{
+				Trace: d.shimTrace,
+			},
+		}
+
+		err := checkNetNsConfig(config)
+
+		if d.expectError {
+			assert.Error(err, "test %d (%+v)", i, d)
+		} else {
+			assert.NoError(err, "test %d (%+v)", i, d)
+		}
+	}
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Intel Corporation
+// Copyright (c) 2018 Intel Corporation
 // Copyright (c) 2018 HyperHQ Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -15,6 +15,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/sirupsen/logrus"
@@ -28,6 +29,9 @@ const (
 var (
 	defaultProxy = vc.KataProxyType
 	defaultShim  = vc.KataShimType
+
+	// if true, enable opentracing support.
+	tracing = false
 )
 
 // The TOML configuration file contains a number of sections (or
@@ -43,7 +47,8 @@ var (
 // The currently supported types are listed below:
 const (
 	// supported hypervisor component types
-	qemuHypervisorTableType = "qemu"
+	firecrackerHypervisorTableType = "firecracker"
+	qemuHypervisorTableType        = "qemu"
 
 	// supported proxy component types
 	ccProxyTableType   = "cc"
@@ -76,33 +81,37 @@ type factory struct {
 }
 
 type hypervisor struct {
-	Path                  string `toml:"path"`
-	Kernel                string `toml:"kernel"`
-	Initrd                string `toml:"initrd"`
-	Image                 string `toml:"image"`
-	Firmware              string `toml:"firmware"`
-	MachineAccelerators   string `toml:"machine_accelerators"`
-	KernelParams          string `toml:"kernel_params"`
-	MachineType           string `toml:"machine_type"`
-	BlockDeviceDriver     string `toml:"block_device_driver"`
-	EntropySource         string `toml:"entropy_source"`
-	NumVCPUs              int32  `toml:"default_vcpus"`
-	DefaultMaxVCPUs       uint32 `toml:"default_maxvcpus"`
-	MemorySize            uint32 `toml:"default_memory"`
-	MemSlots              uint32 `toml:"memory_slots"`
-	DefaultBridges        uint32 `toml:"default_bridges"`
-	Msize9p               uint32 `toml:"msize_9p"`
-	DisableBlockDeviceUse bool   `toml:"disable_block_device_use"`
-	MemPrealloc           bool   `toml:"enable_mem_prealloc"`
-	HugePages             bool   `toml:"enable_hugepages"`
-	Swap                  bool   `toml:"enable_swap"`
-	Debug                 bool   `toml:"enable_debug"`
-	DisableNestingChecks  bool   `toml:"disable_nesting_checks"`
-	EnableIOThreads       bool   `toml:"enable_iothreads"`
-	UseVSock              bool   `toml:"use_vsock"`
-	HotplugVFIOOnRootBus  bool   `toml:"hotplug_vfio_on_root_bus"`
-	DisableVhostNet       bool   `toml:"disable_vhost_net"`
-	GuestHookPath         string `toml:"guest_hook_path"`
+	Path                    string `toml:"path"`
+	Kernel                  string `toml:"kernel"`
+	Initrd                  string `toml:"initrd"`
+	Image                   string `toml:"image"`
+	Firmware                string `toml:"firmware"`
+	MachineAccelerators     string `toml:"machine_accelerators"`
+	KernelParams            string `toml:"kernel_params"`
+	MachineType             string `toml:"machine_type"`
+	BlockDeviceDriver       string `toml:"block_device_driver"`
+	EntropySource           string `toml:"entropy_source"`
+	BlockDeviceCacheSet     bool   `toml:"block_device_cache_set"`
+	BlockDeviceCacheDirect  bool   `toml:"block_device_cache_direct"`
+	BlockDeviceCacheNoflush bool   `toml:"block_device_cache_noflush"`
+	NumVCPUs                int32  `toml:"default_vcpus"`
+	DefaultMaxVCPUs         uint32 `toml:"default_maxvcpus"`
+	MemorySize              uint32 `toml:"default_memory"`
+	MemSlots                uint32 `toml:"memory_slots"`
+	MemOffset               uint32 `toml:"memory_offset"`
+	DefaultBridges          uint32 `toml:"default_bridges"`
+	Msize9p                 uint32 `toml:"msize_9p"`
+	DisableBlockDeviceUse   bool   `toml:"disable_block_device_use"`
+	MemPrealloc             bool   `toml:"enable_mem_prealloc"`
+	HugePages               bool   `toml:"enable_hugepages"`
+	Swap                    bool   `toml:"enable_swap"`
+	Debug                   bool   `toml:"enable_debug"`
+	DisableNestingChecks    bool   `toml:"disable_nesting_checks"`
+	EnableIOThreads         bool   `toml:"enable_iothreads"`
+	UseVSock                bool   `toml:"use_vsock"`
+	HotplugVFIOOnRootBus    bool   `toml:"hotplug_vfio_on_root_bus"`
+	DisableVhostNet         bool   `toml:"disable_vhost_net"`
+	GuestHookPath           string `toml:"guest_hook_path"`
 }
 
 type proxy struct {
@@ -111,15 +120,17 @@ type proxy struct {
 }
 
 type runtime struct {
-	Debug             bool   `toml:"enable_debug"`
-	Tracing           bool   `toml:"enable_tracing"`
-	DisableNewNetNs   bool   `toml:"disable_new_netns"`
-	InterNetworkModel string `toml:"internetworking_model"`
+	Debug               bool   `toml:"enable_debug"`
+	Tracing             bool   `toml:"enable_tracing"`
+	DisableNewNetNs     bool   `toml:"disable_new_netns"`
+	DisableGuestSeccomp bool   `toml:"disable_guest_seccomp"`
+	InterNetworkModel   string `toml:"internetworking_model"`
 }
 
 type shim struct {
-	Path  string `toml:"path"`
-	Debug bool   `toml:"enable_debug"`
+	Path    string `toml:"path"`
+	Debug   bool   `toml:"enable_debug"`
+	Tracing bool   `toml:"enable_tracing"`
 }
 
 type agent struct {
@@ -272,6 +283,15 @@ func (h hypervisor) defaultMemSlots() uint32 {
 	return slots
 }
 
+func (h hypervisor) defaultMemOffset() uint32 {
+	offset := h.MemOffset
+	if offset == 0 {
+		offset = defaultMemOffset
+	}
+
+	return offset
+}
+
 func (h hypervisor) defaultBridges() uint32 {
 	if h.DefaultBridges == 0 {
 		return defaultBridgesCount
@@ -285,15 +305,19 @@ func (h hypervisor) defaultBridges() uint32 {
 }
 
 func (h hypervisor) blockDeviceDriver() (string, error) {
+	supportedBlockDrivers := []string{config.VirtioSCSI, config.VirtioBlock, config.VirtioMmio, config.Nvdimm}
+
 	if h.BlockDeviceDriver == "" {
 		return defaultBlockDeviceDriver, nil
 	}
 
-	if h.BlockDeviceDriver != vc.VirtioSCSI && h.BlockDeviceDriver != vc.VirtioBlock {
-		return "", fmt.Errorf("Invalid value %s provided for hypervisor block storage driver, can be either %s or %s", h.BlockDeviceDriver, vc.VirtioSCSI, vc.VirtioBlock)
+	for _, b := range supportedBlockDrivers {
+		if b == h.BlockDeviceDriver {
+			return h.BlockDeviceDriver, nil
+		}
 	}
 
-	return h.BlockDeviceDriver, nil
+	return "", fmt.Errorf("Invalid hypervisor block storage driver %v specified (supported drivers: %v)", h.BlockDeviceDriver, supportedBlockDrivers)
 }
 
 func (h hypervisor) msize9p() uint32 {
@@ -313,6 +337,26 @@ func (h hypervisor) guestHookPath() string {
 		return defaultGuestHookPath
 	}
 	return h.GuestHookPath
+}
+
+func (h hypervisor) getInitrdAndImage() (initrd string, image string, err error) {
+	if initrd, err = h.initrd(); err != nil {
+		return
+	}
+
+	if image, err = h.image(); err != nil {
+		return
+	}
+
+	if image != "" && initrd != "" {
+		return "", "", errors.New("having both an image and an initrd defined in the configuration file is not supported")
+	}
+
+	if image == "" && initrd == "" {
+		return "", "", errors.New("either image or initrd must be defined in the configuration file")
+	}
+
+	return
 }
 
 func (p proxy) path() string {
@@ -341,6 +385,10 @@ func (s shim) debug() bool {
 	return s.Debug
 }
 
+func (s shim) trace() bool {
+	return s.Tracing
+}
+
 func (n netmon) enable() bool {
 	return n.Enable
 }
@@ -357,6 +405,63 @@ func (n netmon) debug() bool {
 	return n.Debug
 }
 
+func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
+	hypervisor, err := h.path()
+	if err != nil {
+		return vc.HypervisorConfig{}, err
+	}
+
+	kernel, err := h.kernel()
+	if err != nil {
+		return vc.HypervisorConfig{}, err
+	}
+
+	initrd, image, err := h.getInitrdAndImage()
+	if err != nil {
+		return vc.HypervisorConfig{}, err
+	}
+
+	firmware, err := h.firmware()
+	if err != nil {
+		return vc.HypervisorConfig{}, err
+	}
+
+	kernelParams := h.kernelParams()
+
+	blockDriver, err := h.blockDeviceDriver()
+	if err != nil {
+		return vc.HypervisorConfig{}, err
+	}
+
+	if !utils.SupportsVsocks() {
+		return vc.HypervisorConfig{}, errors.New("No vsock support, firecracker cannot be used")
+	}
+
+	return vc.HypervisorConfig{
+		HypervisorPath:        hypervisor,
+		KernelPath:            kernel,
+		InitrdPath:            initrd,
+		ImagePath:             image,
+		FirmwarePath:          firmware,
+		KernelParams:          vc.DeserializeParams(strings.Fields(kernelParams)),
+		NumVCPUs:              h.defaultVCPUs(),
+		DefaultMaxVCPUs:       h.defaultMaxVCPUs(),
+		MemorySize:            h.defaultMemSz(),
+		MemSlots:              h.defaultMemSlots(),
+		EntropySource:         h.GetEntropySource(),
+		DefaultBridges:        h.defaultBridges(),
+		DisableBlockDeviceUse: h.DisableBlockDeviceUse,
+		HugePages:             h.HugePages,
+		Mlock:                 !h.Swap,
+		Debug:                 h.Debug,
+		DisableNestingChecks:  h.DisableNestingChecks,
+		BlockDeviceDriver:     blockDriver,
+		EnableIOThreads:       h.EnableIOThreads,
+		UseVSock:              true,
+		GuestHookPath:         h.guestHookPath(),
+	}, nil
+}
+
 func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 	hypervisor, err := h.path()
 	if err != nil {
@@ -368,12 +473,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		return vc.HypervisorConfig{}, err
 	}
 
-	initrd, err := h.initrd()
-	if err != nil {
-		return vc.HypervisorConfig{}, err
-	}
-
-	image, err := h.image()
+	initrd, image, err := h.getInitrdAndImage()
 	if err != nil {
 		return vc.HypervisorConfig{}, err
 	}
@@ -413,33 +513,37 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 	}
 
 	return vc.HypervisorConfig{
-		HypervisorPath:        hypervisor,
-		KernelPath:            kernel,
-		InitrdPath:            initrd,
-		ImagePath:             image,
-		FirmwarePath:          firmware,
-		MachineAccelerators:   machineAccelerators,
-		KernelParams:          vc.DeserializeParams(strings.Fields(kernelParams)),
-		HypervisorMachineType: machineType,
-		NumVCPUs:              h.defaultVCPUs(),
-		DefaultMaxVCPUs:       h.defaultMaxVCPUs(),
-		MemorySize:            h.defaultMemSz(),
-		MemSlots:              h.defaultMemSlots(),
-		EntropySource:         h.GetEntropySource(),
-		DefaultBridges:        h.defaultBridges(),
-		DisableBlockDeviceUse: h.DisableBlockDeviceUse,
-		MemPrealloc:           h.MemPrealloc,
-		HugePages:             h.HugePages,
-		Mlock:                 !h.Swap,
-		Debug:                 h.Debug,
-		DisableNestingChecks:  h.DisableNestingChecks,
-		BlockDeviceDriver:     blockDriver,
-		EnableIOThreads:       h.EnableIOThreads,
-		Msize9p:               h.msize9p(),
-		UseVSock:              useVSock,
-		HotplugVFIOOnRootBus:  h.HotplugVFIOOnRootBus,
-		DisableVhostNet:       h.DisableVhostNet,
-		GuestHookPath:         h.guestHookPath(),
+		HypervisorPath:          hypervisor,
+		KernelPath:              kernel,
+		InitrdPath:              initrd,
+		ImagePath:               image,
+		FirmwarePath:            firmware,
+		MachineAccelerators:     machineAccelerators,
+		KernelParams:            vc.DeserializeParams(strings.Fields(kernelParams)),
+		HypervisorMachineType:   machineType,
+		NumVCPUs:                h.defaultVCPUs(),
+		DefaultMaxVCPUs:         h.defaultMaxVCPUs(),
+		MemorySize:              h.defaultMemSz(),
+		MemSlots:                h.defaultMemSlots(),
+		MemOffset:               h.defaultMemOffset(),
+		EntropySource:           h.GetEntropySource(),
+		DefaultBridges:          h.defaultBridges(),
+		DisableBlockDeviceUse:   h.DisableBlockDeviceUse,
+		MemPrealloc:             h.MemPrealloc,
+		HugePages:               h.HugePages,
+		Mlock:                   !h.Swap,
+		Debug:                   h.Debug,
+		DisableNestingChecks:    h.DisableNestingChecks,
+		BlockDeviceDriver:       blockDriver,
+		BlockDeviceCacheSet:     h.BlockDeviceCacheSet,
+		BlockDeviceCacheDirect:  h.BlockDeviceCacheDirect,
+		BlockDeviceCacheNoflush: h.BlockDeviceCacheNoflush,
+		EnableIOThreads:         h.EnableIOThreads,
+		Msize9p:                 h.msize9p(),
+		UseVSock:                useVSock,
+		HotplugVFIOOnRootBus:    h.HotplugVFIOOnRootBus,
+		DisableVhostNet:         h.DisableVhostNet,
+		GuestHookPath:           h.guestHookPath(),
 	}, nil
 }
 
@@ -456,22 +560,34 @@ func newShimConfig(s shim) (vc.ShimConfig, error) {
 	return vc.ShimConfig{
 		Path:  path,
 		Debug: s.debug(),
+		Trace: s.trace(),
 	}, nil
 }
 
-func updateRuntimeConfig(configPath string, tomlConf tomlConfig, config *oci.RuntimeConfig) error {
+func updateRuntimeConfigHypervisor(configPath string, tomlConf tomlConfig, config *oci.RuntimeConfig) error {
 	for k, hypervisor := range tomlConf.Hypervisor {
-		switch k {
-		case qemuHypervisorTableType:
-			hConfig, err := newQemuHypervisorConfig(hypervisor)
-			if err != nil {
-				return fmt.Errorf("%v: %v", configPath, err)
-			}
+		var err error
+		var hConfig vc.HypervisorConfig
 
-			config.HypervisorConfig = hConfig
+		switch k {
+		case firecrackerHypervisorTableType:
+			config.HypervisorType = vc.FirecrackerHypervisor
+			hConfig, err = newFirecrackerHypervisorConfig(hypervisor)
+		case qemuHypervisorTableType:
+			config.HypervisorType = vc.QemuHypervisor
+			hConfig, err = newQemuHypervisorConfig(hypervisor)
 		}
+
+		if err != nil {
+			return fmt.Errorf("%v: %v", configPath, err)
+		}
+		config.HypervisorConfig = hConfig
 	}
 
+	return nil
+}
+
+func updateRuntimeConfigProxy(configPath string, tomlConf tomlConfig, config *oci.RuntimeConfig) error {
 	for k, proxy := range tomlConf.Proxy {
 		switch k {
 		case ccProxyTableType:
@@ -486,6 +602,10 @@ func updateRuntimeConfig(configPath string, tomlConf tomlConfig, config *oci.Run
 		}
 	}
 
+	return nil
+}
+
+func updateRuntimeConfigAgent(configPath string, tomlConf tomlConfig, config *oci.RuntimeConfig) error {
 	for k := range tomlConf.Agent {
 		switch k {
 		case hyperstartAgentTableType:
@@ -500,6 +620,10 @@ func updateRuntimeConfig(configPath string, tomlConf tomlConfig, config *oci.Run
 		}
 	}
 
+	return nil
+}
+
+func updateRuntimeConfigShim(configPath string, tomlConf tomlConfig, config *oci.RuntimeConfig) error {
 	for k, shim := range tomlConf.Shim {
 		switch k {
 		case ccShimTableType:
@@ -516,6 +640,61 @@ func updateRuntimeConfig(configPath string, tomlConf tomlConfig, config *oci.Run
 		config.ShimConfig = shConfig
 	}
 
+	return nil
+}
+
+// SetKernelParams adds the user-specified kernel parameters (from the
+// configuration file) to the defaults so that the former take priority.
+func SetKernelParams(runtimeConfig *oci.RuntimeConfig) error {
+	defaultKernelParams := GetKernelParamsFunc(needSystemd(runtimeConfig.HypervisorConfig))
+
+	if runtimeConfig.HypervisorConfig.Debug {
+		strParams := vc.SerializeParams(defaultKernelParams, "=")
+		formatted := strings.Join(strParams, " ")
+
+		kataUtilsLogger.WithField("default-kernel-parameters", formatted).Debug()
+	}
+
+	// retrieve the parameters specified in the config file
+	userKernelParams := runtimeConfig.HypervisorConfig.KernelParams
+
+	// reset
+	runtimeConfig.HypervisorConfig.KernelParams = []vc.Param{}
+
+	// first, add default values
+	for _, p := range defaultKernelParams {
+		if err := (runtimeConfig).AddKernelParam(p); err != nil {
+			return err
+		}
+	}
+
+	// now re-add the user-specified values so that they take priority.
+	for _, p := range userKernelParams {
+		if err := (runtimeConfig).AddKernelParam(p); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func updateRuntimeConfig(configPath string, tomlConf tomlConfig, config *oci.RuntimeConfig) error {
+	if err := updateRuntimeConfigHypervisor(configPath, tomlConf, config); err != nil {
+		return err
+	}
+
+	if err := updateRuntimeConfigProxy(configPath, tomlConf, config); err != nil {
+		return err
+	}
+
+	if err := updateRuntimeConfigAgent(configPath, tomlConf, config); err != nil {
+		return err
+	}
+
+	if err := updateRuntimeConfigShim(configPath, tomlConf, config); err != nil {
+		return err
+	}
+
 	fConfig, err := newFactoryConfig(tomlConf.Factory)
 	if err != nil {
 		return fmt.Errorf("%v: %v", configPath, err)
@@ -528,34 +707,43 @@ func updateRuntimeConfig(configPath string, tomlConf tomlConfig, config *oci.Run
 		Enable: tomlConf.Netmon.enable(),
 	}
 
+	err = SetKernelParams(config)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func initConfig(builtIn bool) (config oci.RuntimeConfig, err error) {
+func initConfig() (config oci.RuntimeConfig, err error) {
 	var defaultAgentConfig interface{}
 
 	defaultHypervisorConfig := vc.HypervisorConfig{
-		HypervisorPath:        defaultHypervisorPath,
-		KernelPath:            defaultKernelPath,
-		ImagePath:             defaultImagePath,
-		InitrdPath:            defaultInitrdPath,
-		FirmwarePath:          defaultFirmwarePath,
-		MachineAccelerators:   defaultMachineAccelerators,
-		HypervisorMachineType: defaultMachineType,
-		NumVCPUs:              defaultVCPUCount,
-		DefaultMaxVCPUs:       defaultMaxVCPUCount,
-		MemorySize:            defaultMemSize,
-		DefaultBridges:        defaultBridgesCount,
-		MemPrealloc:           defaultEnableMemPrealloc,
-		HugePages:             defaultEnableHugePages,
-		Mlock:                 !defaultEnableSwap,
-		Debug:                 defaultEnableDebug,
-		DisableNestingChecks:  defaultDisableNestingChecks,
-		BlockDeviceDriver:     defaultBlockDeviceDriver,
-		EnableIOThreads:       defaultEnableIOThreads,
-		Msize9p:               defaultMsize9p,
-		HotplugVFIOOnRootBus:  defaultHotplugVFIOOnRootBus,
-		GuestHookPath:         defaultGuestHookPath,
+		HypervisorPath:          defaultHypervisorPath,
+		KernelPath:              defaultKernelPath,
+		ImagePath:               defaultImagePath,
+		InitrdPath:              defaultInitrdPath,
+		FirmwarePath:            defaultFirmwarePath,
+		MachineAccelerators:     defaultMachineAccelerators,
+		HypervisorMachineType:   defaultMachineType,
+		NumVCPUs:                defaultVCPUCount,
+		DefaultMaxVCPUs:         defaultMaxVCPUCount,
+		MemorySize:              defaultMemSize,
+		MemOffset:               defaultMemOffset,
+		DefaultBridges:          defaultBridgesCount,
+		MemPrealloc:             defaultEnableMemPrealloc,
+		HugePages:               defaultEnableHugePages,
+		Mlock:                   !defaultEnableSwap,
+		Debug:                   defaultEnableDebug,
+		DisableNestingChecks:    defaultDisableNestingChecks,
+		BlockDeviceDriver:       defaultBlockDeviceDriver,
+		BlockDeviceCacheSet:     defaultBlockDeviceCacheSet,
+		BlockDeviceCacheDirect:  defaultBlockDeviceCacheDirect,
+		BlockDeviceCacheNoflush: defaultBlockDeviceCacheNoflush,
+		EnableIOThreads:         defaultEnableIOThreads,
+		Msize9p:                 defaultMsize9p,
+		HotplugVFIOOnRootBus:    defaultHotplugVFIOOnRootBus,
+		GuestHookPath:           defaultGuestHookPath,
 	}
 
 	err = config.InterNetworkModel.SetModel(defaultInterNetworkingModel)
@@ -564,13 +752,6 @@ func initConfig(builtIn bool) (config oci.RuntimeConfig, err error) {
 	}
 
 	defaultAgentConfig = vc.HyperConfig{}
-
-	if builtIn {
-		defaultProxy = vc.KataBuiltInProxyType
-		defaultShim = vc.KataBuiltInShimType
-
-		defaultAgentConfig = vc.KataAgentConfig{LongLiveConn: true}
-	}
 
 	config = oci.RuntimeConfig{
 		HypervisorType:   defaultHypervisor,
@@ -592,12 +773,12 @@ func initConfig(builtIn bool) (config oci.RuntimeConfig, err error) {
 //
 // All paths are resolved fully meaning if this function does not return an
 // error, all paths are valid at the time of the call.
-func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolvedConfigPath string, config oci.RuntimeConfig, tracing bool, err error) {
+func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolvedConfigPath string, config oci.RuntimeConfig, err error) {
 	var resolved string
 
-	config, err = initConfig(builtIn)
+	config, err = initConfig()
 	if err != nil {
-		return "", oci.RuntimeConfig{}, tracing, err
+		return "", oci.RuntimeConfig{}, err
 	}
 
 	if configPath == "" {
@@ -607,18 +788,18 @@ func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolved
 	}
 
 	if err != nil {
-		return "", config, tracing, fmt.Errorf("Cannot find usable config file (%v)", err)
+		return "", config, fmt.Errorf("Cannot find usable config file (%v)", err)
 	}
 
 	configData, err := ioutil.ReadFile(resolved)
 	if err != nil {
-		return "", config, tracing, err
+		return "", config, err
 	}
 
 	var tomlConf tomlConfig
 	_, err = toml.Decode(string(configData), &tomlConf)
 	if err != nil {
-		return "", config, tracing, err
+		return "", config, err
 	}
 
 	config.Debug = tomlConf.Runtime.Debug
@@ -628,19 +809,20 @@ func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolved
 		kataUtilsLogger.Logger.Level = originalLoggerLevel
 	}
 
-	tracing = tomlConf.Runtime.Tracing
+	config.Trace = tomlConf.Runtime.Tracing
+	tracing = config.Trace
 
 	if tomlConf.Runtime.InterNetworkModel != "" {
 		err = config.InterNetworkModel.SetModel(tomlConf.Runtime.InterNetworkModel)
 		if err != nil {
-			return "", config, tracing, err
+			return "", config, err
 		}
 	}
 
 	if !ignoreLogging {
 		err := handleSystemLog("", "")
 		if err != nil {
-			return "", config, tracing, err
+			return "", config, err
 		}
 
 		kataUtilsLogger.WithFields(
@@ -650,14 +832,11 @@ func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolved
 			}).Info("loaded configuration")
 	}
 
-	if err := updateRuntimeConfig(resolved, tomlConf, &config); err != nil {
-		return "", config, tracing, err
+	if err := updateConfig(resolved, tomlConf, &config, builtIn); err != nil {
+		return "", config, err
 	}
 
-	config.DisableNewNetNs = tomlConf.Runtime.DisableNewNetNs
-	if err := checkNetNsConfig(config); err != nil {
-		return "", config, tracing, err
-	}
+	config.DisableGuestSeccomp = tomlConf.Runtime.DisableGuestSeccomp
 
 	// use no proxy if HypervisorConfig.UseVSock is true
 	if config.HypervisorConfig.UseVSock {
@@ -666,11 +845,49 @@ func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolved
 		config.ProxyConfig = vc.ProxyConfig{}
 	}
 
-	if err := checkHypervisorConfig(config.HypervisorConfig); err != nil {
-		return "", config, tracing, err
+	config.DisableNewNetNs = tomlConf.Runtime.DisableNewNetNs
+
+	if err := checkConfig(config); err != nil {
+		return "", config, err
 	}
 
-	return resolved, config, tracing, nil
+	return resolved, config, nil
+}
+
+// checkConfig checks the validity of the specified config.
+func checkConfig(config oci.RuntimeConfig) error {
+	if err := checkNetNsConfig(config); err != nil {
+		return err
+	}
+
+	if err := checkHypervisorConfig(config.HypervisorConfig); err != nil {
+		return err
+	}
+
+	if err := checkFactoryConfig(config); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateConfig(configPath string, tomlConf tomlConfig, config *oci.RuntimeConfig, builtIn bool) error {
+
+	if err := updateRuntimeConfig(configPath, tomlConf, config); err != nil {
+		return err
+	}
+
+	if builtIn {
+		config.ProxyType = vc.KataBuiltInProxyType
+		config.ShimType = vc.KataBuiltInShimType
+		config.AgentType = vc.KataContainersAgent
+		config.AgentConfig = vc.KataAgentConfig{
+			LongLiveConn: true,
+			UseVSock:     config.HypervisorConfig.UseVSock,
+		}
+	}
+
+	return nil
 }
 
 // checkNetNsConfig performs sanity checks on disable_new_netns config.
@@ -683,7 +900,28 @@ func checkNetNsConfig(config oci.RuntimeConfig) error {
 		if config.InterNetworkModel != vc.NetXConnectNoneModel {
 			return fmt.Errorf("config disable_new_netns only works with 'none' internetworking_model")
 		}
+	} else if config.ShimConfig.(vc.ShimConfig).Trace {
+		// Normally, the shim runs in a separate network namespace.
+		// But when tracing, the shim process needs to be able to talk
+		// to the Jaeger agent running in the host network namespace.
+		return errors.New("Shim tracing requires disable_new_netns for Jaeger agent communication")
 	}
+
+	return nil
+}
+
+// checkFactoryConfig ensures the VM factory configuration is valid.
+func checkFactoryConfig(config oci.RuntimeConfig) error {
+	if config.FactoryConfig.Template {
+		if config.HypervisorConfig.InitrdPath == "" {
+			return errors.New("Factory option enable_template requires an initrd image")
+		}
+
+		if config.HypervisorConfig.UseVSock {
+			return errors.New("config vsock conflicts with factory, please disable one of them")
+		}
+	}
+
 	return nil
 }
 

@@ -11,6 +11,7 @@ import (
 
 	govmmQemu "github.com/intel/govmm/qemu"
 	deviceConfig "github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -24,7 +25,7 @@ const defaultQemuPath = "/usr/bin/qemu-system-ppc64le"
 
 const defaultQemuMachineType = QemuPseries
 
-const defaultQemuMachineOptions = "accel=kvm,usb=off,nvdimm"
+const defaultQemuMachineOptions = "accel=kvm,usb=off"
 
 const defaultPCBridgeBus = "pci.0"
 
@@ -74,6 +75,7 @@ func newQemuArch(config HypervisorConfig) qemuArch {
 	q := &qemuPPC64le{
 		qemuArchBase{
 			machineType:           machineType,
+			memoryOffset:          config.MemOffset,
 			qemuPaths:             qemuPaths,
 			supportedQemuMachines: supportedQemuMachines,
 			kernelParamsNonDebug:  kernelParamsNonDebug,
@@ -83,21 +85,26 @@ func newQemuArch(config HypervisorConfig) qemuArch {
 	}
 
 	q.handleImagePath(config)
+
+	q.memoryOffset = config.MemOffset
+
 	return q
 }
 
-func (q *qemuPPC64le) capabilities() capabilities {
-	var caps capabilities
+func (q *qemuPPC64le) capabilities() types.Capabilities {
+	var caps types.Capabilities
 
 	// pseries machine type supports hotplugging drives
 	if q.machineType == QemuPseries {
-		caps.setBlockDeviceHotplugSupport()
+		caps.SetBlockDeviceHotplugSupport()
 	}
+
+	caps.SetMultiQueueSupport()
 
 	return caps
 }
 
-func (q *qemuPPC64le) bridges(number uint32) []Bridge {
+func (q *qemuPPC64le) bridges(number uint32) []types.PCIBridge {
 	return genericBridges(number, q.machineType)
 }
 
@@ -119,7 +126,7 @@ func (q *qemuPPC64le) memoryTopology(memoryMb, hostMemoryMb uint64, slots uint8)
 		hostMemoryMb = defaultMemMaxPPC64le
 	}
 
-	return genericMemoryTopology(memoryMb, hostMemoryMb, slots)
+	return genericMemoryTopology(memoryMb, hostMemoryMb, slots, q.memoryOffset)
 }
 
 func (q *qemuPPC64le) appendImage(devices []govmmQemu.Device, path string) ([]govmmQemu.Device, error) {
@@ -144,6 +151,6 @@ func (q *qemuPPC64le) appendImage(devices []govmmQemu.Device, path string) ([]go
 }
 
 // appendBridges appends to devices the given bridges
-func (q *qemuPPC64le) appendBridges(devices []govmmQemu.Device, bridges []Bridge) []govmmQemu.Device {
+func (q *qemuPPC64le) appendBridges(devices []govmmQemu.Device, bridges []types.PCIBridge) []govmmQemu.Device {
 	return genericAppendBridges(devices, bridges, q.machineType)
 }

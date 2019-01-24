@@ -31,7 +31,8 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/manager"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/mock"
-	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 var (
@@ -243,6 +244,14 @@ func (p *gRPCProxy) GetGuestDetails(ctx context.Context, req *pb.GuestDetailsReq
 	return &pb.GuestDetailsResponse{}, nil
 }
 
+func (p *gRPCProxy) SetGuestDateTime(ctx context.Context, req *pb.SetGuestDateTimeRequest) (*gpb.Empty, error) {
+	return &gpb.Empty{}, nil
+}
+
+func (p *gRPCProxy) CopyFile(ctx context.Context, req *pb.CopyFileRequest) (*gpb.Empty, error) {
+	return &gpb.Empty{}, nil
+}
+
 func gRPCRegister(s *grpc.Server, srv interface{}) {
 	switch g := srv.(type) {
 	case *gRPCProxy:
@@ -262,6 +271,7 @@ var reqList = []interface{}{
 	&pb.CheckRequest{},
 	&pb.WaitProcessRequest{},
 	&pb.StatsContainerRequest{},
+	&pb.SetGuestDateTimeRequest{},
 }
 
 func TestKataAgentSendReq(t *testing.T) {
@@ -397,9 +407,16 @@ func TestAppendDevices(t *testing.T) {
 		},
 	}
 
+	sandboxConfig := &SandboxConfig{
+		HypervisorConfig: HypervisorConfig{
+			BlockDeviceDriver: config.VirtioBlock,
+		},
+	}
+
 	c := &Container{
 		sandbox: &Sandbox{
-			devManager: manager.NewDeviceManager("virtio-scsi", ctrDevices),
+			devManager: manager.NewDeviceManager("virtio-blk", ctrDevices),
+			config:     sandboxConfig,
 		},
 	}
 	c.devices = append(c.devices, ContainerDevice{
@@ -455,11 +472,11 @@ func TestConstraintGRPCSpec(t *testing.T) {
 		},
 	}
 
-	constraintGRPCSpec(g, true)
+	constraintGRPCSpec(g, true, true)
 
 	// check nil fields
 	assert.Nil(g.Hooks)
-	assert.Nil(g.Linux.Seccomp)
+	assert.NotNil(g.Linux.Seccomp)
 	assert.Nil(g.Linux.Resources.Devices)
 	assert.NotNil(g.Linux.Resources.Memory)
 	assert.Nil(g.Linux.Resources.Pids)
@@ -621,7 +638,7 @@ func TestAgentPathAPI(t *testing.T) {
 
 	err = k1.generateVMSocket(id, c)
 	assert.Nil(err)
-	_, ok := k1.vmSocket.(Socket)
+	_, ok := k1.vmSocket.(types.Socket)
 	assert.True(ok)
 
 	c.UseVSock = true
@@ -660,9 +677,9 @@ func TestAgentConfigure(t *testing.T) {
 func TestCmdToKataProcess(t *testing.T) {
 	assert := assert.New(t)
 
-	cmd := Cmd{
+	cmd := types.Cmd{
 		Args:         strings.Split("foo", " "),
-		Envs:         []EnvVar{},
+		Envs:         []types.EnvVar{},
 		WorkDir:      "/",
 		User:         "1000",
 		PrimaryGroup: "1000",
@@ -722,7 +739,7 @@ func TestAgentCreateContainer(t *testing.T) {
 		id:        "barfoo",
 		sandboxID: "foobar",
 		sandbox:   sandbox,
-		state: State{
+		state: types.State{
 			Fstype: "xfs",
 		},
 		config: &ContainerConfig{
@@ -801,7 +818,7 @@ func TestAgentNetworkOperation(t *testing.T) {
 	_, err = k.listInterfaces()
 	assert.Nil(err)
 
-	_, err = k.updateRoutes([]*types.Route{})
+	_, err = k.updateRoutes([]*vcTypes.Route{})
 	assert.Nil(err)
 
 	_, err = k.listRoutes()
@@ -838,4 +855,56 @@ func TestKataGetAgentUrl(t *testing.T) {
 	assert.Nil(err)
 	assert.NotEmpty(url)
 
+}
+
+func TestKataCopyFile(t *testing.T) {
+	assert := assert.New(t)
+
+	impl := &gRPCProxy{}
+
+	proxy := mock.ProxyGRPCMock{
+		GRPCImplementer: impl,
+		GRPCRegister:    gRPCRegister,
+	}
+
+	sockDir, err := testGenerateKataProxySockDir()
+	assert.NoError(err)
+	defer os.RemoveAll(sockDir)
+
+	testKataProxyURL := fmt.Sprintf(testKataProxyURLTempl, sockDir)
+	err = proxy.Start(testKataProxyURL)
+	assert.NoError(err)
+	defer proxy.Stop()
+
+	k := &kataAgent{
+		state: KataAgentState{
+			URL: testKataProxyURL,
+		},
+	}
+
+	err = k.copyFile("/abc/xyz/123", "/tmp")
+	assert.Error(err)
+
+	src, err := ioutil.TempFile("", "src")
+	assert.NoError(err)
+	defer os.Remove(src.Name())
+
+	data := []byte("abcdefghi123456789")
+	_, err = src.Write(data)
+	assert.NoError(err)
+	assert.NoError(src.Close())
+
+	dst, err := ioutil.TempFile("", "dst")
+	assert.NoError(err)
+	assert.NoError(dst.Close())
+	defer os.Remove(dst.Name())
+
+	orgGrpcMaxDataSize := grpcMaxDataSize
+	grpcMaxDataSize = 1
+	defer func() {
+		grpcMaxDataSize = orgGrpcMaxDataSize
+	}()
+
+	err = k.copyFile(src.Name(), dst.Name())
+	assert.NoError(err)
 }

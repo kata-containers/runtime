@@ -19,6 +19,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // sandboxResource is an int representing a sandbox resource type.
@@ -201,6 +202,26 @@ func (fs *filesystem) storeFile(file string, data interface{}) error {
 	f.Write(jsonOut)
 
 	return nil
+}
+
+// createSandboxTempFile is used to create a temporary file under sandbox runtime storage path.
+func (fs *filesystem) createSandboxTempFile(sandboxID string) (string, error) {
+	if sandboxID == "" {
+		return "", errNeedSandboxID
+	}
+
+	dirPath := filepath.Join(runStoragePath, sandboxID, "tempDir")
+	err := os.MkdirAll(dirPath, dirMode)
+	if err != nil {
+		return "", err
+	}
+
+	f, err := ioutil.TempFile(dirPath, "tmp-")
+	if err != nil {
+		return "", err
+	}
+
+	return f.Name(), nil
 }
 
 // storeDeviceIDFile is used to marshal and store device IDs to disk.
@@ -610,7 +631,7 @@ func (fs *filesystem) storeResource(sandboxSpecific bool, sandboxID, containerID
 	case SandboxConfig, ContainerConfig:
 		return fs.storeSandboxAndContainerConfigResource(sandboxSpecific, sandboxID, containerID, resource, file)
 
-	case State:
+	case types.State:
 		return fs.storeStateResource(sandboxSpecific, sandboxID, containerID, resource, file)
 
 	case NetworkNamespace:
@@ -670,11 +691,11 @@ func (fs *filesystem) fetchSandboxConfig(sandboxID string) (SandboxConfig, error
 	return sandboxConfig, nil
 }
 
-func (fs *filesystem) fetchSandboxState(sandboxID string) (State, error) {
-	var state State
+func (fs *filesystem) fetchSandboxState(sandboxID string) (types.State, error) {
+	var state types.State
 
 	if err := fs.fetchResource(true, sandboxID, "", stateFileType, &state); err != nil {
-		return State{}, err
+		return types.State{}, err
 	}
 
 	return state, nil
@@ -777,11 +798,11 @@ func (fs *filesystem) fetchContainerConfig(sandboxID, containerID string) (Conta
 	return config, nil
 }
 
-func (fs *filesystem) fetchContainerState(sandboxID, containerID string) (State, error) {
-	var state State
+func (fs *filesystem) fetchContainerState(sandboxID, containerID string) (types.State, error) {
+	var state types.State
 
 	if err := fs.fetchResource(false, sandboxID, containerID, stateFileType, &state); err != nil {
-		return State{}, err
+		return types.State{}, err
 	}
 
 	return state, nil

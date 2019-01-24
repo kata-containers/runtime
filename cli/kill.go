@@ -12,8 +12,10 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -97,7 +99,7 @@ var signalList = map[string]syscall.Signal{
 }
 
 func kill(ctx context.Context, containerID, signal string, all bool) error {
-	span, _ := trace(ctx, "kill")
+	span, _ := katautils.Trace(ctx, "kill")
 	defer span.Finish()
 
 	kataLog = kataLog.WithField("container", containerID)
@@ -128,13 +130,15 @@ func kill(ctx context.Context, containerID, signal string, all bool) error {
 		return err
 	}
 
-	// container MUST be created, running or paused
-	if status.State.State != vc.StateReady && status.State.State != vc.StateRunning && status.State.State != vc.StatePaused {
-		return fmt.Errorf("Container %s not ready, running or paused, cannot send a signal", containerID)
-	}
+	kataLog.WithField("signal", signal).WithField("container state", status.State.State).Info("kill")
 
-	if err := vci.KillContainer(ctx, sandboxID, containerID, signum, all); err != nil {
-		return err
+	// container MUST be created, running or paused
+	if status.State.State == types.StateReady || status.State.State == types.StateRunning || status.State.State == types.StatePaused {
+		if err := vci.KillContainer(ctx, sandboxID, containerID, signum, all); err != nil {
+			return err
+		}
+	} else if !all {
+		return fmt.Errorf("container not running")
 	}
 
 	if signum != syscall.SIGKILL && signum != syscall.SIGTERM {

@@ -13,7 +13,8 @@ import (
 
 	deviceApi "github.com/kata-containers/runtime/virtcontainers/device/api"
 	deviceConfig "github.com/kata-containers/runtime/virtcontainers/device/config"
-	"github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
@@ -74,6 +75,13 @@ func createSandboxFromConfig(ctx context.Context, sandboxConfig SandboxConfig, f
 		return nil, err
 	}
 
+	// cleanup sandbox resources in case of any failure
+	defer func() {
+		if err != nil {
+			s.Delete()
+		}
+	}()
+
 	// Create the sandbox network
 	if err = s.createNetwork(); err != nil {
 		return nil, err
@@ -98,20 +106,6 @@ func createSandboxFromConfig(ctx context.Context, sandboxConfig SandboxConfig, f
 		}
 	}()
 
-	// Once startVM is done, we want to guarantee
-	// that the sandbox is manageable. For that we need
-	// to start the sandbox inside the VM.
-	if err = s.agent.startSandbox(s); err != nil {
-		return nil, err
-	}
-
-	// rollback to stop sandbox in VM
-	defer func() {
-		if err != nil {
-			s.agent.stopSandbox(s)
-		}
-	}()
-
 	if err := s.getAndStoreGuestDetails(); err != nil {
 		return nil, err
 	}
@@ -127,7 +121,7 @@ func createSandboxFromConfig(ctx context.Context, sandboxConfig SandboxConfig, f
 	}
 
 	// Setup host cgroups
-	if err := s.setupCgroups(); err != nil {
+	if err = s.setupCgroups(); err != nil {
 		return nil, err
 	}
 
@@ -227,12 +221,8 @@ func StartSandbox(ctx context.Context, sandboxID string) (VCSandbox, error) {
 	}
 	defer s.releaseStatelessSandbox()
 
-	return startSandbox(s)
-}
-
-func startSandbox(s *Sandbox) (*Sandbox, error) {
 	// Start it
-	err := s.Start()
+	err = s.Start()
 	if err != nil {
 		return nil, err
 	}
@@ -278,6 +268,7 @@ func RunSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 	span, ctx := trace(ctx, "RunSandbox")
 	defer span.Finish()
 
+	// Create the sandbox
 	s, err := createSandboxFromConfig(ctx, sandboxConfig, factory)
 	if err != nil {
 		return nil, err
@@ -290,7 +281,13 @@ func RunSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 	}
 	defer unlockSandbox(lockFile)
 
-	return startSandbox(s)
+	// Start the sandbox
+	err = s.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
 // ListSandbox is the virtcontainers sandbox listing entry point.
@@ -337,10 +334,11 @@ func StatusSandbox(ctx context.Context, sandboxID string) (SandboxStatus, error)
 		return SandboxStatus{}, errNeedSandboxID
 	}
 
-	lockFile, err := rLockSandbox(sandboxID)
+	lockFile, err := rwLockSandbox(sandboxID)
 	if err != nil {
 		return SandboxStatus{}, err
 	}
+	defer unlockSandbox(lockFile)
 
 	s, err := fetchSandbox(ctx, sandboxID)
 	if err != nil {
@@ -348,16 +346,6 @@ func StatusSandbox(ctx context.Context, sandboxID string) (SandboxStatus, error)
 		return SandboxStatus{}, err
 	}
 	defer s.releaseStatelessSandbox()
-
-	// We need to potentially wait for a separate container.stop() routine
-	// that needs to be terminated before we return from this function.
-	// Deferring the synchronization here is very important since we want
-	// to avoid a deadlock. Indeed, the goroutine started by statusContainer
-	// will need to lock an exclusive lock, meaning that all other locks have
-	// to be released to let this happen. This call ensures this will be the
-	// last operation executed by this function.
-	defer s.wg.Wait()
-	defer unlockSandbox(lockFile)
 
 	var contStatusList []ContainerStatus
 	for _, container := range s.containers {
@@ -502,7 +490,7 @@ func StopContainer(ctx context.Context, sandboxID, containerID string) (VCContai
 
 // EnterContainer is the virtcontainers container command execution entry point.
 // EnterContainer enters an already running container and runs a given command.
-func EnterContainer(ctx context.Context, sandboxID, containerID string, cmd Cmd) (VCSandbox, VCContainer, *Process, error) {
+func EnterContainer(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (VCSandbox, VCContainer, *Process, error) {
 	span, ctx := trace(ctx, "EnterContainer")
 	defer span.Finish()
 
@@ -548,10 +536,11 @@ func StatusContainer(ctx context.Context, sandboxID, containerID string) (Contai
 		return ContainerStatus{}, errNeedContainerID
 	}
 
-	lockFile, err := rLockSandbox(sandboxID)
+	lockFile, err := rwLockSandbox(sandboxID)
 	if err != nil {
 		return ContainerStatus{}, err
 	}
+	defer unlockSandbox(lockFile)
 
 	s, err := fetchSandbox(ctx, sandboxID)
 	if err != nil {
@@ -560,30 +549,30 @@ func StatusContainer(ctx context.Context, sandboxID, containerID string) (Contai
 	}
 	defer s.releaseStatelessSandbox()
 
-	// We need to potentially wait for a separate container.stop() routine
-	// that needs to be terminated before we return from this function.
-	// Deferring the synchronization here is very important since we want
-	// to avoid a deadlock. Indeed, the goroutine started by statusContainer
-	// will need to lock an exclusive lock, meaning that all other locks have
-	// to be released to let this happen. This call ensures this will be the
-	// last operation executed by this function.
-	defer s.wg.Wait()
-	defer unlockSandbox(lockFile)
-
 	return statusContainer(s, containerID)
 }
 
-// This function is going to spawn a goroutine and it needs to be waited for
-// by the caller.
+// This function might have to stop the container if it realizes the shim
+// process is not running anymore. This might be caused by two different
+// reasons, either the process inside the VM exited and the shim terminated
+// accordingly, or the shim has been killed directly and we need to make sure
+// that we properly stop the container process inside the VM.
+//
+// When a container needs to be stopped because of those reasons, we want this
+// to happen atomically from a sandbox perspective. That's why we cannot afford
+// to take a read or read/write lock based on the situation, as it would break
+// the initial locking from the caller. Instead, a read/write lock has to be
+// taken from the caller, even if we simply return the container status without
+// taking any action regarding the container.
 func statusContainer(sandbox *Sandbox, containerID string) (ContainerStatus, error) {
 	for _, container := range sandbox.containers {
 		if container.id == containerID {
 			// We have to check for the process state to make sure
 			// we update the status in case the process is supposed
 			// to be running but has been killed or terminated.
-			if (container.state.State == StateReady ||
-				container.state.State == StateRunning ||
-				container.state.State == StatePaused) &&
+			if (container.state.State == types.StateReady ||
+				container.state.State == types.StateRunning ||
+				container.state.State == types.StatePaused) &&
 				container.process.Pid > 0 {
 
 				running, err := isShimRunning(container.process.Pid)
@@ -592,19 +581,9 @@ func statusContainer(sandbox *Sandbox, containerID string) (ContainerStatus, err
 				}
 
 				if !running {
-					sandbox.wg.Add(1)
-					go func() {
-						defer sandbox.wg.Done()
-						lockFile, err := rwLockSandbox(sandbox.id)
-						if err != nil {
-							return
-						}
-						defer unlockSandbox(lockFile)
-
-						if err := container.stop(); err != nil {
-							return
-						}
-					}()
+					if err := container.stop(); err != nil {
+						return ContainerStatus{}, err
+					}
 				}
 			}
 
@@ -826,7 +805,7 @@ func AddDevice(ctx context.Context, sandboxID string, info deviceConfig.DeviceIn
 	return s.AddDevice(info)
 }
 
-func toggleInterface(ctx context.Context, sandboxID string, inf *types.Interface, add bool) (*types.Interface, error) {
+func toggleInterface(ctx context.Context, sandboxID string, inf *vcTypes.Interface, add bool) (*vcTypes.Interface, error) {
 	if sandboxID == "" {
 		return nil, errNeedSandboxID
 	}
@@ -851,7 +830,7 @@ func toggleInterface(ctx context.Context, sandboxID string, inf *types.Interface
 }
 
 // AddInterface is the virtcontainers add interface entry point.
-func AddInterface(ctx context.Context, sandboxID string, inf *types.Interface) (*types.Interface, error) {
+func AddInterface(ctx context.Context, sandboxID string, inf *vcTypes.Interface) (*vcTypes.Interface, error) {
 	span, ctx := trace(ctx, "AddInterface")
 	defer span.Finish()
 
@@ -859,7 +838,7 @@ func AddInterface(ctx context.Context, sandboxID string, inf *types.Interface) (
 }
 
 // RemoveInterface is the virtcontainers remove interface entry point.
-func RemoveInterface(ctx context.Context, sandboxID string, inf *types.Interface) (*types.Interface, error) {
+func RemoveInterface(ctx context.Context, sandboxID string, inf *vcTypes.Interface) (*vcTypes.Interface, error) {
 	span, ctx := trace(ctx, "RemoveInterface")
 	defer span.Finish()
 
@@ -867,7 +846,7 @@ func RemoveInterface(ctx context.Context, sandboxID string, inf *types.Interface
 }
 
 // ListInterfaces is the virtcontainers list interfaces entry point.
-func ListInterfaces(ctx context.Context, sandboxID string) ([]*types.Interface, error) {
+func ListInterfaces(ctx context.Context, sandboxID string) ([]*vcTypes.Interface, error) {
 	span, ctx := trace(ctx, "ListInterfaces")
 	defer span.Finish()
 
@@ -891,7 +870,7 @@ func ListInterfaces(ctx context.Context, sandboxID string) ([]*types.Interface, 
 }
 
 // UpdateRoutes is the virtcontainers update routes entry point.
-func UpdateRoutes(ctx context.Context, sandboxID string, routes []*types.Route) ([]*types.Route, error) {
+func UpdateRoutes(ctx context.Context, sandboxID string, routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
 	span, ctx := trace(ctx, "UpdateRoutes")
 	defer span.Finish()
 
@@ -915,7 +894,7 @@ func UpdateRoutes(ctx context.Context, sandboxID string, routes []*types.Route) 
 }
 
 // ListRoutes is the virtcontainers list routes entry point.
-func ListRoutes(ctx context.Context, sandboxID string) ([]*types.Route, error) {
+func ListRoutes(ctx context.Context, sandboxID string) ([]*vcTypes.Route, error) {
 	span, ctx := trace(ctx, "ListRoutes")
 	defer span.Finish()
 

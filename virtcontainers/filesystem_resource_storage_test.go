@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/manager"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 func TestFilesystemCreateAllResourcesSuccessful(t *testing.T) {
@@ -38,7 +39,7 @@ func TestFilesystemCreateAllResourcesSuccessful(t *testing.T) {
 		containers: map[string]*Container{},
 	}
 
-	if err := sandbox.newContainers(); err != nil {
+	if err := sandbox.fetchContainers(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -520,7 +521,7 @@ func TestFilesystemStoreResourceFailingContainerConfigResourceURI(t *testing.T) 
 
 func TestFilesystemStoreResourceFailingStateConfigFileType(t *testing.T) {
 	fs := &filesystem{}
-	data := State{}
+	data := types.State{}
 
 	for _, b := range []bool{true, false} {
 		err := fs.storeResource(b, testSandboxID, "100", configFileType, data)
@@ -532,7 +533,7 @@ func TestFilesystemStoreResourceFailingStateConfigFileType(t *testing.T) {
 
 func TestFilesystemStoreResourceFailingStateResourceURI(t *testing.T) {
 	fs := &filesystem{}
-	data := State{}
+	data := types.State{}
 
 	for _, b := range []bool{true, false} {
 		err := fs.storeResource(b, "", "100", stateFileType, data)

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 const (
@@ -137,7 +138,7 @@ func TestQemuArchBaseCapabilities(t *testing.T) {
 	qemuArchBase := newQemuArchBase()
 
 	c := qemuArchBase.capabilities()
-	assert.True(c.isBlockDeviceHotplugSupported())
+	assert.True(c.IsBlockDeviceHotplugSupported())
 }
 
 func TestQemuArchBaseBridges(t *testing.T) {
@@ -149,8 +150,8 @@ func TestQemuArchBaseBridges(t *testing.T) {
 	assert.Len(bridges, len)
 
 	for i, b := range bridges {
-		id := fmt.Sprintf("%s-bridge-%d", pciBridge, i)
-		assert.Equal(pciBridge, b.Type)
+		id := fmt.Sprintf("%s-bridge-%d", types.PCI, i)
+		assert.Equal(types.PCI, b.Type)
 		assert.Equal(id, b.ID)
 		assert.NotNil(b.Address)
 	}
@@ -199,22 +200,24 @@ func TestQemuArchBaseMemoryTopology(t *testing.T) {
 
 func testQemuArchBaseAppend(t *testing.T, structure interface{}, expected []govmmQemu.Device) {
 	var devices []govmmQemu.Device
+	var err error
 	assert := assert.New(t)
 	qemuArchBase := newQemuArchBase()
 
 	switch s := structure.(type) {
-	case Volume:
+	case types.Volume:
 		devices = qemuArchBase.append9PVolume(devices, s)
-	case Socket:
+	case types.Socket:
 		devices = qemuArchBase.appendSocket(devices, s)
 	case config.BlockDrive:
 		devices = qemuArchBase.appendBlockDevice(devices, s)
 	case config.VFIODev:
 		devices = qemuArchBase.appendVFIODevice(devices, s)
 	case config.VhostUserDeviceAttrs:
-		devices = qemuArchBase.appendVhostUserDevice(devices, s)
+		devices, err = qemuArchBase.appendVhostUserDevice(devices, s)
 	}
 
+	assert.NoError(err)
 	assert.Equal(devices, expected)
 }
 
@@ -314,7 +317,7 @@ func TestQemuArchBaseAppend9PVolume(t *testing.T) {
 		},
 	}
 
-	volume := Volume{
+	volume := types.Volume{
 		MountTag: mountTag,
 		HostPath: hostPath,
 	}
@@ -339,7 +342,7 @@ func TestQemuArchBaseAppendSocket(t *testing.T) {
 		},
 	}
 
-	socket := Socket{
+	socket := types.Socket{
 		DeviceID: deviceID,
 		ID:       id,
 		HostPath: hostPath,
@@ -471,7 +474,7 @@ func TestQemuArchBaseAppendNetwork(t *testing.T) {
 	expectedOut := []govmmQemu.Device{
 		govmmQemu.NetDevice{
 			Type:       networkModelToQemuType(macvlanEp.NetPair.NetInterworkingModel),
-			Driver:     govmmQemu.VirtioNetPCI,
+			Driver:     govmmQemu.VirtioNet,
 			ID:         fmt.Sprintf("network-%d", 0),
 			IFName:     macvlanEp.NetPair.TAPIface.Name,
 			MACAddress: macvlanEp.NetPair.TAPIface.HardAddr,
@@ -482,7 +485,7 @@ func TestQemuArchBaseAppendNetwork(t *testing.T) {
 		},
 		govmmQemu.NetDevice{
 			Type:       govmmQemu.MACVTAP,
-			Driver:     govmmQemu.VirtioNetPCI,
+			Driver:     govmmQemu.VirtioNet,
 			ID:         fmt.Sprintf("network-%d", 1),
 			IFName:     macvtapEp.Name(),
 			MACAddress: macvtapEp.HardwareAddr(),

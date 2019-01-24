@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	govmmQemu "github.com/intel/govmm/qemu"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -69,7 +70,7 @@ func TestQemuKernelParameters(t *testing.T) {
 	testQemuKernelParameters(t, params, expectedOut, false)
 }
 
-func TestQemuInit(t *testing.T) {
+func TestQemuCreateSandbox(t *testing.T) {
 	qemuConfig := newQemuConfig()
 	q := &qemu{}
 
@@ -81,13 +82,20 @@ func TestQemuInit(t *testing.T) {
 		},
 	}
 
+	// Create the hypervisor fake binary
+	testQemuPath := filepath.Join(testDir, testHypervisor)
+	_, err := os.Create(testQemuPath)
+	if err != nil {
+		t.Fatalf("Could not create hypervisor file %s: %v", testQemuPath, err)
+	}
+
 	// Create parent dir path for hypervisor.json
 	parentDir := filepath.Join(runStoragePath, sandbox.id)
 	if err := os.MkdirAll(parentDir, dirMode); err != nil {
 		t.Fatalf("Could not create parent directory %s: %v", parentDir, err)
 	}
 
-	if err := q.init(context.Background(), sandbox.id, &sandbox.config.HypervisorConfig, sandbox.storage); err != nil {
+	if err := q.createSandbox(context.Background(), sandbox.id, &sandbox.config.HypervisorConfig, sandbox.storage); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +108,7 @@ func TestQemuInit(t *testing.T) {
 	}
 }
 
-func TestQemuInitMissingParentDirFail(t *testing.T) {
+func TestQemuCreateSandboxMissingParentDirFail(t *testing.T) {
 	qemuConfig := newQemuConfig()
 	q := &qemu{}
 
@@ -112,14 +120,21 @@ func TestQemuInitMissingParentDirFail(t *testing.T) {
 		},
 	}
 
+	// Create the hypervisor fake binary
+	testQemuPath := filepath.Join(testDir, testHypervisor)
+	_, err := os.Create(testQemuPath)
+	if err != nil {
+		t.Fatalf("Could not create hypervisor file %s: %v", testQemuPath, err)
+	}
+
 	// Ensure parent dir path for hypervisor.json does not exist.
 	parentDir := filepath.Join(runStoragePath, sandbox.id)
 	if err := os.RemoveAll(parentDir); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := q.init(context.Background(), sandbox.id, &sandbox.config.HypervisorConfig, sandbox.storage); err != nil {
-		t.Fatalf("Qemu init() is not expected to fail because of missing parent directory for storage: %v", err)
+	if err := q.createSandbox(context.Background(), sandbox.id, &sandbox.config.HypervisorConfig, sandbox.storage); err != nil {
+		t.Fatalf("Qemu createSandbox() is not expected to fail because of missing parent directory for storage: %v", err)
 	}
 }
 
@@ -213,7 +228,7 @@ func TestQemuAddDeviceFsDev(t *testing.T) {
 		},
 	}
 
-	volume := Volume{
+	volume := types.Volume{
 		MountTag: mountTag,
 		HostPath: hostPath,
 	}
@@ -238,7 +253,7 @@ func TestQemuAddDeviceSerialPortDev(t *testing.T) {
 		},
 	}
 
-	socket := Socket{
+	socket := types.Socket{
 		DeviceID: deviceID,
 		ID:       id,
 		HostPath: hostPath,
@@ -249,7 +264,7 @@ func TestQemuAddDeviceSerialPortDev(t *testing.T) {
 }
 
 func TestQemuAddDeviceKataVSOCK(t *testing.T) {
-	contextID := uint32(3)
+	contextID := uint64(3)
 	port := uint32(1024)
 	vHostFD := os.NewFile(1, "vsock")
 
@@ -291,7 +306,7 @@ func TestQemuCapabilities(t *testing.T) {
 	}
 
 	caps := q.capabilities()
-	if !caps.isBlockDeviceHotplugSupported() {
+	if !caps.IsBlockDeviceHotplugSupported() {
 		t.Fatal("Block device hotplug should be supported")
 	}
 }
@@ -344,21 +359,6 @@ func TestQemuQemuPath(t *testing.T) {
 	assert.Equal(path, "")
 }
 
-func TestHotplugRemoveMemory(t *testing.T) {
-	assert := assert.New(t)
-
-	qemuConfig := newQemuConfig()
-	fs := &filesystem{}
-	q := &qemu{
-		arch:    &qemuArchBase{},
-		config:  qemuConfig,
-		storage: fs,
-	}
-
-	_, err := q.hotplugRemoveDevice(&memoryDevice{0, 128}, memoryDev)
-	assert.Error(err)
-}
-
 func TestHotplugUnsupportedDeviceType(t *testing.T) {
 	assert := assert.New(t)
 
@@ -387,5 +387,16 @@ func TestQMPSetupShutdown(t *testing.T) {
 
 	q.qmpMonitorCh.qmp = &govmmQemu.QMP{}
 	err := q.qmpSetup()
+	assert.Nil(err)
+}
+
+func TestQemuCleanup(t *testing.T) {
+	assert := assert.New(t)
+
+	q := &qemu{
+		config: newQemuConfig(),
+	}
+
+	err := q.cleanup()
 	assert.Nil(err)
 }

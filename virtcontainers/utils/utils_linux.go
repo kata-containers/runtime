@@ -22,9 +22,12 @@ const ioctlVhostVsockSetGuestCid = 0x4008AF60
 
 var ioctlFunc = ioctl
 
-var maxUInt uint32 = 1<<32 - 1
+// maxUInt represents the maximum valid value for the context ID.
+// The upper 32 bits of the CID are reserved and zeroed.
+// See http://stefanha.github.io/virtio/
+var maxUInt uint64 = 1<<32 - 1
 
-func ioctl(fd uintptr, request int, arg1 uint32) error {
+func ioctl(fd uintptr, request int, arg1 uint64) error {
 	if _, _, errno := unix.Syscall(
 		unix.SYS_IOCTL,
 		fd,
@@ -51,15 +54,15 @@ func ioctl(fd uintptr, request int, arg1 uint32) error {
 // - Reduce the probability of a *DoS attack*, since other processes don't know whatis the initial context ID
 //   used by findContextID to find a context ID available
 //
-func FindContextID() (*os.File, uint32, error) {
+func FindContextID() (*os.File, uint64, error) {
 	// context IDs 0x0, 0x1 and 0x2 are reserved, 0x3 is the first context ID usable.
-	var firstContextID uint32 = 0x3
+	var firstContextID uint64 = 0x3
 	var contextID = firstContextID
 
 	// Generate a random number
 	n, err := rand.Int(rand.Reader, big.NewInt(int64(maxUInt)))
 	if err == nil && n.Int64() >= int64(firstContextID) {
-		contextID = uint32(n.Int64())
+		contextID = uint64(n.Int64())
 	}
 
 	// Open vhost-vsock device to check what context ID is available.

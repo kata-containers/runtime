@@ -33,7 +33,8 @@ var qemuPaths = map[string]string{
 }
 
 var kernelParams = []Param{
-	{"console", "ttyAMA0"},
+	{"console", "hvc0"},
+	{"console", "hvc1"},
 	{"iommu.passthrough", "0"},
 }
 
@@ -135,6 +136,7 @@ func newQemuArch(config HypervisorConfig) qemuArch {
 	q := &qemuArm64{
 		qemuArchBase{
 			machineType:           machineType,
+			memoryOffset:          config.MemOffset,
 			qemuPaths:             qemuPaths,
 			supportedQemuMachines: supportedQemuMachines,
 			kernelParamsNonDebug:  kernelParamsNonDebug,

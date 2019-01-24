@@ -8,6 +8,8 @@ package virtcontainers
 import (
 	"os"
 
+	"github.com/kata-containers/runtime/virtcontainers/types"
+
 	govmmQemu "github.com/intel/govmm/qemu"
 )
 
@@ -87,6 +89,7 @@ func newQemuArch(config HypervisorConfig) qemuArch {
 	q := &qemuAmd64{
 		qemuArchBase{
 			machineType:           machineType,
+			memoryOffset:          config.MemOffset,
 			qemuPaths:             qemuPaths,
 			supportedQemuMachines: supportedQemuMachines,
 			kernelParamsNonDebug:  kernelParamsNonDebug,
@@ -96,22 +99,25 @@ func newQemuArch(config HypervisorConfig) qemuArch {
 	}
 
 	q.handleImagePath(config)
+
 	return q
 }
 
-func (q *qemuAmd64) capabilities() capabilities {
-	var caps capabilities
+func (q *qemuAmd64) capabilities() types.Capabilities {
+	var caps types.Capabilities
 
 	if q.machineType == QemuPC ||
 		q.machineType == QemuQ35 ||
 		q.machineType == QemuVirt {
-		caps.setBlockDeviceHotplugSupport()
+		caps.SetBlockDeviceHotplugSupport()
 	}
+
+	caps.SetMultiQueueSupport()
 
 	return caps
 }
 
-func (q *qemuAmd64) bridges(number uint32) []Bridge {
+func (q *qemuAmd64) bridges(number uint32) []types.PCIBridge {
 	return genericBridges(number, q.machineType)
 }
 
@@ -124,7 +130,7 @@ func (q *qemuAmd64) cpuModel() string {
 }
 
 func (q *qemuAmd64) memoryTopology(memoryMb, hostMemoryMb uint64, slots uint8) govmmQemu.Memory {
-	return genericMemoryTopology(memoryMb, hostMemoryMb, slots)
+	return genericMemoryTopology(memoryMb, hostMemoryMb, slots, q.memoryOffset)
 }
 
 func (q *qemuAmd64) appendImage(devices []govmmQemu.Device, path string) ([]govmmQemu.Device, error) {
@@ -154,6 +160,6 @@ func (q *qemuAmd64) appendImage(devices []govmmQemu.Device, path string) ([]govm
 }
 
 // appendBridges appends to devices the given bridges
-func (q *qemuAmd64) appendBridges(devices []govmmQemu.Device, bridges []Bridge) []govmmQemu.Device {
+func (q *qemuAmd64) appendBridges(devices []govmmQemu.Device, bridges []types.PCIBridge) []govmmQemu.Device {
 	return genericAppendBridges(devices, bridges, q.machineType)
 }
