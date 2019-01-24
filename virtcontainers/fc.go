@@ -8,6 +8,7 @@ package virtcontainers
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 
@@ -45,7 +46,9 @@ const (
 const (
 	//fcTimeout is the maximum amount of time in seconds to wait for the VMM to respond
 	fcTimeout            = 10
-	fireSocket           = "firecracker.sock"
+	fcSocket             = "api.socket"
+	fcKernel             = "vmlinux"
+	fcRootfs             = "rootfs"
 	fcStopSandboxTimeout = 15
 	// This indicates the number of block devices that can be attached to the
 	// firecracker guest VM.
@@ -93,9 +96,15 @@ type firecracker struct {
 	state firecrackerState
 	info  FirecrackerInfo
 
-	firecrackerd *exec.Cmd           //Tracks the firecracker process itself
-	fcClient     *client.Firecracker //Tracks the current active connection
-	socketPath   string
+	firecrackerd  *exec.Cmd           //Tracks the firecracker process itself
+	connection    *client.Firecracker //Tracks the current active connection
+	chrootBaseDir string              //chroot base for the jailer. All VM assets need to be under this
+	socketPath    string
+	kernelPath    string
+	rootfsPath    string
+	netNSPath     string
+	uid           string //UID and GID to be used for the VMM
+	gid           string
 
 	storage        resourceStorage
 	config         HypervisorConfig
@@ -129,7 +138,7 @@ func (fc *firecracker) trace(name string) (opentracing.Span, context.Context) {
 
 // For firecracker this call only sets the internal structure up.
 // The sandbox will be created and started through startSandbox().
-func (fc *firecracker) createSandbox(ctx context.Context, id string, hypervisorConfig *HypervisorConfig, storage resourceStorage) error {
+func (fc *firecracker) createSandbox(ctx context.Context, id string, networkNS NetworkNamespace, hypervisorConfig *HypervisorConfig, storage resourceStorage) error {
 	fc.ctx = ctx
 
 	span, _ := fc.trace("createSandbox")
@@ -138,10 +147,41 @@ func (fc *firecracker) createSandbox(ctx context.Context, id string, hypervisorC
 	//TODO: check validity of the hypervisor config provided
 	//https://github.com/kata-containers/runtime/issues/1065
 	fc.id = id
-	fc.socketPath = filepath.Join(runStoragePath, fc.id, fireSocket)
+	fc.state.set(notReady)
+
+	// unix domain socket names have a hard limit
+	// #define UNIX_PATH_MAX   108
+	// Keep it short and live within the jailer expected paths
+	// <chroot_base>/<exec_file_name>/<id>/
+	// Also jailer based on the id implicitly sets up cgroups under
+	// <cgroups_base>/<exec_file_name>/<id>/
+	hypervisorName := filepath.Base(hypervisorConfig.HypervisorPath)
+	fc.chrootBaseDir = AltRunVMStoragePath
+
+	vmPath := filepath.Join(fc.chrootBaseDir, hypervisorName, fc.id)
+	jailerRoot := filepath.Join(vmPath, "root") // auto created by jailer
+
+	err := os.MkdirAll(vmPath, dirMode)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			if err := os.RemoveAll(vmPath); err != nil {
+				fc.Logger().WithError(err).Error("Fail to clean up vm directory")
+			}
+		}
+	}()
+
+	fc.socketPath = filepath.Join(vmPath, fcSocket)
+	fc.kernelPath = filepath.Join(jailerRoot, fcKernel)
+	fc.rootfsPath = filepath.Join(jailerRoot, fcRootfs)
+	fc.netNSPath = networkNS.NetNsPath
 	fc.storage = storage
 	fc.config = *hypervisorConfig
-	fc.state.set(notReady)
+	// Till we create lower privileged kata user run as root
+	fc.uid = "0"
+	fc.gid = "0"
 
 	// No need to return an error from there since there might be nothing
 	// to fetch if this is the first time the hypervisor is created.
@@ -226,9 +266,19 @@ func (fc *firecracker) fcInit(timeout int) error {
 	span, _ := fc.trace("fcInit")
 	defer span.Finish()
 
-	args := []string{"--api-sock", fc.socketPath}
+	args := []string{"--id", fc.id,
+		"--node", "0",
+		"--exec-file", fc.config.HypervisorPath,
+		"--uid", "0", //hack: we need to setup user and group for kata
+		"--gid", "0",
+		"--chroot-base-dir", fc.chrootBaseDir,
+		//"--netns", fc.netNSPath, //the path seems to be unpopulated
+		"--daemonize",
+	}
 
-	cmd := exec.Command(fc.config.HypervisorPath, args...)
+	cmd := exec.Command(fc.config.JailerPath, args...)
+	fc.Logger().WithField("jailer cmd", cmd).Debug()
+
 	if err := cmd.Start(); err != nil {
 		fc.Logger().WithField("Error starting firecracker", err).Debug()
 		return err
@@ -236,7 +286,7 @@ func (fc *firecracker) fcInit(timeout int) error {
 
 	fc.info.PID = cmd.Process.Pid
 	fc.firecrackerd = cmd
-	fc.fcClient = fc.newFireClient()
+	fc.connection = fc.newFireClient()
 
 	if err := fc.waitVMM(timeout); err != nil {
 		fc.Logger().WithField("fcInit failed:", err).Debug()
@@ -253,11 +303,11 @@ func (fc *firecracker) client() *client.Firecracker {
 	span, _ := fc.trace("client")
 	defer span.Finish()
 
-	if fc.fcClient == nil {
-		fc.fcClient = fc.newFireClient()
+	if fc.connection == nil {
+		fc.connection = fc.newFireClient()
 	}
 
-	return fc.fcClient
+	return fc.connection
 }
 
 func (fc *firecracker) fcSetBootSource(path, params string) error {
@@ -266,16 +316,22 @@ func (fc *firecracker) fcSetBootSource(path, params string) error {
 	fc.Logger().WithFields(logrus.Fields{"kernel-path": path,
 		"kernel-params": params}).Debug("fcSetBootSource")
 
+	//Hardlink the file to place it within the jailed root dir
+	//TODO: Setup with uid/gid of the firecracker user
+	if err := os.Link(path, fc.kernelPath); err != nil {
+		return err
+	}
+
 	bootParams := params + " " + rootDevice
 	bootSrcParams := ops.NewPutGuestBootSourceParams()
+	jailedKernel := fcKernel //jailed path
 	src := &models.BootSource{
-		KernelImagePath: &path,
+		KernelImagePath: &jailedKernel,
 		BootArgs:        bootParams,
 	}
 	bootSrcParams.SetBody(src)
 
-	_, err := fc.client().Operations.PutGuestBootSource(bootSrcParams)
-	if err != nil {
+	if _, err := fc.client().Operations.PutGuestBootSource(bootSrcParams); err != nil {
 		return err
 	}
 
@@ -287,6 +343,12 @@ func (fc *firecracker) fcSetVMRootfs(path string) error {
 	defer span.Finish()
 	fc.Logger().WithField("VM-rootfs-path", path).Debug()
 
+	//Hardlink the file to place it within the jailed root dir
+	//TODO: Setup with uid/gid of the firecracker user
+	if err := os.Link(path, fc.rootfsPath); err != nil {
+		return err
+	}
+
 	driveID := "rootfs"
 	driveParams := ops.NewPutGuestDriveByIDParams()
 	driveParams.SetDriveID(driveID)
@@ -294,11 +356,12 @@ func (fc *firecracker) fcSetVMRootfs(path string) error {
 	//Add it as a regular block device
 	//This allows us to use a paritioned root block device
 	isRootDevice := false
+	jailedRootfs := fcRootfs //jailed path
 	drive := &models.Drive{
 		DriveID:      &driveID,
 		IsReadOnly:   &isReadOnly,
 		IsRootDevice: &isRootDevice,
-		PathOnHost:   &path,
+		PathOnHost:   &jailedRootfs,
 	}
 	driveParams.SetBody(drive)
 	_, err := fc.client().Operations.PutGuestDriveByID(driveParams)
@@ -316,7 +379,7 @@ func (fc *firecracker) fcStartVM() error {
 
 	fc.Logger().Info("Starting VM")
 
-	fc.fcClient = fc.newFireClient()
+	fc.connection = fc.newFireClient()
 
 	actionParams := ops.NewCreateSyncActionParams()
 	actionInfo := &models.InstanceActionInfo{
@@ -352,7 +415,6 @@ func (fc *firecracker) startSandbox(timeout int) error {
 
 	strParams := SerializeParams(fc.config.KernelParams, "=")
 	formattedParams := strings.Join(strParams, " ")
-
 	fc.fcSetBootSource(kernelPath, formattedParams)
 
 	image, err := fc.config.InitrdAssetPath()

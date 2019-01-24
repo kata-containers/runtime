@@ -113,6 +113,11 @@ var runStoragePath = filepath.Join("/run", storagePathSuffix, sandboxPathSuffix)
 // It will contain all guest vm sockets and shared mountpoints.
 var RunVMStoragePath = filepath.Join("/run", storagePathSuffix, vmPathSuffix)
 
+// AltRunVMStoragePath is the vm directory when suid permissions are required
+// "/run" it typically tmpfs with nosuid.
+// It will contain all guest vm sockets and shared mountpoints.
+var AltRunVMStoragePath = filepath.Join("/var/lib", storagePathSuffix, vmPathSuffix)
+
 // filesystem is a resourceStorage interface implementation for a local filesystem.
 type filesystem struct {
 	ctx context.Context

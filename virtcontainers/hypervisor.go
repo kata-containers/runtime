@@ -198,6 +198,9 @@ type HypervisorConfig struct {
 	// HypervisorPath is the hypervisor executable host path.
 	HypervisorPath string
 
+	// JailerPath is the jailer executable host path.
+	JailerPath string
+
 	// BlockDeviceDriver specifies the driver to be used for block device
 	// either VirtioSCSI or VirtioBlock with the default driver being defaultBlockDriver
 	BlockDeviceDriver string
@@ -397,6 +400,8 @@ func (conf *HypervisorConfig) assetPath(t types.AssetType) (string, error) {
 		return conf.InitrdPath, nil
 	case types.HypervisorAsset:
 		return conf.HypervisorPath, nil
+	case types.JailerAsset:
+		return conf.JailerPath, nil
 	case types.FirmwareAsset:
 		return conf.FirmwarePath, nil
 	default:
@@ -446,6 +451,11 @@ func (conf *HypervisorConfig) CustomInitrdAsset() bool {
 // HypervisorAssetPath returns the VM hypervisor path
 func (conf *HypervisorConfig) HypervisorAssetPath() (string, error) {
 	return conf.assetPath(types.HypervisorAsset)
+}
+
+// JailerAssetPath returns the VM Jailer path
+func (conf *HypervisorConfig) JailerAssetPath() (string, error) {
+	return conf.assetPath(types.JailerAsset)
 }
 
 // CustomHypervisorAsset returns true if the hypervisor asset is a custom one, false otherwise.
@@ -591,7 +601,7 @@ func RunningOnVMM(cpuInfoPath string) (bool, error) {
 // hypervisor is the virtcontainers hypervisor interface.
 // The default hypervisor implementation is Qemu.
 type hypervisor interface {
-	createSandbox(ctx context.Context, id string, hypervisorConfig *HypervisorConfig, storage resourceStorage) error
+	createSandbox(ctx context.Context, id string, networkNS NetworkNamespace, hypervisorConfig *HypervisorConfig, storage resourceStorage) error
 	startSandbox(timeout int) error
 	stopSandbox() error
 	pauseSandbox() error

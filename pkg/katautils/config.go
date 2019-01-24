@@ -82,6 +82,7 @@ type factory struct {
 
 type hypervisor struct {
 	Path                    string `toml:"path"`
+	JailerPath              string `toml:"jailer_path"`
 	Kernel                  string `toml:"kernel"`
 	Initrd                  string `toml:"initrd"`
 	Image                   string `toml:"image"`
@@ -147,6 +148,16 @@ func (h hypervisor) path() (string, error) {
 
 	if h.Path == "" {
 		p = defaultHypervisorPath
+	}
+
+	return ResolvePath(p)
+}
+
+func (h hypervisor) jailerPath() (string, error) {
+	p := h.JailerPath
+
+	if h.JailerPath == "" {
+		p = defaultJailerPath
 	}
 
 	return ResolvePath(p)
@@ -411,6 +422,11 @@ func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		return vc.HypervisorConfig{}, err
 	}
 
+	jailer, err := h.jailerPath()
+	if err != nil {
+		return vc.HypervisorConfig{}, err
+	}
+
 	kernel, err := h.kernel()
 	if err != nil {
 		return vc.HypervisorConfig{}, err
@@ -439,6 +455,7 @@ func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 
 	return vc.HypervisorConfig{
 		HypervisorPath:        hypervisor,
+		JailerPath:            jailer,
 		KernelPath:            kernel,
 		InitrdPath:            initrd,
 		ImagePath:             image,
@@ -720,6 +737,7 @@ func initConfig() (config oci.RuntimeConfig, err error) {
 
 	defaultHypervisorConfig := vc.HypervisorConfig{
 		HypervisorPath:          defaultHypervisorPath,
+		JailerPath:              defaultJailerPath,
 		KernelPath:              defaultKernelPath,
 		ImagePath:               defaultImagePath,
 		InitrdPath:              defaultInitrdPath,

@@ -597,7 +597,7 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 		}
 	}()
 
-	if err = s.hypervisor.createSandbox(ctx, s.id, &sandboxConfig.HypervisorConfig, s.storage); err != nil {
+	if err = s.hypervisor.createSandbox(ctx, s.id, s.networkNS, &sandboxConfig.HypervisorConfig, s.storage); err != nil {
 		return nil, err
 	}
 
@@ -929,7 +929,12 @@ func (s *Sandbox) startVM() error {
 
 	s.Logger().Info("Starting VM")
 
-	if err := s.network.run(s.networkNS.NetNsPath, func() error {
+	netNsPath := s.networkNS.NetNsPath
+	if s.config.HypervisorConfig.JailerPath == "" {
+		netNsPath = ""
+	}
+
+	if err := s.network.run(netNsPath, func() error {
 		if s.factory != nil {
 			vm, err := s.factory.GetVM(ctx, VMConfig{
 				HypervisorType:   s.config.HypervisorType,
