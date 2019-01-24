@@ -99,7 +99,7 @@ func (s *Sandbox) applyCPUCgroup(rc *specs.LinuxResources) error {
 
 	// when new container joins, new CPU could be hotplugged, so we
 	// have to query fresh vcpu info from hypervisor for every time.
-	tids, err := s.hypervisor.getThreadIDs()
+	tids, err := s.hypervisor.GetThreadIDs()
 	if err != nil {
 		return fmt.Errorf("failed to get thread ids from hypervisor: %v", err)
 	}
@@ -113,15 +113,15 @@ func (s *Sandbox) applyCPUCgroup(rc *specs.LinuxResources) error {
 	// use Add() to add vcpu thread to s.cgroup, it will write thread id to
 	// `cgroup.procs` which will move all threads in qemu process to this cgroup
 	// immediately as default behaviour.
-	if len(tids.vcpus) > 0 {
+	if len(tids.VCPUs) > 0 {
 		if err := s.cgroup.sandboxSub.Add(cgroups.Process{
-			Pid: tids.vcpus[0],
+			Pid: tids.VCPUs[0],
 		}); err != nil {
 			return err
 		}
 	}
 
-	for _, i := range tids.vcpus {
+	for _, i := range tids.VCPUs {
 		if i <= 0 {
 			continue
 		}

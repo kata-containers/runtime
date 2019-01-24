@@ -24,7 +24,7 @@ import (
 	"syscall"
 
 	"github.com/kata-containers/runtime/pkg/katautils"
-	vc "github.com/kata-containers/runtime/virtcontainers"
+	vcHypervisor "github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -186,7 +186,7 @@ type kernelParamHandler func(onVMM bool, fields logrus.Fields, msg string) bool
 // the number of module errors (all of which are logged by this
 // function). Only fatal errors result in an error return.
 func checkKernelModules(modules map[string]kernelModule, handler kernelParamHandler) (count uint32, err error) {
-	onVMM, err := vc.RunningOnVMM(procCPUInfo)
+	onVMM, err := vcHypervisor.RunningOnVMM(procCPUInfo)
 	if err != nil {
 		return 0, err
 	}

@@ -20,6 +20,7 @@ import (
 	proxyClient "github.com/clearcontainers/proxy/client"
 	"github.com/kata-containers/agent/protocols/grpc"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/hyperstart"
 	ns "github.com/kata-containers/runtime/virtcontainers/pkg/nsenter"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
@@ -305,9 +306,9 @@ func (h *hyper) getSharePath(id string) string {
 	return filepath.Join(defaultSharedDir, id)
 }
 
-func (h *hyper) configure(hv hypervisor, id, sharePath string, builtin bool, config interface{}) error {
+func (h *hyper) configure(hv hypervisor.Hypervisor, id, sharePath string, builtin bool, config interface{}) error {
 	for _, socket := range h.sockets {
-		err := hv.addDevice(socket, serialPortDev)
+		err := hv.AddDevice(socket, hypervisor.SerialPortDev)
 		if err != nil {
 			return err
 		}
@@ -324,7 +325,7 @@ func (h *hyper) configure(hv hypervisor, id, sharePath string, builtin bool, con
 		return err
 	}
 
-	return hv.addDevice(sharedVolume, fsDev)
+	return hv.AddDevice(sharedVolume, hypervisor.FsDev)
 }
 
 func (h *hyper) createSandbox(sandbox *Sandbox) (err error) {
@@ -815,7 +816,7 @@ func (h *hyper) register() error {
 	}
 	defer h.disconnect()
 
-	console, err := h.sandbox.hypervisor.getSandboxConsole(h.sandbox.id)
+	console, err := h.sandbox.hypervisor.GetSandboxConsole(h.sandbox.id)
 	if err != nil {
 		return err
 	}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/safchain/ethtool"
 )
 
@@ -71,7 +72,7 @@ func (endpoint *PhysicalEndpoint) NetworkPair() *NetworkInterfacePair {
 
 // Attach for physical endpoint binds the physical network interface to
 // vfio-pci and adds device to the hypervisor with vfio-passthrough.
-func (endpoint *PhysicalEndpoint) Attach(h hypervisor) error {
+func (endpoint *PhysicalEndpoint) Attach(h hypervisor.Hypervisor) error {
 	// Unbind physical interface from host driver and bind to vfio
 	// so that it can be passed to qemu.
 	if err := bindNICToVFIO(endpoint); err != nil {
@@ -83,7 +84,7 @@ func (endpoint *PhysicalEndpoint) Attach(h hypervisor) error {
 		BDF: endpoint.BDF,
 	}
 
-	return h.addDevice(d, vfioDev)
+	return h.AddDevice(d, hypervisor.VfioDev)
 }
 
 // Detach for physical endpoint unbinds the physical network interface from vfio-pci
@@ -99,12 +100,12 @@ func (endpoint *PhysicalEndpoint) Detach(netNsCreated bool, netNsPath string) er
 }
 
 // HotAttach for physical endpoint not supported yet
-func (endpoint *PhysicalEndpoint) HotAttach(h hypervisor) error {
+func (endpoint *PhysicalEndpoint) HotAttach(h hypervisor.Hypervisor) error {
 	return fmt.Errorf("PhysicalEndpoint does not support Hot attach")
 }
 
 // HotDetach for physical endpoint not supported yet
-func (endpoint *PhysicalEndpoint) HotDetach(h hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *PhysicalEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
 	return fmt.Errorf("PhysicalEndpoint does not support Hot detach")
 }
 

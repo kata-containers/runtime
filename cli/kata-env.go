@@ -16,6 +16,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	vcHypervisor "github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	vcUtils "github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -368,7 +369,7 @@ func getEnvInfo(configFile string, config oci.RuntimeConfig) (env EnvInfo, err e
 
 	kernel := KernelInfo{
 		Path:       config.HypervisorConfig.KernelPath,
-		Parameters: strings.Join(vc.SerializeParams(config.HypervisorConfig.KernelParams, "="), " "),
+		Parameters: strings.Join(vcHypervisor.SerializeParams(config.HypervisorConfig.KernelParams, "="), " "),
 	}
 
 	initrd := InitrdInfo{

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"bufio"
@@ -17,99 +17,128 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/sirupsen/logrus"
 )
 
-// HypervisorType describes an hypervisor type.
-type HypervisorType string
+var hLog = logrus.WithField("source", "virtcontainers/hypervisor")
 
-type operation int
+// Type describes an hypervisor type.
+type Type string
 
 const (
-	// FirecrackerHypervisor is the FC hypervisor.
-	FirecrackerHypervisor HypervisorType = "firecracker"
+	// Firecracker is the Firecracker hypervisor.
+	Firecracker Type = "firecracker"
 
-	// QemuHypervisor is the QEMU hypervisor.
-	QemuHypervisor HypervisorType = "qemu"
+	// Qemu is the QEMU hypervisor.
+	Qemu Type = "qemu"
 
-	// MockHypervisor is a mock hypervisor for testing purposes
-	MockHypervisor HypervisorType = "mock"
+	// Mock is a mock hypervisor for testing purposes
+	Mock Type = "mock"
+)
+
+// Operation represents a hypervisor device operation
+type Operation int
+
+const (
+	// AddDevice adds a device to a guest.
+	AddDevice Operation = iota
+
+	// RemoveDevice removes a device from a guest.
+	RemoveDevice
 )
 
 const (
-	procMemInfo = "/proc/meminfo"
-	procCPUInfo = "/proc/cpuinfo"
+	// ProcMemInfo is the /proc/meminfo path
+	ProcMemInfo = "/proc/meminfo"
+
+	// ProcCPUInfo is the /proc/cpuinfo path
+	ProcCPUInfo = "/proc/cpuinfo"
 )
 
 const (
-	defaultVCPUs = 1
-	// 2 GiB
-	defaultMemSzMiB = 2048
+	// DefaultVCPUs is the number of vCPUs a virtcontainers VM will run with by default.
+	DefaultVCPUs = 1
 
-	defaultBridges = 1
+	// DefaultMemSzMiB is the amount of memory a virtcontainers VM will run with by default.
+	DefaultMemSzMiB = 2048
 
-	defaultBlockDriver = config.VirtioSCSI
+	// DefaultBridges is the number of PCI bridges a virtcontainers VM will run with by default.
+	DefaultBridges = 1
+
+	// DefaultBlockDriver is the default virtio block based driver.
+	DefaultBlockDriver = config.VirtioSCSI
+
+	// DefaultMaxQemuVCPUs is the maximum number of vCPUs a virtcontainers VM will run with by default.
+	DefaultMaxQemuVCPUs uint32 = 4
+
+	// DefaultMsize9p is the default 9pfs msize value.
+	DefaultMsize9p = 8192
 )
 
 // In some architectures the maximum number of vCPUs depends on the number of physical cores.
-var defaultMaxQemuVCPUs = MaxQemuVCPUs()
+//var defaultMaxQemuVCPUs = MaxQemuVCPUs()
 
-// deviceType describes a virtualized device type.
-type deviceType int
+// Device describes a virtualized device.
+type Device int
 
 const (
 	// ImgDev is the image device type.
-	imgDev deviceType = iota
+	ImgDev Device = iota
 
 	// FsDev is the filesystem device type.
-	fsDev
+	FsDev
 
 	// NetDev is the network device type.
-	netDev
+	NetDev
 
 	// SerialDev is the serial device type.
-	serialDev // nolint: varcheck,unused
+	SerialDev // nolint: varcheck,unused
 
 	// BlockDev is the block device type.
-	blockDev
+	BlockDev
 
 	// ConsoleDev is the console device type.
-	consoleDev // nolint: varcheck,unused
+	ConsoleDev // nolint: varcheck,unused
 
 	// SerialPortDev is the serial port device type.
-	serialPortDev
+	SerialPortDev
 
-	// vSockPCIDev is the vhost vsock PCI device type.
-	vSockPCIDev
+	// VSockPCIDev is the vhost vsock PCI device type.
+	VSockPCIDev
 
-	// VFIODevice is VFIO device type
-	vfioDev
+	// VfioDev is VFIO device type
+	VfioDev
 
-	// vhostuserDev is a Vhost-user device type
-	vhostuserDev
+	// VhostuserDev is a Vhost-user device type
+	VhostuserDev
 
-	// CPUDevice is CPU device type
-	cpuDev
+	// CPUDev is CPU device type
+	CPUDev
 
-	// memoryDevice is memory device type
-	memoryDev
+	// MemoryDev is memory device type
+	MemoryDev
 )
 
-type memoryDevice struct {
-	slot   int
-	sizeMB int
+// MemoryDevice represents a memory slot
+type MemoryDevice struct {
+	// Slot is the memory slot ID
+	Slot int
+
+	// SizeMB is the memory slot size in MBytes.
+	SizeMB int
 }
 
 // Set sets an hypervisor type based on the input string.
-func (hType *HypervisorType) Set(value string) error {
+func (t *Type) Set(value string) error {
 	switch value {
 	case "qemu":
-		*hType = QemuHypervisor
+		*t = Qemu
 		return nil
 	case "firecracker":
-		*hType = FirecrackerHypervisor
+		*t = Firecracker
 		return nil
 	case "mock":
-		*hType = MockHypervisor
+		*t = Mock
 		return nil
 	default:
 		return fmt.Errorf("Unknown hypervisor type %s", value)
@@ -117,31 +146,22 @@ func (hType *HypervisorType) Set(value string) error {
 }
 
 // String converts an hypervisor type to a string.
-func (hType *HypervisorType) String() string {
-	switch *hType {
-	case QemuHypervisor:
-		return string(QemuHypervisor)
-	case FirecrackerHypervisor:
-		return string(FirecrackerHypervisor)
-	case MockHypervisor:
-		return string(MockHypervisor)
+func (t *Type) String() string {
+	switch *t {
+	case Qemu:
+		return string(Qemu)
+	case Firecracker:
+		return string(Firecracker)
+	case Mock:
+		return string(Mock)
 	default:
 		return ""
 	}
 }
 
-// newHypervisor returns an hypervisor from and hypervisor type.
-func newHypervisor(hType HypervisorType) (hypervisor, error) {
-	switch hType {
-	case QemuHypervisor:
-		return &qemu{}, nil
-	case FirecrackerHypervisor:
-		return &firecracker{}, nil
-	case MockHypervisor:
-		return &mockHypervisor{}, nil
-	default:
-		return nil, fmt.Errorf("Unknown hypervisor type %s", hType)
-	}
+// New returns an hypervisor from and hypervisor type.
+func New(t Type) (Hypervisor, error) {
+	return nil, fmt.Errorf("Unknown hypervisor type %s", t)
 }
 
 // Param is a key/value representation for hypervisor and kernel parameters.
@@ -150,8 +170,8 @@ type Param struct {
 	Value string
 }
 
-// HypervisorConfig is the hypervisor configuration.
-type HypervisorConfig struct {
+// Config is the hypervisor configuration.
+type Config struct {
 	// NumVCPUs specifies default number of vCPUs for the VM.
 	NumVCPUs uint32
 
@@ -285,11 +305,13 @@ type HypervisorConfig struct {
 	GuestHookPath string
 }
 
-type threadIDs struct {
-	vcpus []int
+// ThreadIDs represent a set of threads vCPU IDs.
+type ThreadIDs struct {
+	// VCPUs is a slice of vCPU IDs.
+	VCPUs []int
 }
 
-func (conf *HypervisorConfig) checkTemplateConfig() error {
+func (conf *Config) checkTemplateConfig() error {
 	if conf.BootToBeTemplate && conf.BootFromTemplate {
 		return fmt.Errorf("Cannot set both 'to be' and 'from' vm tempate")
 	}
@@ -307,7 +329,8 @@ func (conf *HypervisorConfig) checkTemplateConfig() error {
 	return nil
 }
 
-func (conf *HypervisorConfig) valid() error {
+// Valid checks if a hypervisor configuration is valid.
+func (conf *Config) Valid() error {
 	if conf.KernelPath == "" {
 		return fmt.Errorf("Missing kernel path")
 	}
@@ -321,27 +344,27 @@ func (conf *HypervisorConfig) valid() error {
 	}
 
 	if conf.NumVCPUs == 0 {
-		conf.NumVCPUs = defaultVCPUs
+		conf.NumVCPUs = DefaultVCPUs
 	}
 
 	if conf.MemorySize == 0 {
-		conf.MemorySize = defaultMemSzMiB
+		conf.MemorySize = DefaultMemSzMiB
 	}
 
 	if conf.DefaultBridges == 0 {
-		conf.DefaultBridges = defaultBridges
+		conf.DefaultBridges = DefaultBridges
 	}
 
 	if conf.BlockDeviceDriver == "" {
-		conf.BlockDeviceDriver = defaultBlockDriver
+		conf.BlockDeviceDriver = DefaultBlockDriver
 	}
 
 	if conf.DefaultMaxVCPUs == 0 {
-		conf.DefaultMaxVCPUs = defaultMaxQemuVCPUs
+		conf.DefaultMaxVCPUs = DefaultMaxQemuVCPUs
 	}
 
 	if conf.Msize9p == 0 {
-		conf.Msize9p = defaultMsize9p
+		conf.Msize9p = DefaultMsize9p
 	}
 
 	return nil
@@ -349,7 +372,7 @@ func (conf *HypervisorConfig) valid() error {
 
 // AddKernelParam allows the addition of new kernel parameters to an existing
 // hypervisor configuration.
-func (conf *HypervisorConfig) AddKernelParam(p Param) error {
+func (conf *Config) AddKernelParam(p Param) error {
 	if p.Key == "" {
 		return fmt.Errorf("Empty kernel parameter")
 	}
@@ -359,7 +382,8 @@ func (conf *HypervisorConfig) AddKernelParam(p Param) error {
 	return nil
 }
 
-func (conf *HypervisorConfig) addCustomAsset(a *types.Asset) error {
+// AddCustomAsset adds a custom asset to a hypervisor configuration
+func (conf *Config) AddCustomAsset(a *types.Asset) error {
 	if a == nil || a.Path() == "" {
 		// We did not get a custom asset, we will use the default one.
 		return nil
@@ -369,7 +393,7 @@ func (conf *HypervisorConfig) addCustomAsset(a *types.Asset) error {
 		return fmt.Errorf("Invalid %s at %s", a.Type(), a.Path())
 	}
 
-	virtLog.Debugf("Using custom %v asset %s", a.Type(), a.Path())
+	hLog.Debugf("Using custom %v asset %s", a.Type(), a.Path())
 
 	if conf.customAssets == nil {
 		conf.customAssets = make(map[types.AssetType]*types.Asset)
@@ -380,7 +404,7 @@ func (conf *HypervisorConfig) addCustomAsset(a *types.Asset) error {
 	return nil
 }
 
-func (conf *HypervisorConfig) assetPath(t types.AssetType) (string, error) {
+func (conf *Config) assetPath(t types.AssetType) (string, error) {
 	// Custom assets take precedence over the configured ones
 	a, ok := conf.customAssets[t]
 	if ok {
@@ -405,7 +429,7 @@ func (conf *HypervisorConfig) assetPath(t types.AssetType) (string, error) {
 	}
 }
 
-func (conf *HypervisorConfig) isCustomAsset(t types.AssetType) bool {
+func (conf *Config) isCustomAsset(t types.AssetType) bool {
 	_, ok := conf.customAssets[t]
 	if ok {
 		return true
@@ -415,52 +439,52 @@ func (conf *HypervisorConfig) isCustomAsset(t types.AssetType) bool {
 }
 
 // KernelAssetPath returns the guest kernel path
-func (conf *HypervisorConfig) KernelAssetPath() (string, error) {
+func (conf *Config) KernelAssetPath() (string, error) {
 	return conf.assetPath(types.KernelAsset)
 }
 
 // CustomKernelAsset returns true if the kernel asset is a custom one, false otherwise.
-func (conf *HypervisorConfig) CustomKernelAsset() bool {
+func (conf *Config) CustomKernelAsset() bool {
 	return conf.isCustomAsset(types.KernelAsset)
 }
 
 // ImageAssetPath returns the guest image path
-func (conf *HypervisorConfig) ImageAssetPath() (string, error) {
+func (conf *Config) ImageAssetPath() (string, error) {
 	return conf.assetPath(types.ImageAsset)
 }
 
 // CustomImageAsset returns true if the image asset is a custom one, false otherwise.
-func (conf *HypervisorConfig) CustomImageAsset() bool {
+func (conf *Config) CustomImageAsset() bool {
 	return conf.isCustomAsset(types.ImageAsset)
 }
 
 // InitrdAssetPath returns the guest initrd path
-func (conf *HypervisorConfig) InitrdAssetPath() (string, error) {
+func (conf *Config) InitrdAssetPath() (string, error) {
 	return conf.assetPath(types.InitrdAsset)
 }
 
 // CustomInitrdAsset returns true if the initrd asset is a custom one, false otherwise.
-func (conf *HypervisorConfig) CustomInitrdAsset() bool {
+func (conf *Config) CustomInitrdAsset() bool {
 	return conf.isCustomAsset(types.InitrdAsset)
 }
 
 // HypervisorAssetPath returns the VM hypervisor path
-func (conf *HypervisorConfig) HypervisorAssetPath() (string, error) {
+func (conf *Config) HypervisorAssetPath() (string, error) {
 	return conf.assetPath(types.HypervisorAsset)
 }
 
 // CustomHypervisorAsset returns true if the hypervisor asset is a custom one, false otherwise.
-func (conf *HypervisorConfig) CustomHypervisorAsset() bool {
+func (conf *Config) CustomHypervisorAsset() bool {
 	return conf.isCustomAsset(types.HypervisorAsset)
 }
 
 // FirmwareAssetPath returns the guest firmware path
-func (conf *HypervisorConfig) FirmwareAssetPath() (string, error) {
+func (conf *Config) FirmwareAssetPath() (string, error) {
 	return conf.assetPath(types.FirmwareAsset)
 }
 
 // CustomFirmwareAsset returns true if the firmware asset is a custom one, false otherwise.
-func (conf *HypervisorConfig) CustomFirmwareAsset() bool {
+func (conf *Config) CustomFirmwareAsset() bool {
 	return conf.isCustomAsset(types.FirmwareAsset)
 }
 
@@ -509,7 +533,8 @@ func DeserializeParams(parameters []string) []Param {
 	return params
 }
 
-func getHostMemorySizeKb(memInfoPath string) (uint64, error) {
+// GetHostMemorySizeKb return the host memory size in KBytes.
+func GetHostMemorySizeKb(memInfoPath string) (uint64, error) {
 	f, err := os.Open(memInfoPath)
 	if err != nil {
 		return 0, err
@@ -545,7 +570,7 @@ func getHostMemorySizeKb(memInfoPath string) (uint64, error) {
 // RunningOnVMM checks if the system is running inside a VM.
 func RunningOnVMM(cpuInfoPath string) (bool, error) {
 	if runtime.GOARCH == "arm64" || runtime.GOARCH == "ppc64le" || runtime.GOARCH == "s390x" {
-		virtLog.Info("Unable to know if the system is running inside a VM")
+		hLog.Info("Unable to know if the system is running inside a VM")
 		return false, nil
 	}
 
@@ -589,24 +614,24 @@ func RunningOnVMM(cpuInfoPath string) (bool, error) {
 	return false, fmt.Errorf("Couldn't find %q from %q output", flagsField, cpuInfoPath)
 }
 
-// hypervisor is the virtcontainers hypervisor interface.
+// Hypervisor is the virtcontainers hypervisor interface.
 // The default hypervisor implementation is Qemu.
-type hypervisor interface {
-	createSandbox(ctx context.Context, id string, hypervisorConfig *HypervisorConfig, store *store.VCStore) error
-	startSandbox(timeout int) error
-	stopSandbox() error
-	pauseSandbox() error
-	saveSandbox() error
-	resumeSandbox() error
-	addDevice(devInfo interface{}, devType deviceType) error
-	hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error)
-	hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error)
-	resizeMemory(memMB uint32, memoryBlockSizeMB uint32) (uint32, error)
-	resizeVCPUs(vcpus uint32) (uint32, uint32, error)
-	getSandboxConsole(sandboxID string) (string, error)
-	disconnect()
-	capabilities() types.Capabilities
-	hypervisorConfig() HypervisorConfig
-	getThreadIDs() (*threadIDs, error)
-	cleanup() error
+type Hypervisor interface {
+	CreateSandbox(ctx context.Context, id string, hypervisorConfig *Config, store *store.VCStore) error
+	StartSandbox(timeout int) error
+	StopSandbox() error
+	PauseSandbox() error
+	SaveSandbox() error
+	ResumeSandbox() error
+	AddDevice(devInfo interface{}, dev Device) error
+	HotplugAddDevice(devInfo interface{}, dev Device) (interface{}, error)
+	HotplugRemoveDevice(devInfo interface{}, dev Device) (interface{}, error)
+	ResizeMemory(memMB uint32, memoryBlockSizeMB uint32) (uint32, error)
+	ResizeVCPUs(vcpus uint32) (uint32, uint32, error)
+	GetSandboxConsole(sandboxID string) (string, error)
+	Disconnect()
+	Capabilities() types.Capabilities
+	Config() Config
+	GetThreadIDs() (*ThreadIDs, error)
+	Cleanup() error
 }

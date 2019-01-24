@@ -12,12 +12,13 @@ import (
 	"testing"
 
 	govmmQemu "github.com/intel/govmm/qemu"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 )
 
 func newTestQemu(machineType string) qemuArch {
-	config := HypervisorConfig{
+	config := hypervisor.Config{
 		HypervisorMachineType: machineType,
 	}
 	return newQemuArch(config)

@@ -23,6 +23,7 @@ import (
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	dockershimAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations/dockershim"
 	"github.com/kata-containers/runtime/virtcontainers/types"
@@ -100,8 +101,8 @@ type FactoryConfig struct {
 
 // RuntimeConfig aggregates all runtime specific settings
 type RuntimeConfig struct {
-	HypervisorType   vc.HypervisorType
-	HypervisorConfig vc.HypervisorConfig
+	HypervisorType   hypervisor.Type
+	HypervisorConfig hypervisor.Config
 
 	NetmonConfig vc.NetmonConfig
 
@@ -132,7 +133,7 @@ type RuntimeConfig struct {
 
 // AddKernelParam allows the addition of new kernel parameters to an existing
 // hypervisor configuration stored inside the current runtime configuration.
-func (config *RuntimeConfig) AddKernelParam(p vc.Param) error {
+func (config *RuntimeConfig) AddKernelParam(p hypervisor.Param) error {
 	return config.HypervisorConfig.AddKernelParam(p)
 }
 

@@ -8,6 +8,7 @@ package virtcontainers
 import (
 	"os"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 
 	govmmQemu "github.com/intel/govmm/qemu"
@@ -32,13 +33,13 @@ var qemuPaths = map[string]string{
 	QemuQ35:    defaultQemuPath,
 }
 
-var kernelRootParams = []Param{
+var kernelRootParams = []hypervisor.Param{
 	{"root", "/dev/pmem0p1"},
 	{"rootflags", "dax,data=ordered,errors=remount-ro rw"},
 	{"rootfstype", "ext4"},
 }
 
-var kernelParams = []Param{
+var kernelParams = []hypervisor.Param{
 	{"tsc", "reliable"},
 	{"no_timer_check", ""},
 	{"rcupdate.rcu_expedited", "1"},
@@ -80,7 +81,7 @@ func MaxQemuVCPUs() uint32 {
 	return uint32(240)
 }
 
-func newQemuArch(config HypervisorConfig) qemuArch {
+func newQemuArch(config hypervisor.Config) qemuArch {
 	machineType := config.HypervisorMachineType
 	if machineType == "" {
 		machineType = defaultQemuMachineType

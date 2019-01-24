@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/sirupsen/logrus"
@@ -20,7 +21,7 @@ import (
 type VM struct {
 	id string
 
-	hypervisor hypervisor
+	hypervisor hypervisor.Hypervisor
 	agent      agent
 
 	proxy    proxy
@@ -37,8 +38,8 @@ type VM struct {
 
 // VMConfig is a collection of all info that a new blackbox VM needs.
 type VMConfig struct {
-	HypervisorType   HypervisorType
-	HypervisorConfig HypervisorConfig
+	HypervisorType   hypervisor.Type
+	HypervisorConfig hypervisor.Config
 
 	AgentType   AgentType
 	AgentConfig interface{}
@@ -49,11 +50,11 @@ type VMConfig struct {
 
 // Valid check VMConfig validity.
 func (c *VMConfig) Valid() error {
-	return c.HypervisorConfig.valid()
+	return c.HypervisorConfig.Valid()
 }
 
-func setupProxy(h hypervisor, agent agent, config VMConfig, id string) (int, string, proxy, error) {
-	consoleURL, err := h.getSandboxConsole(id)
+func setupProxy(h hypervisor.Hypervisor, agent agent, config VMConfig, id string) (int, string, proxy, error) {
+	consoleURL, err := h.GetSandboxConsole(id)
 	if err != nil {
 		return -1, "", nil, err
 	}
@@ -102,7 +103,7 @@ func NewVM(ctx context.Context, config VMConfig) (*VM, error) {
 	)
 
 	// 1. setup hypervisor
-	hypervisor, err := newHypervisor(config.HypervisorType)
+	hypervisor, err := hypervisor.New(config.HypervisorType)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +131,7 @@ func NewVM(ctx context.Context, config VMConfig) (*VM, error) {
 		}
 	}()
 
-	if err = hypervisor.createSandbox(ctx, id, &config.HypervisorConfig, vcStore); err != nil {
+	if err = hypervisor.CreateSandbox(ctx, id, &config.HypervisorConfig, vcStore); err != nil {
 		return nil, err
 	}
 
@@ -143,14 +144,14 @@ func NewVM(ctx context.Context, config VMConfig) (*VM, error) {
 	}
 
 	// 3. boot up guest vm
-	if err = hypervisor.startSandbox(vmStartTimeout); err != nil {
+	if err = hypervisor.StartSandbox(vmStartTimeout); err != nil {
 		return nil, err
 	}
 
 	defer func() {
 		if err != nil {
 			virtLog.WithField("vm", id).WithError(err).Info("clean up vm")
-			hypervisor.stopSandbox()
+			hypervisor.StopSandbox()
 		}
 	}()
 
@@ -203,25 +204,25 @@ func (v *VM) logger() logrus.FieldLogger {
 // Pause pauses a VM.
 func (v *VM) Pause() error {
 	v.logger().Info("pause vm")
-	return v.hypervisor.pauseSandbox()
+	return v.hypervisor.PauseSandbox()
 }
 
 // Save saves a VM to persistent disk.
 func (v *VM) Save() error {
 	v.logger().Info("save vm")
-	return v.hypervisor.saveSandbox()
+	return v.hypervisor.SaveSandbox()
 }
 
 // Resume resumes a paused VM.
 func (v *VM) Resume() error {
 	v.logger().Info("resume vm")
-	return v.hypervisor.resumeSandbox()
+	return v.hypervisor.ResumeSandbox()
 }
 
 // Start kicks off a configured VM.
 func (v *VM) Start() error {
 	v.logger().Info("start vm")
-	return v.hypervisor.startSandbox(vmStartTimeout)
+	return v.hypervisor.StartSandbox(vmStartTimeout)
 }
 
 // Disconnect agent and proxy connections to a VM
@@ -242,7 +243,7 @@ func (v *VM) Disconnect() error {
 func (v *VM) Stop() error {
 	v.logger().Info("stop vm")
 
-	if err := v.hypervisor.stopSandbox(); err != nil {
+	if err := v.hypervisor.StopSandbox(); err != nil {
 		return err
 	}
 
@@ -253,7 +254,7 @@ func (v *VM) Stop() error {
 func (v *VM) AddCPUs(num uint32) error {
 	if num > 0 {
 		v.logger().Infof("hot adding %d vCPUs", num)
-		if _, err := v.hypervisor.hotplugAddDevice(num, cpuDev); err != nil {
+		if _, err := v.hypervisor.HotplugAddDevice(num, hypervisor.CPUDev); err != nil {
 			return err
 		}
 		v.cpuDelta += num
@@ -267,8 +268,11 @@ func (v *VM) AddCPUs(num uint32) error {
 func (v *VM) AddMemory(numMB uint32) error {
 	if numMB > 0 {
 		v.logger().Infof("hot adding %d MB memory", numMB)
-		dev := &memoryDevice{1, int(numMB)}
-		if _, err := v.hypervisor.hotplugAddDevice(dev, memoryDev); err != nil {
+		dev := &hypervisor.MemoryDevice{
+			Slot:   1,
+			SizeMB: int(numMB),
+		}
+		if _, err := v.hypervisor.HotplugAddDevice(dev, hypervisor.MemoryDev); err != nil {
 			return err
 		}
 	}

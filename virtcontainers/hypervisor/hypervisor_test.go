@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
@@ -14,8 +14,17 @@ import (
 	"testing"
 )
 
-func testSetHypervisorType(t *testing.T, value string, expected HypervisorType) {
-	var hypervisorType HypervisorType
+const testKernel = "kernel"
+const testInitrd = "initrd"
+const testImage = "image"
+const testHypervisor = "hypervisor"
+
+var testDir = ""
+
+const testDisabledAsNonRoot = "Test disabled as requires root privileges"
+
+func testSetType(t *testing.T, value string, expected Type) {
+	var hypervisorType Type
 
 	err := (&hypervisorType).Set(value)
 	if err != nil {
@@ -27,52 +36,53 @@ func testSetHypervisorType(t *testing.T, value string, expected HypervisorType) 
 	}
 }
 
-func TestSetQemuHypervisorType(t *testing.T) {
-	testSetHypervisorType(t, "qemu", QemuHypervisor)
+func TestSetQemuType(t *testing.T) {
+	testSetType(t, "qemu", Qemu)
 }
 
-func TestSetMockHypervisorType(t *testing.T) {
-	testSetHypervisorType(t, "mock", MockHypervisor)
+func TestSetMockType(t *testing.T) {
+	testSetType(t, "mock", Mock)
 }
 
-func TestSetUnknownHypervisorType(t *testing.T) {
-	var hypervisorType HypervisorType
+func TestSetUnknownType(t *testing.T) {
+	var hypervisorType Type
 
 	err := (&hypervisorType).Set("unknown")
 	if err == nil {
 		t.Fatal()
 	}
 
-	if hypervisorType == QemuHypervisor ||
-		hypervisorType == MockHypervisor {
+	if hypervisorType == Qemu ||
+		hypervisorType == Mock ||
+		hypervisorType == Firecracker {
 		t.Fatal()
 	}
 }
 
-func testStringFromHypervisorType(t *testing.T, hypervisorType HypervisorType, expected string) {
+func testStringFromType(t *testing.T, hypervisorType Type, expected string) {
 	hypervisorTypeStr := (&hypervisorType).String()
 	if hypervisorTypeStr != expected {
 		t.Fatal()
 	}
 }
 
-func TestStringFromQemuHypervisorType(t *testing.T) {
-	hypervisorType := QemuHypervisor
-	testStringFromHypervisorType(t, hypervisorType, "qemu")
+func TestStringFromQemuType(t *testing.T) {
+	hypervisorType := Qemu
+	testStringFromType(t, hypervisorType, "qemu")
 }
 
-func TestStringFromMockHypervisorType(t *testing.T) {
-	hypervisorType := MockHypervisor
-	testStringFromHypervisorType(t, hypervisorType, "mock")
+func TestStringFromMockType(t *testing.T) {
+	hypervisorType := Mock
+	testStringFromType(t, hypervisorType, "mock")
 }
 
-func TestStringFromUnknownHypervisorType(t *testing.T) {
-	var hypervisorType HypervisorType
-	testStringFromHypervisorType(t, hypervisorType, "")
+func TestStringFromUnknownType(t *testing.T) {
+	var hypervisorType Type
+	testStringFromType(t, hypervisorType, "")
 }
 
-func testNewHypervisorFromHypervisorType(t *testing.T, hypervisorType HypervisorType, expected hypervisor) {
-	hy, err := newHypervisor(hypervisorType)
+func testNewHypervisorFromType(t *testing.T, hypervisorType Type, expected Hypervisor) {
+	hy, err := New(hypervisorType)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,22 +92,22 @@ func testNewHypervisorFromHypervisorType(t *testing.T, hypervisorType Hypervisor
 	}
 }
 
-func TestNewHypervisorFromQemuHypervisorType(t *testing.T) {
-	hypervisorType := QemuHypervisor
-	expectedHypervisor := &qemu{}
-	testNewHypervisorFromHypervisorType(t, hypervisorType, expectedHypervisor)
-}
+// func TestNewHypervisorFromQemuType(t *testing.T) {
+// 	hypervisorType := Qemu
+// 	expectedHypervisor := &qemu{}
+// 	testNewHypervisorFromType(t, hypervisorType, expectedHypervisor)
+// }
 
-func TestNewHypervisorFromMockHypervisorType(t *testing.T) {
-	hypervisorType := MockHypervisor
-	expectedHypervisor := &mockHypervisor{}
-	testNewHypervisorFromHypervisorType(t, hypervisorType, expectedHypervisor)
-}
+// func TestNewHypervisorFromMockType(t *testing.T) {
+// 	hypervisorType := Mock
+// 	expectedHypervisor := &mockHypervisor{}
+// 	testNewHypervisorFromType(t, hypervisorType, expectedHypervisor)
+// }
 
-func TestNewHypervisorFromUnknownHypervisorType(t *testing.T) {
-	var hypervisorType HypervisorType
+func TestNewHypervisorFromUnknownType(t *testing.T) {
+	var hypervisorType Type
 
-	hy, err := newHypervisor(hypervisorType)
+	hy, err := New(hypervisorType)
 	if err == nil {
 		t.Fatal()
 	}
@@ -107,8 +117,8 @@ func TestNewHypervisorFromUnknownHypervisorType(t *testing.T) {
 	}
 }
 
-func testHypervisorConfigValid(t *testing.T, hypervisorConfig *HypervisorConfig, success bool) {
-	err := hypervisorConfig.valid()
+func testConfigValid(t *testing.T, hypervisorConfig *Config, success bool) {
+	err := hypervisorConfig.Valid()
 	if success && err != nil {
 		t.Fatal()
 	}
@@ -117,88 +127,88 @@ func testHypervisorConfigValid(t *testing.T, hypervisorConfig *HypervisorConfig,
 	}
 }
 
-func TestHypervisorConfigNoKernelPath(t *testing.T) {
-	hypervisorConfig := &HypervisorConfig{
+func TestConfigNoKernelPath(t *testing.T) {
+	hypervisorConfig := &Config{
 		KernelPath:     "",
 		ImagePath:      fmt.Sprintf("%s/%s", testDir, testImage),
 		HypervisorPath: fmt.Sprintf("%s/%s", testDir, testHypervisor),
 	}
 
-	testHypervisorConfigValid(t, hypervisorConfig, false)
+	testConfigValid(t, hypervisorConfig, false)
 }
 
-func TestHypervisorConfigNoImagePath(t *testing.T) {
-	hypervisorConfig := &HypervisorConfig{
+func TestConfigNoImagePath(t *testing.T) {
+	hypervisorConfig := &Config{
 		KernelPath:     fmt.Sprintf("%s/%s", testDir, testKernel),
 		ImagePath:      "",
 		HypervisorPath: fmt.Sprintf("%s/%s", testDir, testHypervisor),
 	}
 
-	testHypervisorConfigValid(t, hypervisorConfig, false)
+	testConfigValid(t, hypervisorConfig, false)
 }
 
-func TestHypervisorConfigNoHypervisorPath(t *testing.T) {
-	hypervisorConfig := &HypervisorConfig{
+func TestConfigNoHypervisorPath(t *testing.T) {
+	hypervisorConfig := &Config{
 		KernelPath:     fmt.Sprintf("%s/%s", testDir, testKernel),
 		ImagePath:      fmt.Sprintf("%s/%s", testDir, testImage),
 		HypervisorPath: "",
 	}
 
-	testHypervisorConfigValid(t, hypervisorConfig, true)
+	testConfigValid(t, hypervisorConfig, true)
 }
 
-func TestHypervisorConfigIsValid(t *testing.T) {
-	hypervisorConfig := &HypervisorConfig{
+func TestConfigIsValid(t *testing.T) {
+	hypervisorConfig := &Config{
 		KernelPath:     fmt.Sprintf("%s/%s", testDir, testKernel),
 		ImagePath:      fmt.Sprintf("%s/%s", testDir, testImage),
 		HypervisorPath: fmt.Sprintf("%s/%s", testDir, testHypervisor),
 	}
 
-	testHypervisorConfigValid(t, hypervisorConfig, true)
+	testConfigValid(t, hypervisorConfig, true)
 }
 
-func TestHypervisorConfigValidTemplateConfig(t *testing.T) {
-	hypervisorConfig := &HypervisorConfig{
+func TestConfigValidTemplateConfig(t *testing.T) {
+	hypervisorConfig := &Config{
 		KernelPath:       fmt.Sprintf("%s/%s", testDir, testKernel),
 		ImagePath:        fmt.Sprintf("%s/%s", testDir, testImage),
 		HypervisorPath:   fmt.Sprintf("%s/%s", testDir, testHypervisor),
 		BootToBeTemplate: true,
 		BootFromTemplate: true,
 	}
-	testHypervisorConfigValid(t, hypervisorConfig, false)
+	testConfigValid(t, hypervisorConfig, false)
 
 	hypervisorConfig.BootToBeTemplate = false
-	testHypervisorConfigValid(t, hypervisorConfig, false)
+	testConfigValid(t, hypervisorConfig, false)
 	hypervisorConfig.MemoryPath = "foobar"
-	testHypervisorConfigValid(t, hypervisorConfig, false)
+	testConfigValid(t, hypervisorConfig, false)
 	hypervisorConfig.DevicesStatePath = "foobar"
-	testHypervisorConfigValid(t, hypervisorConfig, true)
+	testConfigValid(t, hypervisorConfig, true)
 
 	hypervisorConfig.BootFromTemplate = false
 	hypervisorConfig.BootToBeTemplate = true
-	testHypervisorConfigValid(t, hypervisorConfig, true)
+	testConfigValid(t, hypervisorConfig, true)
 	hypervisorConfig.MemoryPath = ""
-	testHypervisorConfigValid(t, hypervisorConfig, false)
+	testConfigValid(t, hypervisorConfig, false)
 }
 
-func TestHypervisorConfigDefaults(t *testing.T) {
-	hypervisorConfig := &HypervisorConfig{
+func TestConfigDefaults(t *testing.T) {
+	hypervisorConfig := &Config{
 		KernelPath:     fmt.Sprintf("%s/%s", testDir, testKernel),
 		ImagePath:      fmt.Sprintf("%s/%s", testDir, testImage),
 		HypervisorPath: "",
 	}
-	testHypervisorConfigValid(t, hypervisorConfig, true)
+	testConfigValid(t, hypervisorConfig, true)
 
-	hypervisorConfigDefaultsExpected := &HypervisorConfig{
+	hypervisorConfigDefaultsExpected := &Config{
 		KernelPath:        fmt.Sprintf("%s/%s", testDir, testKernel),
 		ImagePath:         fmt.Sprintf("%s/%s", testDir, testImage),
 		HypervisorPath:    "",
-		NumVCPUs:          defaultVCPUs,
-		MemorySize:        defaultMemSzMiB,
-		DefaultBridges:    defaultBridges,
-		BlockDeviceDriver: defaultBlockDriver,
-		DefaultMaxVCPUs:   defaultMaxQemuVCPUs,
-		Msize9p:           defaultMsize9p,
+		NumVCPUs:          DefaultVCPUs,
+		MemorySize:        DefaultMemSzMiB,
+		DefaultBridges:    DefaultBridges,
+		BlockDeviceDriver: DefaultBlockDriver,
+		DefaultMaxVCPUs:   DefaultMaxQemuVCPUs,
+		Msize9p:           DefaultMsize9p,
 	}
 
 	if reflect.DeepEqual(hypervisorConfig, hypervisorConfigDefaultsExpected) == false {
@@ -353,7 +363,7 @@ func TestDeserializeParams(t *testing.T) {
 }
 
 func TestAddKernelParamValid(t *testing.T) {
-	var config HypervisorConfig
+	var config Config
 
 	expected := []Param{
 		{"foo", "bar"},
@@ -366,7 +376,7 @@ func TestAddKernelParamValid(t *testing.T) {
 }
 
 func TestAddKernelParamInvalid(t *testing.T) {
-	var config HypervisorConfig
+	var config Config
 
 	invalid := []Param{
 		{"", "bar"},
@@ -415,7 +425,7 @@ func TestGetHostMemorySizeKb(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	file := filepath.Join(dir, "meminfo")
-	if _, err := getHostMemorySizeKb(file); err == nil {
+	if _, err := GetHostMemorySizeKb(file); err == nil {
 		t.Fatalf("expected failure as file %q does not exist", file)
 	}
 
@@ -425,7 +435,7 @@ func TestGetHostMemorySizeKb(t *testing.T) {
 		}
 		defer os.Remove(file)
 
-		hostMemKb, err := getHostMemorySizeKb(file)
+		hostMemKb, err := GetHostMemorySizeKb(file)
 
 		if (d.expectError && err == nil) || (!d.expectError && err != nil) {
 			t.Fatalf("got %d, input %v", hostMemKb, d)

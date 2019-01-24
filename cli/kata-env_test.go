@@ -20,6 +20,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcUtils "github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
@@ -344,7 +345,7 @@ func getExpectedImage(config oci.RuntimeConfig) ImageInfo {
 func getExpectedKernel(config oci.RuntimeConfig) KernelInfo {
 	return KernelInfo{
 		Path:       config.HypervisorConfig.KernelPath,
-		Parameters: strings.Join(vc.SerializeParams(config.HypervisorConfig.KernelParams, "="), " "),
+		Parameters: strings.Join(hypervisor.SerializeParams(config.HypervisorConfig.KernelParams, "="), " "),
 	}
 }
 

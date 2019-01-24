@@ -8,6 +8,8 @@ package virtcontainers
 import (
 	"fmt"
 	"os"
+
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 )
 
 // MacvtapEndpoint represents a macvtap endpoint
@@ -54,23 +56,23 @@ func (endpoint *MacvtapEndpoint) SetProperties(properties NetworkInfo) {
 }
 
 // Attach for macvtap endpoint passes macvtap device to the hypervisor.
-func (endpoint *MacvtapEndpoint) Attach(h hypervisor) error {
+func (endpoint *MacvtapEndpoint) Attach(h hypervisor.Hypervisor) error {
 	var err error
 
-	endpoint.VMFds, err = createMacvtapFds(endpoint.EndpointProperties.Iface.Index, int(h.hypervisorConfig().NumVCPUs))
+	endpoint.VMFds, err = createMacvtapFds(endpoint.EndpointProperties.Iface.Index, int(h.Config().NumVCPUs))
 	if err != nil {
 		return fmt.Errorf("Could not setup macvtap fds %s: %s", endpoint.EndpointProperties.Iface.Name, err)
 	}
 
-	if !h.hypervisorConfig().DisableVhostNet {
-		vhostFds, err := createVhostFds(int(h.hypervisorConfig().NumVCPUs))
+	if !h.Config().DisableVhostNet {
+		vhostFds, err := createVhostFds(int(h.Config().NumVCPUs))
 		if err != nil {
 			return fmt.Errorf("Could not setup vhost fds %s : %s", endpoint.EndpointProperties.Iface.Name, err)
 		}
 		endpoint.VhostFds = vhostFds
 	}
 
-	return h.addDevice(endpoint, netDev)
+	return h.AddDevice(endpoint, hypervisor.NetDev)
 }
 
 // Detach for macvtap endpoint does nothing.
@@ -79,12 +81,12 @@ func (endpoint *MacvtapEndpoint) Detach(netNsCreated bool, netNsPath string) err
 }
 
 // HotAttach for macvtap endpoint not supported yet
-func (endpoint *MacvtapEndpoint) HotAttach(h hypervisor) error {
+func (endpoint *MacvtapEndpoint) HotAttach(h hypervisor.Hypervisor) error {
 	return fmt.Errorf("MacvtapEndpoint does not support Hot attach")
 }
 
 // HotDetach for macvtap endpoint not supported yet
-func (endpoint *MacvtapEndpoint) HotDetach(h hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *MacvtapEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
 	return fmt.Errorf("MacvtapEndpoint does not support Hot detach")
 }
 

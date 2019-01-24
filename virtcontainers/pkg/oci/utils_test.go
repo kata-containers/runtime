@@ -23,6 +23,7 @@ import (
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 )
@@ -106,7 +107,7 @@ func TestMinimalSandboxConfig(t *testing.T) {
 	}()
 
 	runtimeConfig := RuntimeConfig{
-		HypervisorType: vc.QemuHypervisor,
+		HypervisorType: hypervisor.Qemu,
 		AgentType:      vc.HyperstartAgent,
 		ProxyType:      vc.CCProxyType,
 		ShimType:       vc.CCShimType,
@@ -221,7 +222,7 @@ func TestMinimalSandboxConfig(t *testing.T) {
 		ID:       containerID,
 		Hostname: "testHostname",
 
-		HypervisorType: vc.QemuHypervisor,
+		HypervisorType: hypervisor.Qemu,
 		AgentType:      vc.HyperstartAgent,
 		ProxyType:      vc.CCProxyType,
 		ShimType:       vc.CCShimType,
@@ -623,7 +624,7 @@ func TestSandboxIDFailure(t *testing.T) {
 func TestAddKernelParamValid(t *testing.T) {
 	var config RuntimeConfig
 
-	expected := []vc.Param{
+	expected := []hypervisor.Param{
 		{
 			Key:   "foo",
 			Value: "bar",
@@ -639,7 +640,7 @@ func TestAddKernelParamValid(t *testing.T) {
 func TestAddKernelParamInvalid(t *testing.T) {
 	var config RuntimeConfig
 
-	invalid := []vc.Param{
+	invalid := []hypervisor.Param{
 		{
 			Key:   "",
 			Value: "bar",

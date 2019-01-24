@@ -29,6 +29,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
 	"github.com/kata-containers/runtime/virtcontainers/device/manager"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/mock"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
@@ -412,7 +413,7 @@ func TestAppendDevices(t *testing.T) {
 	}
 
 	sandboxConfig := &SandboxConfig{
-		HypervisorConfig: HypervisorConfig{
+		HypervisorConfig: hypervisor.Config{
 			BlockDeviceDriver: config.VirtioBlock,
 		},
 	}
@@ -730,8 +731,8 @@ func TestAgentCreateContainer(t *testing.T) {
 		id:  "foobar",
 		config: &SandboxConfig{
 			ID:             "foobar",
-			HypervisorType: MockHypervisor,
-			HypervisorConfig: HypervisorConfig{
+			HypervisorType: hypervisor.Mock,
+			HypervisorConfig: hypervisor.Config{
 				KernelPath: "foo",
 				ImagePath:  "bar",
 			},

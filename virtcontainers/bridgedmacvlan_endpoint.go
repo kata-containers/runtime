@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 )
 
 // BridgedMacvlanEndpoint represents a macvlan endpoint that is bridged to the VM
@@ -83,13 +84,13 @@ func (endpoint *BridgedMacvlanEndpoint) NetworkPair() *NetworkInterfacePair {
 
 // Attach for virtual endpoint bridges the network pair and adds the
 // tap interface of the network pair to the hypervisor.
-func (endpoint *BridgedMacvlanEndpoint) Attach(h hypervisor) error {
+func (endpoint *BridgedMacvlanEndpoint) Attach(h hypervisor.Hypervisor) error {
 	if err := xConnectVMNetwork(endpoint, h); err != nil {
 		networkLogger().WithError(err).Error("Error bridging virtual ep")
 		return err
 	}
 
-	return h.addDevice(endpoint, netDev)
+	return h.AddDevice(endpoint, hypervisor.NetDev)
 }
 
 // Detach for the virtual endpoint tears down the tap and bridge
@@ -107,11 +108,11 @@ func (endpoint *BridgedMacvlanEndpoint) Detach(netNsCreated bool, netNsPath stri
 }
 
 // HotAttach for physical endpoint not supported yet
-func (endpoint *BridgedMacvlanEndpoint) HotAttach(h hypervisor) error {
+func (endpoint *BridgedMacvlanEndpoint) HotAttach(h hypervisor.Hypervisor) error {
 	return fmt.Errorf("BridgedMacvlanEndpoint does not support Hot attach")
 }
 
 // HotDetach for physical endpoint not supported yet
-func (endpoint *BridgedMacvlanEndpoint) HotDetach(h hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *BridgedMacvlanEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
 	return fmt.Errorf("BridgedMacvlanEndpoint does not support Hot detach")
 }

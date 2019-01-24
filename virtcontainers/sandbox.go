@@ -24,6 +24,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
 	deviceManager "github.com/kata-containers/runtime/virtcontainers/device/manager"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
@@ -41,8 +42,8 @@ const (
 type SandboxStatus struct {
 	ID               string
 	State            types.State
-	Hypervisor       HypervisorType
-	HypervisorConfig HypervisorConfig
+	Hypervisor       hypervisor.Type
+	HypervisorConfig hypervisor.Config
 	Agent            AgentType
 	ContainersStatus []ContainerStatus
 
@@ -58,8 +59,8 @@ type SandboxConfig struct {
 
 	Hostname string
 
-	HypervisorType   HypervisorType
-	HypervisorConfig HypervisorConfig
+	HypervisorType   hypervisor.Type
+	HypervisorConfig hypervisor.Config
 
 	AgentType   AgentType
 	AgentConfig interface{}
@@ -130,8 +131,8 @@ func (sandboxConfig *SandboxConfig) valid() bool {
 		return false
 	}
 
-	if _, err := newHypervisor(sandboxConfig.HypervisorType); err != nil {
-		sandboxConfig.HypervisorType = QemuHypervisor
+	if _, err := hypervisor.New(sandboxConfig.HypervisorType); err != nil {
+		sandboxConfig.HypervisorType = hypervisor.Qemu
 	}
 
 	return true
@@ -144,7 +145,7 @@ type Sandbox struct {
 
 	sync.Mutex
 	factory    Factory
-	hypervisor hypervisor
+	hypervisor hypervisor.Hypervisor
 	agent      agent
 	store      *store.VCStore
 	network    Network
@@ -257,7 +258,7 @@ func (s *Sandbox) Release() error {
 	if s.monitor != nil {
 		s.monitor.stop()
 	}
-	s.hypervisor.disconnect()
+	s.hypervisor.Disconnect()
 	return s.agent.disconnect()
 }
 
@@ -391,7 +392,7 @@ func createAssets(ctx context.Context, sandboxConfig *SandboxConfig) error {
 	}
 
 	for _, a := range []*types.Asset{kernel, image, initrd} {
-		if err := sandboxConfig.HypervisorConfig.addCustomAsset(a); err != nil {
+		if err := sandboxConfig.HypervisorConfig.AddCustomAsset(a); err != nil {
 			return err
 		}
 	}
@@ -484,7 +485,7 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 
 	agent := newAgent(sandboxConfig.AgentType)
 
-	hypervisor, err := newHypervisor(sandboxConfig.HypervisorType)
+	hypervisor, err := hypervisor.New(sandboxConfig.HypervisorType)
 	if err != nil {
 		return nil, err
 	}
@@ -532,7 +533,7 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 		}
 	}()
 
-	if err = s.hypervisor.createSandbox(ctx, s.id, &sandboxConfig.HypervisorConfig, s.store); err != nil {
+	if err = s.hypervisor.CreateSandbox(ctx, s.id, &sandboxConfig.HypervisorConfig, s.store); err != nil {
 		return nil, err
 	}
 
@@ -714,7 +715,7 @@ func (s *Sandbox) Delete() error {
 		s.monitor.stop()
 	}
 
-	if err := s.hypervisor.cleanup(); err != nil {
+	if err := s.hypervisor.Cleanup(); err != nil {
 		s.Logger().WithError(err).Error("failed to cleanup hypervisor")
 	}
 
@@ -927,7 +928,7 @@ func (s *Sandbox) startVM() error {
 			return nil
 		}
 
-		return s.hypervisor.startSandbox(vmStartTimeout)
+		return s.hypervisor.StartSandbox(vmStartTimeout)
 	}); err != nil {
 		return err
 	}
@@ -978,7 +979,7 @@ func (s *Sandbox) stopVM() error {
 	}
 
 	s.Logger().Info("Stopping VM")
-	return s.hypervisor.stopSandbox()
+	return s.hypervisor.StopSandbox()
 }
 
 func (s *Sandbox) addContainer(c *Container) error {
@@ -1329,7 +1330,7 @@ func (s *Sandbox) Stop() error {
 
 // Pause pauses the sandbox
 func (s *Sandbox) Pause() error {
-	if err := s.hypervisor.pauseSandbox(); err != nil {
+	if err := s.hypervisor.PauseSandbox(); err != nil {
 		return err
 	}
 
@@ -1346,7 +1347,7 @@ func (s *Sandbox) Pause() error {
 
 // Resume resumes the sandbox
 func (s *Sandbox) Resume() error {
-	if err := s.hypervisor.resumeSandbox(); err != nil {
+	if err := s.hypervisor.ResumeSandbox(); err != nil {
 		return err
 	}
 
@@ -1500,7 +1501,7 @@ func (s *Sandbox) HotplugAddDevice(device api.Device, devType config.DeviceType)
 
 		// adding a group of VFIO devices
 		for _, dev := range vfioDevices {
-			if _, err := s.hypervisor.hotplugAddDevice(dev, vfioDev); err != nil {
+			if _, err := s.hypervisor.HotplugAddDevice(dev, hypervisor.VfioDev); err != nil {
 				s.Logger().
 					WithFields(logrus.Fields{
 						"sandbox":         s.id,
@@ -1516,7 +1517,7 @@ func (s *Sandbox) HotplugAddDevice(device api.Device, devType config.DeviceType)
 		if !ok {
 			return fmt.Errorf("device type mismatch, expect device type to be %s", devType)
 		}
-		_, err := s.hypervisor.hotplugAddDevice(blockDevice.BlockDrive, blockDev)
+		_, err := s.hypervisor.HotplugAddDevice(blockDevice.BlockDrive, hypervisor.BlockDev)
 		return err
 	case config.DeviceGeneric:
 		// TODO: what?
@@ -1537,7 +1538,7 @@ func (s *Sandbox) HotplugRemoveDevice(device api.Device, devType config.DeviceTy
 
 		// remove a group of VFIO devices
 		for _, dev := range vfioDevices {
-			if _, err := s.hypervisor.hotplugRemoveDevice(dev, vfioDev); err != nil {
+			if _, err := s.hypervisor.HotplugRemoveDevice(dev, hypervisor.VfioDev); err != nil {
 				s.Logger().WithError(err).
 					WithFields(logrus.Fields{
 						"sandbox":         s.id,
@@ -1553,7 +1554,7 @@ func (s *Sandbox) HotplugRemoveDevice(device api.Device, devType config.DeviceTy
 		if !ok {
 			return fmt.Errorf("device type mismatch, expect device type to be %s", devType)
 		}
-		_, err := s.hypervisor.hotplugRemoveDevice(blockDrive, blockDev)
+		_, err := s.hypervisor.HotplugRemoveDevice(blockDrive, hypervisor.BlockDev)
 		return err
 	case config.DeviceGeneric:
 		// TODO: what?
@@ -1580,7 +1581,7 @@ func (s *Sandbox) DecrementSandboxBlockIndex() error {
 func (s *Sandbox) AppendDevice(device api.Device) error {
 	switch device.DeviceType() {
 	case config.VhostUserSCSI, config.VhostUserNet, config.VhostUserBlk:
-		return s.hypervisor.addDevice(device.GetDeviceInfo().(*config.VhostUserDeviceAttrs), vhostuserDev)
+		return s.hypervisor.AddDevice(device.GetDeviceInfo().(*config.VhostUserDeviceAttrs), hypervisor.VhostuserDev)
 	}
 	return fmt.Errorf("unsupported device type")
 }
@@ -1634,14 +1635,14 @@ func (s *Sandbox) updateResources() error {
 	}
 
 	sandboxVCPUs := uint32(utils.ConstraintsToVCPUs(*sumResources.CPU.Quota, *sumResources.CPU.Period))
-	sandboxVCPUs += s.hypervisor.hypervisorConfig().NumVCPUs
+	sandboxVCPUs += s.hypervisor.Config().NumVCPUs
 
-	sandboxMemoryByte := int64(s.hypervisor.hypervisorConfig().MemorySize) << utils.MibToBytesShift
+	sandboxMemoryByte := int64(s.hypervisor.Config().MemorySize) << utils.MibToBytesShift
 	sandboxMemoryByte += *sumResources.Memory.Limit
 
 	// Update VCPUs
 	s.Logger().WithField("cpus-sandbox", sandboxVCPUs).Debugf("Request to hypervisor to update vCPUs")
-	oldCPUs, newCPUs, err := s.hypervisor.resizeVCPUs(sandboxVCPUs)
+	oldCPUs, newCPUs, err := s.hypervisor.ResizeVCPUs(sandboxVCPUs)
 	if err != nil {
 		return err
 	}
@@ -1656,7 +1657,7 @@ func (s *Sandbox) updateResources() error {
 
 	// Update Memory
 	s.Logger().WithField("memory-sandbox-size-byte", sandboxMemoryByte).Debugf("Request to hypervisor to update memory")
-	newMemory, err := s.hypervisor.resizeMemory(uint32(sandboxMemoryByte>>utils.MibToBytesShift), s.state.GuestMemoryBlockSizeMB)
+	newMemory, err := s.hypervisor.ResizeMemory(uint32(sandboxMemoryByte>>utils.MibToBytesShift), s.state.GuestMemoryBlockSizeMB)
 	if err != nil {
 		return err
 	}

@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	vcHypervisor "github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/vcmock"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -117,7 +118,7 @@ func newTestRuntimeConfig(dir, consolePath string, create bool) (oci.RuntimeConf
 	}
 
 	return oci.RuntimeConfig{
-		HypervisorType:   vc.QemuHypervisor,
+		HypervisorType:   vcHypervisor.Qemu,
 		HypervisorConfig: hypervisorConfig,
 		AgentType:        vc.KataContainersAgent,
 		ProxyType:        vc.CCProxyType,
@@ -132,7 +133,7 @@ func newTestRuntimeConfig(dir, consolePath string, create bool) (oci.RuntimeConf
 //
 // Note: no parameter validation in case caller wishes to create an invalid
 // object.
-func newTestHypervisorConfig(dir string, create bool) (vc.HypervisorConfig, error) {
+func newTestHypervisorConfig(dir string, create bool) (vcHypervisor.Config, error) {
 	kernelPath := path.Join(dir, "kernel")
 	imagePath := path.Join(dir, "image")
 	hypervisorPath := path.Join(dir, "hypervisor")
@@ -141,12 +142,12 @@ func newTestHypervisorConfig(dir string, create bool) (vc.HypervisorConfig, erro
 		for _, file := range []string{kernelPath, imagePath, hypervisorPath} {
 			err := createEmptyFile(file)
 			if err != nil {
-				return vc.HypervisorConfig{}, err
+				return vcHypervisor.Config{}, err
 			}
 		}
 	}
 
-	return vc.HypervisorConfig{
+	return vcHypervisor.Config{
 		KernelPath:            kernelPath,
 		ImagePath:             imagePath,
 		HypervisorPath:        hypervisorPath,
@@ -155,7 +156,7 @@ func newTestHypervisorConfig(dir string, create bool) (vc.HypervisorConfig, erro
 }
 
 // return the value of the *last* param with the specified key
-func findLastParam(key string, params []vc.Param) (string, error) {
+func findLastParam(key string, params []vcHypervisor.Param) (string, error) {
 	if key == "" {
 		return "", errors.New("ERROR: need non-nil key")
 	}
@@ -218,12 +219,12 @@ func TestSetKernelParamsUserOptionTakesPriority(t *testing.T) {
 	ipName := "ip"
 	ipValue := "127.0.0.1"
 
-	params := []vc.Param{
+	params := []vcHypervisor.Param{
 		{Key: initName, Value: initValue},
 		{Key: ipName, Value: ipValue},
 	}
 
-	hypervisorConfig := vc.HypervisorConfig{
+	hypervisorConfig := vcHypervisor.Config{
 		KernelParams: params,
 	}
 

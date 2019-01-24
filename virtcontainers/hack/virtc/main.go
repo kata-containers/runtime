@@ -13,6 +13,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/sirupsen/logrus"
@@ -101,7 +102,7 @@ var sandboxConfigFlags = []cli.Flag{
 	},
 }
 
-var ccKernelParams = []vc.Param{
+var ccKernelParams = []hypervisor.Param{
 	{
 		Key:   "init",
 		Value: "/usr/lib/systemd/systemd",
@@ -120,7 +121,7 @@ var ccKernelParams = []vc.Param{
 	},
 }
 
-func buildKernelParams(config *vc.HypervisorConfig) error {
+func buildKernelParams(config *hypervisor.Config) error {
 	for _, p := range ccKernelParams {
 		if err := config.AddKernelParam(p); err != nil {
 			return err
@@ -159,7 +160,7 @@ func buildSandboxConfig(context *cli.Context) (vc.SandboxConfig, error) {
 		kernelPath = "/usr/share/clear-containers/vmlinux.container"
 	}
 
-	hypervisorConfig := vc.HypervisorConfig{
+	hypervisorConfig := hypervisor.Config{
 		KernelPath:            kernelPath,
 		ImagePath:             "/usr/share/clear-containers/clear-containers.img",
 		HypervisorMachineType: machineType,
@@ -195,7 +196,7 @@ func buildSandboxConfig(context *cli.Context) (vc.SandboxConfig, error) {
 	sandboxConfig := vc.SandboxConfig{
 		ID: id,
 
-		HypervisorType:   vc.QemuHypervisor,
+		HypervisorType:   hypervisor.Qemu,
 		HypervisorConfig: hypervisorConfig,
 
 		AgentType:   *agentType,

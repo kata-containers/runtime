@@ -431,7 +431,7 @@ func (c *Container) shareFiles(m Mount, idx int, hostSharedDir, guestSharedDir s
 
 	// copy file to contaier's rootfs if filesystem sharing is not supported, otherwise
 	// bind mount it in the shared directory.
-	caps := c.sandbox.hypervisor.capabilities()
+	caps := c.sandbox.hypervisor.Capabilities()
 	if !caps.IsFsSharingSupported() {
 		c.Logger().Debug("filesystem sharing is not supported, files will be copied")
 
@@ -713,7 +713,7 @@ func (c *Container) rollbackFailingContainerCreation() {
 func (c *Container) checkBlockDeviceSupport() bool {
 	if !c.sandbox.config.HypervisorConfig.DisableBlockDeviceUse {
 		agentCaps := c.sandbox.agent.capabilities()
-		hypervisorCaps := c.sandbox.hypervisor.capabilities()
+		hypervisorCaps := c.sandbox.hypervisor.Capabilities()
 
 		if agentCaps.IsBlockDeviceSupported() && hypervisorCaps.IsBlockDeviceHotplugSupported() {
 			return true

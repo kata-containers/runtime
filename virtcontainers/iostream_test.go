@@ -8,12 +8,13 @@ package virtcontainers
 import (
 	"testing"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIOStream(t *testing.T) {
 	hConfig := newHypervisorConfig(nil, nil)
-	s, err := testCreateSandbox(t, testSandboxID, MockHypervisor, hConfig, NoopAgentType, NetworkConfig{}, []ContainerConfig{}, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, NetworkConfig{}, []ContainerConfig{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

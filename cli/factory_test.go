@@ -15,6 +15,7 @@ import (
 	"github.com/urfave/cli"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 )
 
 func TestFactoryCLIFunctionNoRuntimeConfig(t *testing.T) {
@@ -64,7 +65,7 @@ func TestFactoryCLIFunctionInit(t *testing.T) {
 
 	// With template
 	runtimeConfig.FactoryConfig.Template = true
-	runtimeConfig.HypervisorType = vc.MockHypervisor
+	runtimeConfig.HypervisorType = hypervisor.Mock
 	runtimeConfig.AgentType = vc.NoopAgentType
 	ctx.App.Metadata["runtimeConfig"] = runtimeConfig
 	fn, ok = initFactoryCommand.Action.(func(context *cli.Context) error)
@@ -99,7 +100,7 @@ func TestFactoryCLIFunctionDestroy(t *testing.T) {
 
 	// With template
 	runtimeConfig.FactoryConfig.Template = true
-	runtimeConfig.HypervisorType = vc.MockHypervisor
+	runtimeConfig.HypervisorType = hypervisor.Mock
 	runtimeConfig.AgentType = vc.NoopAgentType
 	ctx.App.Metadata["runtimeConfig"] = runtimeConfig
 	fn, ok = destroyFactoryCommand.Action.(func(context *cli.Context) error)
@@ -135,7 +136,7 @@ func TestFactoryCLIFunctionStatus(t *testing.T) {
 
 	// With template
 	runtimeConfig.FactoryConfig.Template = true
-	runtimeConfig.HypervisorType = vc.MockHypervisor
+	runtimeConfig.HypervisorType = hypervisor.Mock
 	runtimeConfig.AgentType = vc.NoopAgentType
 	ctx.App.Metadata["runtimeConfig"] = runtimeConfig
 	err = fn(ctx)

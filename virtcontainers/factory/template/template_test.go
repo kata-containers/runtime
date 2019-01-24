@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 )
 
 func TestTemplateFactory(t *testing.T) {
@@ -23,7 +24,7 @@ func TestTemplateFactory(t *testing.T) {
 	templateWaitForAgent = 1 * time.Microsecond
 
 	testDir, _ := ioutil.TempDir("", "vmfactory-tmp-")
-	hyperConfig := vc.HypervisorConfig{
+	hyperConfig := hypervisor.Config{
 		KernelPath: testDir,
 		ImagePath:  testDir,
 	}

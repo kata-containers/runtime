@@ -20,7 +20,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/kata-containers/runtime/pkg/katautils"
-	vc "github.com/kata-containers/runtime/virtcontainers"
+	vcHypervisor "github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	oci "github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 )
 
@@ -360,7 +360,7 @@ func getContainers(ctx context.Context, context *cli.Context) ([]fullContainerSt
 
 // getHypervisorDetails returns details of the latest version of the
 // hypervisor and the associated assets.
-func getHypervisorDetails(hypervisorConfig *vc.HypervisorConfig) hypervisorDetails {
+func getHypervisorDetails(hypervisorConfig *vcHypervisor.Config) hypervisorDetails {
 	hypervisorPath, err := hypervisorConfig.HypervisorAssetPath()
 	if err != nil {
 		hypervisorPath = hypervisorConfig.HypervisorPath

@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/mock"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/store"
@@ -67,7 +68,7 @@ func newTestSandboxConfigNoop() SandboxConfig {
 	}
 
 	// Sets the hypervisor configuration.
-	hypervisorConfig := HypervisorConfig{
+	hypervisorConfig := hypervisor.Config{
 		KernelPath:     filepath.Join(testDir, testKernel),
 		ImagePath:      filepath.Join(testDir, testImage),
 		HypervisorPath: filepath.Join(testDir, testHypervisor),
@@ -75,7 +76,7 @@ func newTestSandboxConfigNoop() SandboxConfig {
 
 	sandboxConfig := SandboxConfig{
 		ID:               testSandboxID,
-		HypervisorType:   MockHypervisor,
+		HypervisorType:   hypervisor.Mock,
 		HypervisorConfig: hypervisorConfig,
 
 		AgentType: NoopAgentType,
@@ -98,7 +99,7 @@ func newTestSandboxConfigHyperstartAgent() SandboxConfig {
 	}
 
 	// Sets the hypervisor configuration.
-	hypervisorConfig := HypervisorConfig{
+	hypervisorConfig := hypervisor.Config{
 		KernelPath:     filepath.Join(testDir, testKernel),
 		ImagePath:      filepath.Join(testDir, testImage),
 		HypervisorPath: filepath.Join(testDir, testHypervisor),
@@ -111,7 +112,7 @@ func newTestSandboxConfigHyperstartAgent() SandboxConfig {
 
 	sandboxConfig := SandboxConfig{
 		ID:               testSandboxID,
-		HypervisorType:   MockHypervisor,
+		HypervisorType:   hypervisor.Mock,
 		HypervisorConfig: hypervisorConfig,
 
 		AgentType:   HyperstartAgent,
@@ -134,7 +135,7 @@ func newTestSandboxConfigHyperstartAgentDefaultNetwork() SandboxConfig {
 	}
 
 	// Sets the hypervisor configuration.
-	hypervisorConfig := HypervisorConfig{
+	hypervisorConfig := hypervisor.Config{
 		KernelPath:     filepath.Join(testDir, testKernel),
 		ImagePath:      filepath.Join(testDir, testImage),
 		HypervisorPath: filepath.Join(testDir, testHypervisor),
@@ -150,7 +151,7 @@ func newTestSandboxConfigHyperstartAgentDefaultNetwork() SandboxConfig {
 	sandboxConfig := SandboxConfig{
 		ID: testSandboxID,
 
-		HypervisorType:   MockHypervisor,
+		HypervisorType:   hypervisor.Mock,
 		HypervisorConfig: hypervisorConfig,
 
 		AgentType:   HyperstartAgent,
@@ -167,7 +168,7 @@ func newTestSandboxConfigHyperstartAgentDefaultNetwork() SandboxConfig {
 
 func newTestSandboxConfigKataAgent() SandboxConfig {
 	// Sets the hypervisor configuration.
-	hypervisorConfig := HypervisorConfig{
+	hypervisorConfig := hypervisor.Config{
 		KernelPath:     filepath.Join(testDir, testKernel),
 		ImagePath:      filepath.Join(testDir, testImage),
 		HypervisorPath: filepath.Join(testDir, testHypervisor),
@@ -175,7 +176,7 @@ func newTestSandboxConfigKataAgent() SandboxConfig {
 
 	sandboxConfig := SandboxConfig{
 		ID:               testSandboxID,
-		HypervisorType:   MockHypervisor,
+		HypervisorType:   hypervisor.Mock,
 		HypervisorConfig: hypervisorConfig,
 
 		AgentType: KataContainersAgent,
@@ -851,16 +852,16 @@ func TestStatusSandboxSuccessfulStateReady(t *testing.T) {
 	cleanUp()
 
 	config := newTestSandboxConfigNoop()
-	hypervisorConfig := HypervisorConfig{
+	hypervisorConfig := hypervisor.Config{
 		KernelPath:        filepath.Join(testDir, testKernel),
 		ImagePath:         filepath.Join(testDir, testImage),
 		HypervisorPath:    filepath.Join(testDir, testHypervisor),
-		NumVCPUs:          defaultVCPUs,
-		MemorySize:        defaultMemSzMiB,
-		DefaultBridges:    defaultBridges,
-		BlockDeviceDriver: defaultBlockDriver,
-		DefaultMaxVCPUs:   defaultMaxQemuVCPUs,
-		Msize9p:           defaultMsize9p,
+		NumVCPUs:          hypervisor.DefaultVCPUs,
+		MemorySize:        hypervisor.DefaultMemSzMiB,
+		DefaultBridges:    hypervisor.DefaultBridges,
+		BlockDeviceDriver: hypervisor.DefaultBlockDriver,
+		DefaultMaxVCPUs:   hypervisor.DefaultMaxQemuVCPUs,
+		Msize9p:           hypervisor.DefaultMsize9p,
 	}
 
 	expectedStatus := SandboxStatus{
@@ -868,7 +869,7 @@ func TestStatusSandboxSuccessfulStateReady(t *testing.T) {
 		State: types.State{
 			State: types.StateReady,
 		},
-		Hypervisor:       MockHypervisor,
+		Hypervisor:       hypervisor.Mock,
 		HypervisorConfig: hypervisorConfig,
 		Agent:            NoopAgentType,
 		Annotations:      sandboxAnnotations,
@@ -909,16 +910,16 @@ func TestStatusSandboxSuccessfulStateRunning(t *testing.T) {
 	cleanUp()
 
 	config := newTestSandboxConfigNoop()
-	hypervisorConfig := HypervisorConfig{
+	hypervisorConfig := hypervisor.Config{
 		KernelPath:        filepath.Join(testDir, testKernel),
 		ImagePath:         filepath.Join(testDir, testImage),
 		HypervisorPath:    filepath.Join(testDir, testHypervisor),
-		NumVCPUs:          defaultVCPUs,
-		MemorySize:        defaultMemSzMiB,
-		DefaultBridges:    defaultBridges,
-		BlockDeviceDriver: defaultBlockDriver,
-		DefaultMaxVCPUs:   defaultMaxQemuVCPUs,
-		Msize9p:           defaultMsize9p,
+		NumVCPUs:          hypervisor.DefaultVCPUs,
+		MemorySize:        hypervisor.DefaultMemSzMiB,
+		DefaultBridges:    hypervisor.DefaultBridges,
+		BlockDeviceDriver: hypervisor.DefaultBlockDriver,
+		DefaultMaxVCPUs:   hypervisor.DefaultMaxQemuVCPUs,
+		Msize9p:           hypervisor.DefaultMsize9p,
 	}
 
 	expectedStatus := SandboxStatus{
@@ -926,7 +927,7 @@ func TestStatusSandboxSuccessfulStateRunning(t *testing.T) {
 		State: types.State{
 			State: types.StateRunning,
 		},
-		Hypervisor:       MockHypervisor,
+		Hypervisor:       hypervisor.Mock,
 		HypervisorConfig: hypervisorConfig,
 		Agent:            NoopAgentType,
 		Annotations:      sandboxAnnotations,
@@ -1993,8 +1994,8 @@ func TestProcessListContainer(t *testing.T) {
  * Benchmarks
  */
 
-func createNewSandboxConfig(hType HypervisorType, aType AgentType, aConfig interface{}) SandboxConfig {
-	hypervisorConfig := HypervisorConfig{
+func createNewSandboxConfig(hType hypervisor.Type, aType AgentType, aConfig interface{}) SandboxConfig {
+	hypervisorConfig := hypervisor.Config{
 		KernelPath:     "/usr/share/kata-containers/vmlinux.container",
 		ImagePath:      "/usr/share/kata-containers/kata-containers.img",
 		HypervisorPath: "/usr/bin/qemu-system-x86_64",
@@ -2159,7 +2160,7 @@ func createStartStopDeleteContainers(b *testing.B, sandboxConfig SandboxConfig, 
 
 func BenchmarkCreateStartStopDeleteSandboxQemuHypervisorHyperstartAgentNetworkNoop(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sandboxConfig := createNewSandboxConfig(QemuHypervisor, HyperstartAgent, HyperConfig{})
+		sandboxConfig := createNewSandboxConfig(hypervisor.Qemu, HyperstartAgent, HyperConfig{})
 
 		sockDir, err := testGenerateCCProxySockDir()
 		if err != nil {
@@ -2180,21 +2181,21 @@ func BenchmarkCreateStartStopDeleteSandboxQemuHypervisorHyperstartAgentNetworkNo
 
 func BenchmarkCreateStartStopDeleteSandboxQemuHypervisorNoopAgentNetworkNoop(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sandboxConfig := createNewSandboxConfig(QemuHypervisor, NoopAgentType, nil)
+		sandboxConfig := createNewSandboxConfig(hypervisor.Qemu, NoopAgentType, nil)
 		createStartStopDeleteSandbox(b, sandboxConfig)
 	}
 }
 
-func BenchmarkCreateStartStopDeleteSandboxMockHypervisorNoopAgentNetworkNoop(b *testing.B) {
+func BenchmarkCreateStartStopDeleteSandboxHypervisorMockNoopAgentNetworkNoop(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sandboxConfig := createNewSandboxConfig(MockHypervisor, NoopAgentType, nil)
+		sandboxConfig := createNewSandboxConfig(hypervisor.Mock, NoopAgentType, nil)
 		createStartStopDeleteSandbox(b, sandboxConfig)
 	}
 }
 
 func BenchmarkStartStop1ContainerQemuHypervisorHyperstartAgentNetworkNoop(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sandboxConfig := createNewSandboxConfig(QemuHypervisor, HyperstartAgent, HyperConfig{})
+		sandboxConfig := createNewSandboxConfig(hypervisor.Qemu, HyperstartAgent, HyperConfig{})
 		contConfigs := createNewContainerConfigs(1)
 
 		sockDir, err := testGenerateCCProxySockDir()
@@ -2216,7 +2217,7 @@ func BenchmarkStartStop1ContainerQemuHypervisorHyperstartAgentNetworkNoop(b *tes
 
 func BenchmarkStartStop10ContainerQemuHypervisorHyperstartAgentNetworkNoop(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sandboxConfig := createNewSandboxConfig(QemuHypervisor, HyperstartAgent, HyperConfig{})
+		sandboxConfig := createNewSandboxConfig(hypervisor.Qemu, HyperstartAgent, HyperConfig{})
 		contConfigs := createNewContainerConfigs(10)
 
 		sockDir, err := testGenerateCCProxySockDir()

@@ -19,6 +19,7 @@ import (
 
 	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/vcmock"
 )
@@ -160,7 +161,7 @@ func createEmptyFile(path string) (err error) {
 //
 // Note: no parameter validation in case caller wishes to create an invalid
 // object.
-func newTestHypervisorConfig(dir string, create bool) (vc.HypervisorConfig, error) {
+func newTestHypervisorConfig(dir string, create bool) (hypervisor.Config, error) {
 	kernelPath := path.Join(dir, "kernel")
 	imagePath := path.Join(dir, "image")
 	hypervisorPath := path.Join(dir, "hypervisor")
@@ -169,12 +170,12 @@ func newTestHypervisorConfig(dir string, create bool) (vc.HypervisorConfig, erro
 		for _, file := range []string{kernelPath, imagePath, hypervisorPath} {
 			err := createEmptyFile(file)
 			if err != nil {
-				return vc.HypervisorConfig{}, err
+				return hypervisor.Config{}, err
 			}
 		}
 	}
 
-	return vc.HypervisorConfig{
+	return hypervisor.Config{
 		KernelPath:            kernelPath,
 		ImagePath:             imagePath,
 		HypervisorPath:        hypervisorPath,
@@ -194,7 +195,7 @@ func newTestRuntimeConfig(dir, consolePath string, create bool) (oci.RuntimeConf
 	}
 
 	return oci.RuntimeConfig{
-		HypervisorType:   vc.QemuHypervisor,
+		HypervisorType:   hypervisor.Qemu,
 		HypervisorConfig: hypervisorConfig,
 		AgentType:        vc.KataContainersAgent,
 		ProxyType:        vc.KataBuiltInProxyType,

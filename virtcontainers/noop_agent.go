@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kata-containers/agent/protocols/grpc"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -167,7 +168,7 @@ func (n *noopAgent) resumeContainer(sandbox *Sandbox, c Container) error {
 }
 
 // configHypervisor is the Noop agent hypervisor configuration implementation. It does nothing.
-func (n *noopAgent) configure(h hypervisor, id, sharePath string, builtin bool, config interface{}) error {
+func (n *noopAgent) configure(h hypervisor.Hypervisor, id, sharePath string, builtin bool, config interface{}) error {
 	return nil
 }
 

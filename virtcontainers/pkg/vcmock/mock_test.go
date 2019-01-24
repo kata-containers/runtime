@@ -13,6 +13,7 @@ import (
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/factory"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/sirupsen/logrus"
@@ -711,12 +712,12 @@ func TestVCMockSetVMFactory(t *testing.T) {
 	m := &VCMock{}
 	assert.Nil(m.SetFactoryFunc)
 
-	hyperConfig := vc.HypervisorConfig{
+	hyperConfig := hypervisor.Config{
 		KernelPath: "foobar",
 		ImagePath:  "foobar",
 	}
 	vmConfig := vc.VMConfig{
-		HypervisorType:   vc.MockHypervisor,
+		HypervisorType:   hypervisor.Mock,
 		AgentType:        vc.NoopAgentType,
 		HypervisorConfig: hyperConfig,
 	}

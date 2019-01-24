@@ -22,6 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 
@@ -100,14 +101,14 @@ type firecracker struct {
 	socketPath   string
 
 	store          *store.VCStore
-	config         HypervisorConfig
+	config         hypervisor.Config
 	pendingDevices []firecrackerDevice // Devices to be added when the FC API is ready
 	ctx            context.Context
 }
 
 type firecrackerDevice struct {
 	dev     interface{}
-	devType deviceType
+	devType hypervisor.Device
 }
 
 // Logger returns a logrus logger appropriate for logging firecracker  messages
@@ -131,7 +132,7 @@ func (fc *firecracker) trace(name string) (opentracing.Span, context.Context) {
 
 // For firecracker this call only sets the internal structure up.
 // The sandbox will be created and started through startSandbox().
-func (fc *firecracker) createSandbox(ctx context.Context, id string, hypervisorConfig *HypervisorConfig, vcStore *store.VCStore) error {
+func (fc *firecracker) createSandbox(ctx context.Context, id string, hypervisorConfig *hypervisor.Config, vcStore *store.VCStore) error {
 	fc.ctx = ctx
 
 	span, _ := fc.trace("createSandbox")
@@ -352,7 +353,7 @@ func (fc *firecracker) startSandbox(timeout int) error {
 		return err
 	}
 
-	strParams := SerializeParams(fc.config.KernelParams, "=")
+	strParams := hypervisor.SerializeParams(fc.config.KernelParams, "=")
 	formattedParams := strings.Join(strParams, " ")
 
 	fc.fcSetBootSource(kernelPath, formattedParams)
@@ -594,7 +595,7 @@ func (fc *firecracker) fcUpdateBlockDrive(drive config.BlockDrive) error {
 
 // addDevice will add extra devices to firecracker.  Limited to configure before the
 // virtual machine starts.  Devices include drivers and network interfaces only.
-func (fc *firecracker) addDevice(devInfo interface{}, devType deviceType) error {
+func (fc *firecracker) addDevice(devInfo interface{}, devType hypervisor.Device) error {
 	span, _ := fc.trace("addDevice")
 	defer span.Finish()
 
@@ -630,24 +631,24 @@ func (fc *firecracker) addDevice(devInfo interface{}, devType deviceType) error 
 }
 
 // hotplugAddDevice supported in Firecracker VMM
-func (fc *firecracker) hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (fc *firecracker) hotplugAddDevice(devInfo interface{}, devType hypervisor.Device) (interface{}, error) {
 	span, _ := fc.trace("hotplugAddDevice")
 	defer span.Finish()
 
 	switch devType {
-	case blockDev:
+	case hypervisor.BlockDev:
 		//The drive placeholder has to exist prior to Update
 		return nil, fc.fcUpdateBlockDrive(*devInfo.(*config.BlockDrive))
 	default:
 		fc.Logger().WithFields(logrus.Fields{"devInfo": devInfo,
-			"deviceType": devType}).Warn("hotplugAddDevice: unsupported device")
-		return nil, fmt.Errorf("hotplugAddDevice: unsupported device: devInfo:%v, deviceType%v",
+			"hypervisor.Device": devType}).Warn("hotplugAddDevice: unsupported device")
+		return nil, fmt.Errorf("hotplugAddDevice: unsupported device: devInfo:%v, hypervisor.Device%v",
 			devInfo, devType)
 	}
 }
 
 // hotplugRemoveDevice supported in Firecracker VMM, but no-op
-func (fc *firecracker) hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (fc *firecracker) hotplugRemoveDevice(devInfo interface{}, devType hypervisor.Device) (interface{}, error) {
 	return nil, nil
 }
 
@@ -675,7 +676,7 @@ func (fc *firecracker) capabilities() types.Capabilities {
 	return caps
 }
 
-func (fc *firecracker) hypervisorConfig() HypervisorConfig {
+func (fc *firecracker) hypervisorConfig() hypervisor.Config {
 	return fc.config
 }
 
@@ -693,7 +694,7 @@ func (fc *firecracker) resizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCP
 // Need to see if there's an easy way to ask firecracker for thread ids associated with
 // the vCPUs.  Issue opened to ask for per vCPU thread IDs:
 // https://github.com/firecracker-microvm/firecracker/issues/718
-func (fc *firecracker) getThreadIDs() (*threadIDs, error) {
+func (fc *firecracker) getThreadIDs() (*hypervisor.ThreadIDs, error) {
 	//TODO: this may not be exactly supported in Firecracker. Closest is cpu-template as part
 	// of get /machine-config
 	return nil, nil

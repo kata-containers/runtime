@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 )
 
 // VethEndpoint gathers a network pair and its properties.
@@ -87,13 +88,13 @@ func (endpoint *VethEndpoint) SetProperties(properties NetworkInfo) {
 
 // Attach for veth endpoint bridges the network pair and adds the
 // tap interface of the network pair to the hypervisor.
-func (endpoint *VethEndpoint) Attach(h hypervisor) error {
+func (endpoint *VethEndpoint) Attach(h hypervisor.Hypervisor) error {
 	if err := xConnectVMNetwork(endpoint, h); err != nil {
 		networkLogger().WithError(err).Error("Error bridging virtual endpoint")
 		return err
 	}
 
-	return h.addDevice(endpoint, netDev)
+	return h.AddDevice(endpoint, hypervisor.NetDev)
 }
 
 // Detach for the veth endpoint tears down the tap and bridge
@@ -111,13 +112,13 @@ func (endpoint *VethEndpoint) Detach(netNsCreated bool, netNsPath string) error 
 }
 
 // HotAttach for the veth endpoint uses hot plug device
-func (endpoint *VethEndpoint) HotAttach(h hypervisor) error {
+func (endpoint *VethEndpoint) HotAttach(h hypervisor.Hypervisor) error {
 	if err := xConnectVMNetwork(endpoint, h); err != nil {
 		networkLogger().WithError(err).Error("Error bridging virtual ep")
 		return err
 	}
 
-	if _, err := h.hotplugAddDevice(endpoint, netDev); err != nil {
+	if _, err := h.HotplugAddDevice(endpoint, hypervisor.NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error attach virtual ep")
 		return err
 	}
@@ -125,7 +126,7 @@ func (endpoint *VethEndpoint) HotAttach(h hypervisor) error {
 }
 
 // HotDetach for the veth endpoint uses hot pull device
-func (endpoint *VethEndpoint) HotDetach(h hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *VethEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
 	if !netNsCreated {
 		return nil
 	}
@@ -136,7 +137,7 @@ func (endpoint *VethEndpoint) HotDetach(h hypervisor, netNsCreated bool, netNsPa
 		networkLogger().WithError(err).Warn("Error un-bridging virtual ep")
 	}
 
-	if _, err := h.hotplugRemoveDevice(endpoint, netDev); err != nil {
+	if _, err := h.HotplugRemoveDevice(endpoint, hypervisor.NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error detach virtual ep")
 		return err
 	}

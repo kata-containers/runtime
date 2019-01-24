@@ -9,6 +9,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 )
@@ -16,16 +17,16 @@ import (
 type mockHypervisor struct {
 }
 
-func (m *mockHypervisor) capabilities() types.Capabilities {
+func (m *mockHypervisor) Capabilities() types.Capabilities {
 	return types.Capabilities{}
 }
 
-func (m *mockHypervisor) hypervisorConfig() HypervisorConfig {
-	return HypervisorConfig{}
+func (m *mockHypervisor) Config() hypervisor.Config {
+	return hypervisor.Config{}
 }
 
-func (m *mockHypervisor) createSandbox(ctx context.Context, id string, hypervisorConfig *HypervisorConfig, store *store.VCStore) error {
-	err := hypervisorConfig.valid()
+func (m *mockHypervisor) CreateSandbox(ctx context.Context, id string, hypervisorConfig *hypervisor.Config, store *store.VCStore) error {
+	err := hypervisorConfig.Valid()
 	if err != nil {
 		return err
 	}
@@ -33,70 +34,70 @@ func (m *mockHypervisor) createSandbox(ctx context.Context, id string, hyperviso
 	return nil
 }
 
-func (m *mockHypervisor) startSandbox(timeout int) error {
+func (m *mockHypervisor) StartSandbox(timeout int) error {
 	return nil
 }
 
-func (m *mockHypervisor) stopSandbox() error {
+func (m *mockHypervisor) StopSandbox() error {
 	return nil
 }
 
-func (m *mockHypervisor) pauseSandbox() error {
+func (m *mockHypervisor) PauseSandbox() error {
 	return nil
 }
 
-func (m *mockHypervisor) resumeSandbox() error {
+func (m *mockHypervisor) ResumeSandbox() error {
 	return nil
 }
 
-func (m *mockHypervisor) saveSandbox() error {
+func (m *mockHypervisor) SaveSandbox() error {
 	return nil
 }
 
-func (m *mockHypervisor) addDevice(devInfo interface{}, devType deviceType) error {
+func (m *mockHypervisor) AddDevice(devInfo interface{}, devType hypervisor.Device) error {
 	return nil
 }
 
-func (m *mockHypervisor) hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (m *mockHypervisor) HotplugAddDevice(devInfo interface{}, devType hypervisor.Device) (interface{}, error) {
 	switch devType {
-	case cpuDev:
+	case hypervisor.CPUDev:
 		return devInfo.(uint32), nil
-	case memoryDev:
-		memdev := devInfo.(*memoryDevice)
-		return memdev.sizeMB, nil
+	case hypervisor.MemoryDev:
+		memdev := devInfo.(*hypervisor.MemoryDevice)
+		return memdev.SizeMB, nil
 	}
 	return nil, nil
 }
 
-func (m *mockHypervisor) hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (m *mockHypervisor) HotplugRemoveDevice(devInfo interface{}, devType hypervisor.Device) (interface{}, error) {
 	switch devType {
-	case cpuDev:
+	case hypervisor.CPUDev:
 		return devInfo.(uint32), nil
-	case memoryDev:
+	case hypervisor.MemoryDev:
 		return 0, nil
 	}
 	return nil, nil
 }
 
-func (m *mockHypervisor) getSandboxConsole(sandboxID string) (string, error) {
+func (m *mockHypervisor) GetSandboxConsole(sandboxID string) (string, error) {
 	return "", nil
 }
 
-func (m *mockHypervisor) resizeMemory(memMB uint32, memorySectionSizeMB uint32) (uint32, error) {
+func (m *mockHypervisor) ResizeMemory(memMB uint32, memorySectionSizeMB uint32) (uint32, error) {
 	return 0, nil
 }
-func (m *mockHypervisor) resizeVCPUs(cpus uint32) (uint32, uint32, error) {
+func (m *mockHypervisor) ResizeVCPUs(cpus uint32) (uint32, uint32, error) {
 	return 0, 0, nil
 }
 
-func (m *mockHypervisor) disconnect() {
+func (m *mockHypervisor) Disconnect() {
 }
 
-func (m *mockHypervisor) getThreadIDs() (*threadIDs, error) {
+func (m *mockHypervisor) GetThreadIDs() (*hypervisor.ThreadIDs, error) {
 	vcpus := []int{os.Getpid()}
-	return &threadIDs{vcpus}, nil
+	return &hypervisor.ThreadIDs{vcpus}, nil
 }
 
-func (m *mockHypervisor) cleanup() error {
+func (m *mockHypervisor) Cleanup() error {
 	return nil
 }

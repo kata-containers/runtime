@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
@@ -40,7 +41,7 @@ func Example_createAndStartSandbox() {
 	}
 
 	// Sets the hypervisor configuration.
-	hypervisorConfig := vc.HypervisorConfig{
+	hypervisorConfig := hypervisor.Config{
 		KernelPath:     "/usr/share/kata-containers/vmlinux.container",
 		ImagePath:      "/usr/share/kata-containers/kata-containers.img",
 		HypervisorPath: "/usr/bin/qemu-system-x86_64",
@@ -55,7 +56,7 @@ func Example_createAndStartSandbox() {
 	// - Hypervisor is QEMU
 	// - Agent is hyperstart
 	sandboxConfig := vc.SandboxConfig{
-		HypervisorType:   vc.QemuHypervisor,
+		HypervisorType:   hypervisor.Qemu,
 		HypervisorConfig: hypervisorConfig,
 
 		AgentType:   vc.HyperstartAgent,

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 )
@@ -29,18 +30,18 @@ var qemuArchBaseQemuPaths = map[string]string{
 	qemuArchBaseMachineType: qemuArchBaseQemuPath,
 }
 
-var qemuArchBaseKernelParamsNonDebug = []Param{
+var qemuArchBaseKernelParamsNonDebug = []hypervisor.Param{
 	{"quiet", ""},
 	{"systemd.show_status", "false"},
 }
 
-var qemuArchBaseKernelParamsDebug = []Param{
+var qemuArchBaseKernelParamsDebug = []hypervisor.Param{
 	{"debug", ""},
 	{"systemd.show_status", "true"},
 	{"systemd.log_level", "debug"},
 }
 
-var qemuArchBaseKernelParams = []Param{
+var qemuArchBaseKernelParams = []hypervisor.Param{
 	{"root", "/dev/vda"},
 	{"rootfstype", "ext4"},
 }
@@ -120,15 +121,15 @@ func TestQemuArchBaseKernelParameters(t *testing.T) {
 	qemuArchBase := newQemuArchBase()
 
 	// with debug params
-	expectedParams := []Param(qemuArchBaseKernelParams)
-	debugParams := []Param(qemuArchBaseKernelParamsDebug)
+	expectedParams := []hypervisor.Param(qemuArchBaseKernelParams)
+	debugParams := []hypervisor.Param(qemuArchBaseKernelParamsDebug)
 	expectedParams = append(expectedParams, debugParams...)
 	p := qemuArchBase.kernelParameters(true)
 	assert.Equal(expectedParams, p)
 
 	// with non-debug params
-	expectedParams = []Param(qemuArchBaseKernelParams)
-	nonDebugParams := []Param(qemuArchBaseKernelParamsNonDebug)
+	expectedParams = []hypervisor.Param(qemuArchBaseKernelParams)
+	nonDebugParams := []hypervisor.Param(qemuArchBaseKernelParamsNonDebug)
 	expectedParams = append(expectedParams, nonDebugParams...)
 	p = qemuArchBase.kernelParameters(false)
 	assert.Equal(expectedParams, p)
@@ -168,10 +169,10 @@ func TestQemuArchBaseCPUTopology(t *testing.T) {
 		Sockets: vcpus,
 		Cores:   defaultCores,
 		Threads: defaultThreads,
-		MaxCPUs: defaultMaxQemuVCPUs,
+		MaxCPUs: hypervisor.DefaultMaxQemuVCPUs,
 	}
 
-	smp := qemuArchBase.cpuTopology(vcpus, defaultMaxQemuVCPUs)
+	smp := qemuArchBase.cpuTopology(vcpus, hypervisor.DefaultMaxQemuVCPUs)
 	assert.Equal(expectedSMP, smp)
 }
 

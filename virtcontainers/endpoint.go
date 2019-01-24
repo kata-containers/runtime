@@ -7,6 +7,8 @@ package virtcontainers
 
 import (
 	"fmt"
+
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 )
 
 // Endpoint represents a physical or virtual network interface.
@@ -20,10 +22,10 @@ type Endpoint interface {
 
 	SetProperties(NetworkInfo)
 	SetPciAddr(string)
-	Attach(hypervisor) error
+	Attach(hypervisor.Hypervisor) error
 	Detach(netNsCreated bool, netNsPath string) error
-	HotAttach(h hypervisor) error
-	HotDetach(h hypervisor, netNsCreated bool, netNsPath string) error
+	HotAttach(hypervisor.Hypervisor) error
+	HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error
 }
 
 // EndpointType identifies the type of the network endpoint.

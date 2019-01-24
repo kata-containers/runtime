@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 )
 
@@ -73,7 +74,7 @@ func (endpoint *VhostUserEndpoint) NetworkPair() *NetworkInterfacePair {
 }
 
 // Attach for vhostuser endpoint
-func (endpoint *VhostUserEndpoint) Attach(h hypervisor) error {
+func (endpoint *VhostUserEndpoint) Attach(h hypervisor.Hypervisor) error {
 	// Generate a unique ID to be used for hypervisor commandline fields
 	randBytes, err := utils.GenerateRandomBytes(8)
 	if err != nil {
@@ -88,7 +89,7 @@ func (endpoint *VhostUserEndpoint) Attach(h hypervisor) error {
 		Type:       config.VhostUserNet,
 	}
 
-	return h.addDevice(d, vhostuserDev)
+	return h.AddDevice(d, hypervisor.VhostuserDev)
 }
 
 // Detach for vhostuser endpoint
@@ -97,12 +98,12 @@ func (endpoint *VhostUserEndpoint) Detach(netNsCreated bool, netNsPath string) e
 }
 
 // HotAttach for vhostuser endpoint not supported yet
-func (endpoint *VhostUserEndpoint) HotAttach(h hypervisor) error {
+func (endpoint *VhostUserEndpoint) HotAttach(h hypervisor.Hypervisor) error {
 	return fmt.Errorf("VhostUserEndpoint does not support Hot attach")
 }
 
 // HotDetach for vhostuser endpoint not supported yet
-func (endpoint *VhostUserEndpoint) HotDetach(h hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *VhostUserEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
 	return fmt.Errorf("VhostUserEndpoint does not support Hot detach")
 }
 

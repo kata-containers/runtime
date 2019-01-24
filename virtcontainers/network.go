@@ -24,6 +24,7 @@ import (
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
@@ -459,16 +460,16 @@ func getLinkByName(netHandle *netlink.Handle, name string, expectedLink netlink.
 }
 
 // The endpoint type should dictate how the connection needs to happen.
-func xConnectVMNetwork(endpoint Endpoint, h hypervisor) error {
+func xConnectVMNetwork(endpoint Endpoint, h hypervisor.Hypervisor) error {
 	netPair := endpoint.NetworkPair()
 
 	queues := 0
-	caps := h.capabilities()
+	caps := h.Capabilities()
 	if caps.IsMultiQueueSupported() {
-		queues = int(h.hypervisorConfig().NumVCPUs)
+		queues = int(h.Config().NumVCPUs)
 	}
 
-	disableVhostNet := h.hypervisorConfig().DisableVhostNet
+	disableVhostNet := h.Config().DisableVhostNet
 
 	if netPair.NetInterworkingModel == NetXConnectDefaultModel {
 		netPair.NetInterworkingModel = DefaultNetInterworkingModel
@@ -1441,7 +1442,7 @@ func (n *Network) Run(networkNSPath string, cb func() error) error {
 }
 
 // Add adds all needed interfaces inside the network namespace.
-func (n *Network) Add(ctx context.Context, config *NetworkConfig, hypervisor hypervisor, hotplug bool) ([]Endpoint, error) {
+func (n *Network) Add(ctx context.Context, config *NetworkConfig, h hypervisor.Hypervisor, hotplug bool) ([]Endpoint, error) {
 	span, _ := n.trace(ctx, "add")
 	defer span.Finish()
 
@@ -1454,11 +1455,11 @@ func (n *Network) Add(ctx context.Context, config *NetworkConfig, hypervisor hyp
 		for _, endpoint := range endpoints {
 			networkLogger().WithField("endpoint-type", endpoint.Type()).WithField("hotplug", hotplug).Info("Attaching endpoint")
 			if hotplug {
-				if err := endpoint.HotAttach(hypervisor); err != nil {
+				if err := endpoint.HotAttach(h); err != nil {
 					return err
 				}
 			} else {
-				if err := endpoint.Attach(hypervisor); err != nil {
+				if err := endpoint.Attach(h); err != nil {
 					return err
 				}
 			}
@@ -1477,7 +1478,7 @@ func (n *Network) Add(ctx context.Context, config *NetworkConfig, hypervisor hyp
 
 // Remove network endpoints in the network namespace. It also deletes the network
 // namespace in case the namespace has been created by us.
-func (n *Network) Remove(ctx context.Context, ns *NetworkNamespace, hypervisor hypervisor, hotunplug bool) error {
+func (n *Network) Remove(ctx context.Context, ns *NetworkNamespace, h hypervisor.Hypervisor, hotunplug bool) error {
 	span, _ := n.trace(ctx, "remove")
 	defer span.Finish()
 
@@ -1486,7 +1487,7 @@ func (n *Network) Remove(ctx context.Context, ns *NetworkNamespace, hypervisor h
 		// if required.
 		networkLogger().WithField("endpoint-type", endpoint.Type()).WithField("hotunplug", hotunplug).Info("Detaching endpoint")
 		if hotunplug {
-			if err := endpoint.HotDetach(hypervisor, ns.NetNsCreated, ns.NetNsPath); err != nil {
+			if err := endpoint.HotDetach(h, ns.NetNsCreated, ns.NetNsPath); err != nil {
 				return err
 			}
 		} else {

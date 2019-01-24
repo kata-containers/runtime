@@ -14,6 +14,7 @@ import (
 	govmmQemu "github.com/intel/govmm/qemu"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 )
@@ -42,7 +43,7 @@ type qemuArch interface {
 
 	// kernelParameters returns the kernel parameters
 	// if debug is true then kernel debug parameters are included
-	kernelParameters(debug bool) []Param
+	kernelParameters(debug bool) []hypervisor.Param
 
 	//capabilities returns the capabilities supported by QEMU
 	capabilities() types.Capabilities
@@ -96,7 +97,7 @@ type qemuArch interface {
 	appendRNGDevice(devices []govmmQemu.Device, rngDevice config.RNGDev) []govmmQemu.Device
 
 	// handleImagePath handles the Hypervisor Config image path
-	handleImagePath(config HypervisorConfig)
+	handleImagePath(config hypervisor.Config)
 
 	// supportGuestMemoryHotplug returns if the guest supports memory hotplug
 	supportGuestMemoryHotplug() bool
@@ -110,9 +111,9 @@ type qemuArchBase struct {
 	networkIndex          int
 	qemuPaths             map[string]string
 	supportedQemuMachines []govmmQemu.Machine
-	kernelParamsNonDebug  []Param
-	kernelParamsDebug     []Param
-	kernelParams          []Param
+	kernelParamsNonDebug  []hypervisor.Param
+	kernelParamsDebug     []hypervisor.Param
+	kernelParams          []hypervisor.Param
 }
 
 const (
@@ -152,27 +153,27 @@ const (
 
 // kernelParamsNonDebug is a list of the default kernel
 // parameters that will be used in standard (non-debug) mode.
-var kernelParamsNonDebug = []Param{
+var kernelParamsNonDebug = []hypervisor.Param{
 	{"quiet", ""},
 }
 
 // kernelParamsSystemdNonDebug is a list of the default systemd related
 // kernel parameters that will be used in standard (non-debug) mode.
-var kernelParamsSystemdNonDebug = []Param{
+var kernelParamsSystemdNonDebug = []hypervisor.Param{
 	{"systemd.show_status", "false"},
 }
 
 // kernelParamsDebug is a list of the default kernel
 // parameters that will be used in debug mode (as much boot output as
 // possible).
-var kernelParamsDebug = []Param{
+var kernelParamsDebug = []hypervisor.Param{
 	{"debug", ""},
 }
 
 // kernelParamsSystemdDebug is a list of the default systemd related kernel
 // parameters that will be used in debug mode (as much boot output as
 // possible).
-var kernelParamsSystemdDebug = []Param{
+var kernelParamsSystemdDebug = []hypervisor.Param{
 	{"systemd.show_status", "true"},
 	{"systemd.log_level", "debug"},
 }
@@ -216,7 +217,7 @@ func (q *qemuArchBase) qemuPath() (string, error) {
 	return p, nil
 }
 
-func (q *qemuArchBase) kernelParameters(debug bool) []Param {
+func (q *qemuArchBase) kernelParameters(debug bool) []hypervisor.Param {
 	params := q.kernelParams
 
 	if debug {
@@ -560,7 +561,7 @@ func (q *qemuArchBase) appendRNGDevice(devices []govmmQemu.Device, rngDev config
 	return devices
 }
 
-func (q *qemuArchBase) handleImagePath(config HypervisorConfig) {
+func (q *qemuArchBase) handleImagePath(config hypervisor.Config) {
 	if config.ImagePath != "" {
 		q.kernelParams = append(q.kernelParams, kernelRootParams...)
 		q.kernelParamsNonDebug = append(q.kernelParamsNonDebug, kernelParamsSystemdNonDebug...)

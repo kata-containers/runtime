@@ -23,6 +23,7 @@ import (
 	kataclient "github.com/kata-containers/agent/protocols/client"
 	"github.com/kata-containers/agent/protocols/grpc"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	ns "github.com/kata-containers/runtime/virtcontainers/pkg/nsenter"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
@@ -221,7 +222,7 @@ func (k *kataAgent) capabilities() types.Capabilities {
 	return caps
 }
 
-func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, config interface{}) error {
+func (k *kataAgent) configure(h hypervisor.Hypervisor, id, sharePath string, builtin bool, config interface{}) error {
 	if config != nil {
 		switch c := config.(type) {
 		case KataAgentConfig:
@@ -236,7 +237,7 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 
 	switch s := k.vmSocket.(type) {
 	case types.Socket:
-		err := h.addDevice(s, serialPortDev)
+		err := h.AddDevice(s, hypervisor.SerialPortDev)
 		if err != nil {
 			return err
 		}
@@ -247,7 +248,7 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 			return err
 		}
 		s.port = uint32(vSockPort)
-		if err := h.addDevice(s, vSockPCIDev); err != nil {
+		if err := h.AddDevice(s, hypervisor.VSockPCIDev); err != nil {
 			return err
 		}
 		k.vmSocket = s
@@ -261,7 +262,7 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 
 	// Neither create shared directory nor add 9p device if hypervisor
 	// doesn't support filesystem sharing.
-	caps := h.capabilities()
+	caps := h.Capabilities()
 	if !caps.IsFsSharingSupported() {
 		return nil
 	}
@@ -277,7 +278,7 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 		return err
 	}
 
-	return h.addDevice(sharedVolume, fsDev)
+	return h.AddDevice(sharedVolume, hypervisor.FsDev)
 }
 
 func (k *kataAgent) createSandbox(sandbox *Sandbox) error {
@@ -505,7 +506,7 @@ func (k *kataAgent) startProxy(sandbox *Sandbox) error {
 		return err
 	}
 
-	consoleURL, err := sandbox.hypervisor.getSandboxConsole(sandbox.id)
+	consoleURL, err := sandbox.hypervisor.GetSandboxConsole(sandbox.id)
 	if err != nil {
 		return err
 	}
@@ -627,7 +628,7 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 	}
 
 	storages := []*grpc.Storage{}
-	caps := sandbox.hypervisor.capabilities()
+	caps := sandbox.hypervisor.Capabilities()
 
 	// append 9p shared volume to storages only if filesystem sharing is supported
 	if caps.IsFsSharingSupported() {

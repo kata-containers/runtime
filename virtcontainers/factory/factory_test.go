@@ -15,6 +15,7 @@ import (
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/factory/base"
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 )
 
 func TestNewFactory(t *testing.T) {
@@ -39,7 +40,7 @@ func TestNewFactory(t *testing.T) {
 
 	testDir, _ := ioutil.TempDir("", "vmfactory-tmp-")
 
-	config.VMConfig.HypervisorConfig = vc.HypervisorConfig{
+	config.VMConfig.HypervisorConfig = hypervisor.Config{
 		KernelPath: testDir,
 		ImagePath:  testDir,
 	}
@@ -84,7 +85,7 @@ func TestFactorySetLogger(t *testing.T) {
 	SetLogger(context.Background(), testLog)
 
 	var config Config
-	config.VMConfig.HypervisorConfig = vc.HypervisorConfig{
+	config.VMConfig.HypervisorConfig = hypervisor.Config{
 		KernelPath: "foo",
 		ImagePath:  "bar",
 	}
@@ -105,7 +106,7 @@ func TestVMConfigValid(t *testing.T) {
 
 	config := vc.VMConfig{
 		HypervisorType: vc.MockHypervisor,
-		HypervisorConfig: vc.HypervisorConfig{
+		HypervisorConfig: hypervisor.Config{
 			KernelPath: testDir,
 			ImagePath:  testDir,
 		},
@@ -151,14 +152,14 @@ func TestCheckVMConfig(t *testing.T) {
 	assert.Nil(err)
 
 	testDir, _ := ioutil.TempDir("", "vmfactory-tmp-")
-	config1.HypervisorConfig = vc.HypervisorConfig{
+	config1.HypervisorConfig = hypervisor.Config{
 		KernelPath: testDir,
 		ImagePath:  testDir,
 	}
 	err = checkVMConfig(config1, config2)
 	assert.Error(err)
 
-	config2.HypervisorConfig = vc.HypervisorConfig{
+	config2.HypervisorConfig = hypervisor.Config{
 		KernelPath: testDir,
 		ImagePath:  testDir,
 	}
@@ -170,7 +171,7 @@ func TestFactoryGetVM(t *testing.T) {
 	assert := assert.New(t)
 
 	testDir, _ := ioutil.TempDir("", "vmfactory-tmp-")
-	hyperConfig := vc.HypervisorConfig{
+	hyperConfig := hypervisor.Config{
 		KernelPath: testDir,
 		ImagePath:  testDir,
 	}
@@ -287,11 +288,11 @@ func TestDeepCompare(t *testing.T) {
 	assert.True(deepCompare(foo, bar))
 
 	// slice
-	foo.HypervisorConfig.KernelParams = []vc.Param{}
+	foo.HypervisorConfig.KernelParams = []hypervisor.Param{}
 	assert.True(deepCompare(foo, bar))
-	foo.HypervisorConfig.KernelParams = append(foo.HypervisorConfig.KernelParams, vc.Param{Key: "key", Value: "value"})
+	foo.HypervisorConfig.KernelParams = append(foo.HypervisorConfig.KernelParams, hypervisor.Param{Key: "key", Value: "value"})
 	assert.False(deepCompare(foo, bar))
-	bar.HypervisorConfig.KernelParams = append(bar.HypervisorConfig.KernelParams, vc.Param{Key: "key", Value: "value"})
+	bar.HypervisorConfig.KernelParams = append(bar.HypervisorConfig.KernelParams, hypervisor.Param{Key: "key", Value: "value"})
 	assert.True(deepCompare(foo, bar))
 
 	// map
@@ -325,7 +326,7 @@ func TestDeepCompare(t *testing.T) {
 		ProxyType:      vc.NoopProxyType,
 	}
 	testDir, _ := ioutil.TempDir("", "vmfactory-tmp-")
-	config.VMConfig.HypervisorConfig = vc.HypervisorConfig{
+	config.VMConfig.HypervisorConfig = hypervisor.Config{
 		KernelPath: testDir,
 		ImagePath:  testDir,
 	}

@@ -12,13 +12,14 @@ import (
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vf "github.com/kata-containers/runtime/virtcontainers/factory"
+	vcHypervisor "github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 )
 
 // GetKernelParamsFunc use a variable to allow tests to modify its value
 var GetKernelParamsFunc = getKernelParams
 
-var systemdKernelParam = []vc.Param{
+var systemdKernelParam = []vcHypervisor.Param{
 	{
 		Key:   "init",
 		Value: "/usr/lib/systemd/systemd",
@@ -37,8 +38,8 @@ var systemdKernelParam = []vc.Param{
 	},
 }
 
-func getKernelParams(needSystemd bool) []vc.Param {
-	p := []vc.Param{}
+func getKernelParams(needSystemd bool) []vcHypervisor.Param {
+	p := []vcHypervisor.Param{}
 
 	if needSystemd {
 		p = append(p, systemdKernelParam...)
@@ -47,7 +48,7 @@ func getKernelParams(needSystemd bool) []vc.Param {
 	return p
 }
 
-func needSystemd(config vc.HypervisorConfig) bool {
+func needSystemd(config vcHypervisor.Config) bool {
 	return config.ImagePath != ""
 }
 
