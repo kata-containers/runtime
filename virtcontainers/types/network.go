@@ -173,3 +173,23 @@ type NetmonConfig struct {
 	Debug  bool
 	Enable bool
 }
+
+// VSOCKSocketScheme is the URL scheme for a vsock URL (vsock://).
+var VSOCKSocketScheme = "vsock"
+
+// VSOCK represents a Linux virtual Socket (AF_VSOCK).
+type VSOCK struct {
+	// ContextID is the VSOCK context identifier.
+	ContextID uint64
+
+	// Port is the VSOCK port.
+	Port uint32
+
+	// VHostFd is the vhost file descriptor backing the VSOCK.
+	VHostFd *os.File
+}
+
+// String formats a VSOCK into its URL.
+func (s *VSOCK) String() string {
+	return fmt.Sprintf("%s://%d:%d", VSOCKSocketScheme, s.ContextID, s.Port)
+}

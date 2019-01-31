@@ -291,10 +291,10 @@ func TestQemuAddDeviceKataVSOCK(t *testing.T) {
 		},
 	}
 
-	vsock := kataVSOCK{
-		contextID: contextID,
-		port:      port,
-		vhostFd:   vHostFD,
+	vsock := types.VSOCK{
+		ContextID: contextID,
+		Port:      port,
+		VHostFd:   vHostFD,
 	}
 
 	testQemuAddDevice(t, vsock, hypervisor.VSockPCIDev, expectedOut)

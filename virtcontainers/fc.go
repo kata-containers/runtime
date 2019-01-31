@@ -486,14 +486,14 @@ func (fc *firecracker) resumeSandbox() error {
 	return nil
 }
 
-func (fc *firecracker) fcAddVsock(vs kataVSOCK) error {
+func (fc *firecracker) fcAddVsock(vs types.VSOCK) error {
 	span, _ := fc.trace("fcAddVsock")
 	defer span.Finish()
 
 	vsockParams := ops.NewPutGuestVsockByIDParams()
 	vsockID := "root"
 	vsock := &models.Vsock{
-		GuestCid: int64(vs.contextID),
+		GuestCid: int64(vs.ContextID),
 		ID:       &vsockID,
 	}
 	vsockParams.SetID(vsockID)
@@ -505,7 +505,7 @@ func (fc *firecracker) fcAddVsock(vs kataVSOCK) error {
 	//Still racy. There is no way to send an fd to the firecracker
 	//REST API. We could release this just before we start the instance
 	//but even that will not eliminate the race
-	vs.vhostFd.Close()
+	vs.VHostFd.Close()
 	return nil
 }
 
@@ -619,7 +619,7 @@ func (fc *firecracker) addDevice(devInfo interface{}, devType hypervisor.Device)
 	case config.BlockDrive:
 		fc.Logger().WithField("device-type-blockdrive", devInfo).Info("Adding device")
 		return fc.fcAddBlockDrive(v)
-	case kataVSOCK:
+	case types.VSOCK:
 		fc.Logger().WithField("device-type-vsock", devInfo).Info("Adding device")
 		return fc.fcAddVsock(v)
 	default:

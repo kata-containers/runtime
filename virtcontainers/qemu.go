@@ -1241,8 +1241,8 @@ func (q *qemu) AddDevice(devInfo interface{}, devType hypervisor.Device) error {
 		q.qemuConfig.Devices = q.arch.append9PVolume(q.qemuConfig.Devices, v)
 	case types.Socket:
 		q.qemuConfig.Devices = q.arch.appendSocket(q.qemuConfig.Devices, v)
-	case kataVSOCK:
-		q.fds = append(q.fds, v.vhostFd)
+	case types.VSOCK:
+		q.fds = append(q.fds, v.VHostFd)
 		q.qemuConfig.Devices = q.arch.appendVSockPCI(q.qemuConfig.Devices, v)
 	case hypervisor.Endpoint:
 		q.qemuConfig.Devices = q.arch.appendNetwork(q.qemuConfig.Devices, v)
