@@ -860,7 +860,6 @@ func TestStatusSandboxSuccessfulStateReady(t *testing.T) {
 		MemorySize:        hypervisor.DefaultMemSzMiB,
 		DefaultBridges:    hypervisor.DefaultBridges,
 		BlockDeviceDriver: hypervisor.DefaultBlockDriver,
-		DefaultMaxVCPUs:   hypervisor.DefaultMaxQemuVCPUs,
 		Msize9p:           hypervisor.DefaultMsize9p,
 	}
 
@@ -918,7 +917,6 @@ func TestStatusSandboxSuccessfulStateRunning(t *testing.T) {
 		MemorySize:        hypervisor.DefaultMemSzMiB,
 		DefaultBridges:    hypervisor.DefaultBridges,
 		BlockDeviceDriver: hypervisor.DefaultBlockDriver,
-		DefaultMaxVCPUs:   hypervisor.DefaultMaxQemuVCPUs,
 		Msize9p:           hypervisor.DefaultMsize9p,
 	}
 

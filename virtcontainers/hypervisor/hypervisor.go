@@ -68,15 +68,9 @@ const (
 	// DefaultBlockDriver is the default virtio block based driver.
 	DefaultBlockDriver = config.VirtioSCSI
 
-	// DefaultMaxQemuVCPUs is the maximum number of vCPUs a virtcontainers VM will run with by default.
-	DefaultMaxQemuVCPUs uint32 = 4
-
 	// DefaultMsize9p is the default 9pfs msize value.
 	DefaultMsize9p = 8192
 )
-
-// In some architectures the maximum number of vCPUs depends on the number of physical cores.
-//var defaultMaxQemuVCPUs = MaxQemuVCPUs()
 
 // Device describes a virtualized device.
 type Device int
@@ -175,7 +169,7 @@ type Config struct {
 	// NumVCPUs specifies default number of vCPUs for the VM.
 	NumVCPUs uint32
 
-	//DefaultMaxVCPUs specifies the maximum number of vCPUs for the VM.
+	// DefaultMaxVCPUs specifies the maximum number of vCPUs for the VM.
 	DefaultMaxVCPUs uint32
 
 	// DefaultMem specifies default memory size in MiB for the VM.
@@ -357,10 +351,6 @@ func (conf *Config) Valid() error {
 
 	if conf.BlockDeviceDriver == "" {
 		conf.BlockDeviceDriver = DefaultBlockDriver
-	}
-
-	if conf.DefaultMaxVCPUs == 0 {
-		conf.DefaultMaxVCPUs = DefaultMaxQemuVCPUs
 	}
 
 	if conf.Msize9p == 0 {

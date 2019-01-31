@@ -207,7 +207,6 @@ func TestConfigDefaults(t *testing.T) {
 		MemorySize:        DefaultMemSzMiB,
 		DefaultBridges:    DefaultBridges,
 		BlockDeviceDriver: DefaultBlockDriver,
-		DefaultMaxVCPUs:   DefaultMaxQemuVCPUs,
 		Msize9p:           DefaultMsize9p,
 	}
 

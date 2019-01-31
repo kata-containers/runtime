@@ -81,6 +81,7 @@ type qemu struct {
 	ctx context.Context
 
 	nvdimmCount int
+	maxVCPUs    uint32
 }
 
 const (
@@ -147,7 +148,7 @@ func (q *qemu) kernelParameters() string {
 	params = append(params, defaultKernelParameters...)
 
 	// set the maximum number of vCPUs
-	params = append(params, hypervisor.Param{"nr_cpus", fmt.Sprintf("%d", q.config.DefaultMaxVCPUs)})
+	params = append(params, hypervisor.Param{"nr_cpus", fmt.Sprintf("%d", q.maxVCPUs)})
 
 	// add the params specified by the provided config. As the kernel
 	// honours the last parameter value set and since the config-provided
@@ -220,6 +221,12 @@ func (q *qemu) setup(id string, hypervisorConfig *hypervisor.Config, vcStore *st
 	q.config = *hypervisorConfig
 	q.arch = newQemuArch(q.config)
 
+	if q.config.DefaultMaxVCPUs == 0 {
+		q.maxVCPUs = MaxQemuVCPUs()
+	} else {
+		q.maxVCPUs = q.config.DefaultMaxVCPUs
+	}
+
 	initrdPath, err := q.config.InitrdAssetPath()
 	if err != nil {
 		return err
@@ -277,7 +284,7 @@ func (q *qemu) setup(id string, hypervisorConfig *hypervisor.Config, vcStore *st
 }
 
 func (q *qemu) cpuTopology() govmmQemu.SMP {
-	return q.arch.cpuTopology(q.config.NumVCPUs, q.config.DefaultMaxVCPUs)
+	return q.arch.cpuTopology(q.config.NumVCPUs, q.maxVCPUs)
 }
 
 func (q *qemu) hostMemMB() (uint64, error) {
@@ -1055,15 +1062,15 @@ func (q *qemu) hotplugAddCPUs(amount uint32) (uint32, error) {
 
 	// Don't fail if the number of max vCPUs is exceeded, log a warning and hot add the vCPUs needed
 	// to reach out max vCPUs
-	if currentVCPUs+amount > q.config.DefaultMaxVCPUs {
+	if currentVCPUs+amount > q.maxVCPUs {
 		q.Logger().Warnf("Cannot hotplug %d CPUs, currently this SB has %d CPUs and the maximum amount of CPUs is %d",
-			amount, currentVCPUs, q.config.DefaultMaxVCPUs)
-		amount = q.config.DefaultMaxVCPUs - currentVCPUs
+			amount, currentVCPUs, q.maxVCPUs)
+		amount = q.maxVCPUs - currentVCPUs
 	}
 
 	if amount == 0 {
 		// Don't fail if no more vCPUs can be added, since cgroups still can be updated
-		q.Logger().Warnf("maximum number of vCPUs '%d' has been reached", q.config.DefaultMaxVCPUs)
+		q.Logger().Warnf("maximum number of vCPUs '%d' has been reached", q.maxVCPUs)
 		return 0, nil
 	}
 

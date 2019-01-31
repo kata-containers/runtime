@@ -31,7 +31,7 @@ func newQemuConfig() hypervisor.Config {
 		MemorySize:        hypervisor.DefaultMemSzMiB,
 		DefaultBridges:    hypervisor.DefaultBridges,
 		BlockDeviceDriver: hypervisor.DefaultBlockDriver,
-		DefaultMaxVCPUs:   hypervisor.DefaultMaxQemuVCPUs,
+		DefaultMaxVCPUs:   MaxQemuVCPUs(),
 		Msize9p:           hypervisor.DefaultMsize9p,
 	}
 }
@@ -45,8 +45,9 @@ func testQemuKernelParameters(t *testing.T, kernelParams []hypervisor.Param, exp
 	}
 
 	q := &qemu{
-		config: qemuConfig,
-		arch:   &qemuArchBase{},
+		config:   qemuConfig,
+		arch:     &qemuArchBase{},
+		maxVCPUs: MaxQemuVCPUs(),
 	}
 
 	params := q.kernelParameters()
@@ -161,6 +162,7 @@ func TestQemuCPUTopology(t *testing.T) {
 			NumVCPUs:        uint32(vcpus),
 			DefaultMaxVCPUs: uint32(vcpus),
 		},
+		maxVCPUs: uint32(vcpus),
 	}
 
 	expectedOut := govmmQemu.SMP{
