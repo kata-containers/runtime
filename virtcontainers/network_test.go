@@ -11,7 +11,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 )
@@ -63,8 +65,8 @@ func TestGenerateInterfacesAndRoutes(t *testing.T) {
 		{LinkIndex: 329, Dst: dst2, Src: src2, Gw: gw2},
 	}
 
-	networkInfo := NetworkInfo{
-		Iface: NetlinkIface{
+	networkInfo := types.NetworkInfo{
+		Iface: types.NetlinkIface{
 			LinkAttrs: netlink.LinkAttrs{MTU: 1500},
 			Type:      "",
 		},
@@ -72,17 +74,17 @@ func TestGenerateInterfacesAndRoutes(t *testing.T) {
 		Routes: routes,
 	}
 
-	ep0 := &PhysicalEndpoint{
+	ep0 := &hypervisor.PhysicalEndpoint{
 		IfaceName:          "eth0",
 		HardAddr:           net.HardwareAddr{0x02, 0x00, 0xca, 0xfe, 0x00, 0x04}.String(),
 		EndpointProperties: networkInfo,
 	}
 
-	endpoints := []Endpoint{ep0}
+	endpoints := []hypervisor.Endpoint{ep0}
 
 	nns := NetworkNamespace{NetNsPath: "foobar", NetNsCreated: true, Endpoints: endpoints}
 
-	resInterfaces, resRoutes, err := generateInterfacesAndRoutes(nns)
+	resInterfaces, resRoutes, err := nns.interfacesAndRoutes(nns)
 
 	//
 	// Build expected results:
@@ -107,200 +109,4 @@ func TestGenerateInterfacesAndRoutes(t *testing.T) {
 	assert.True(t, reflect.DeepEqual(resRoutes, expectedRoutes),
 		"Routes returned didn't match: got %+v, expecting %+v", resRoutes, expectedRoutes)
 
-}
-
-func TestNetInterworkingModelIsValid(t *testing.T) {
-	tests := []struct {
-		name string
-		n    NetInterworkingModel
-		want bool
-	}{
-		{"Invalid Model", NetXConnectInvalidModel, false},
-		{"Default Model", NetXConnectDefaultModel, true},
-		{"Bridged Model", NetXConnectBridgedModel, true},
-		{"TC Filter Model", NetXConnectTCFilterModel, true},
-		{"Macvtap Model", NetXConnectMacVtapModel, true},
-		{"Enlightened Model", NetXConnectEnlightenedModel, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.n.IsValid(); got != tt.want {
-				t.Errorf("NetInterworkingModel.IsValid() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNetInterworkingModelSetModel(t *testing.T) {
-	var n NetInterworkingModel
-	tests := []struct {
-		name      string
-		modelName string
-		wantErr   bool
-	}{
-		{"Invalid Model", "Invalid", true},
-		{"default Model", defaultNetModelStr, false},
-		{"bridged Model", bridgedNetModelStr, false},
-		{"macvtap Model", macvtapNetModelStr, false},
-		{"enlightened Model", enlightenedNetModelStr, false},
-		{"tcfilter Model", tcFilterNetModelStr, false},
-		{"none Model", noneNetModelStr, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := n.SetModel(tt.modelName); (err != nil) != tt.wantErr {
-				t.Errorf("NetInterworkingModel.SetModel() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestGenerateRandomPrivateMacAdd(t *testing.T) {
-	assert := assert.New(t)
-
-	addr1, err := generateRandomPrivateMacAddr()
-	assert.NoError(err)
-
-	_, err = net.ParseMAC(addr1)
-	assert.NoError(err)
-
-	addr2, err := generateRandomPrivateMacAddr()
-	assert.NoError(err)
-
-	_, err = net.ParseMAC(addr2)
-	assert.NoError(err)
-
-	assert.NotEqual(addr1, addr2)
-}
-
-func TestCreateGetBridgeLink(t *testing.T) {
-	if os.Geteuid() != 0 {
-		t.Skip(testDisabledAsNonRoot)
-	}
-
-	assert := assert.New(t)
-
-	netHandle, err := netlink.NewHandle()
-	defer netHandle.Delete()
-
-	assert.NoError(err)
-
-	brName := "testbr0"
-	brLink, _, err := createLink(netHandle, brName, &netlink.Bridge{}, 1)
-	assert.NoError(err)
-	assert.NotNil(brLink)
-
-	brLink, err = getLinkByName(netHandle, brName, &netlink.Bridge{})
-	assert.NoError(err)
-
-	err = netHandle.LinkDel(brLink)
-	assert.NoError(err)
-}
-
-func TestCreateGetTunTapLink(t *testing.T) {
-	if os.Geteuid() != 0 {
-		t.Skip(testDisabledAsNonRoot)
-	}
-
-	assert := assert.New(t)
-
-	netHandle, err := netlink.NewHandle()
-	defer netHandle.Delete()
-
-	assert.NoError(err)
-
-	tapName := "testtap0"
-	tapLink, fds, err := createLink(netHandle, tapName, &netlink.Tuntap{}, 1)
-	assert.NoError(err)
-	assert.NotNil(tapLink)
-	assert.NotZero(len(fds))
-
-	tapLink, err = getLinkByName(netHandle, tapName, &netlink.Tuntap{})
-	assert.NoError(err)
-
-	err = netHandle.LinkDel(tapLink)
-	assert.NoError(err)
-}
-
-func TestCreateMacVtap(t *testing.T) {
-	if os.Geteuid() != 0 {
-		t.Skip(testDisabledAsNonRoot)
-	}
-
-	assert := assert.New(t)
-
-	netHandle, err := netlink.NewHandle()
-	defer netHandle.Delete()
-
-	assert.NoError(err)
-
-	brName := "testbr0"
-	brLink, _, err := createLink(netHandle, brName, &netlink.Bridge{}, 1)
-	assert.NoError(err)
-
-	attrs := brLink.Attrs()
-
-	mcLink := &netlink.Macvtap{
-		Macvlan: netlink.Macvlan{
-			LinkAttrs: netlink.LinkAttrs{
-				TxQLen:      attrs.TxQLen,
-				ParentIndex: attrs.Index,
-			},
-		},
-	}
-
-	macvtapName := "testmc0"
-	_, err = createMacVtap(netHandle, macvtapName, mcLink, 1)
-	assert.NoError(err)
-
-	macvtapLink, err := getLinkByName(netHandle, macvtapName, &netlink.Macvtap{})
-	assert.NoError(err)
-
-	err = netHandle.LinkDel(macvtapLink)
-	assert.NoError(err)
-
-	brLink, err = getLinkByName(netHandle, brName, &netlink.Bridge{})
-	assert.NoError(err)
-
-	err = netHandle.LinkDel(brLink)
-	assert.NoError(err)
-}
-
-func TestTcRedirectNetwork(t *testing.T) {
-	if os.Geteuid() != 0 {
-		t.Skip(testDisabledAsNonRoot)
-	}
-
-	assert := assert.New(t)
-
-	netHandle, err := netlink.NewHandle()
-	assert.NoError(err)
-	defer netHandle.Delete()
-
-	// Create a test veth interface.
-	vethName := "foo"
-	veth := &netlink.Veth{LinkAttrs: netlink.LinkAttrs{Name: vethName, TxQLen: 200, MTU: 1400}, PeerName: "bar"}
-
-	err = netlink.LinkAdd(veth)
-	assert.NoError(err)
-
-	endpoint, err := createVethNetworkEndpoint(1, vethName, NetXConnectTCFilterModel)
-	assert.NoError(err)
-
-	link, err := netlink.LinkByName(vethName)
-	assert.NoError(err)
-
-	err = netHandle.LinkSetUp(link)
-	assert.NoError(err)
-
-	err = setupTCFiltering(endpoint, 1, true)
-	assert.NoError(err)
-
-	err = removeTCFiltering(endpoint)
-	assert.NoError(err)
-
-	// Remove the veth created for testing.
-	err = netHandle.LinkDel(link)
-	assert.NoError(err)
 }

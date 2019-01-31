@@ -43,7 +43,7 @@ func newHypervisorConfig(kernelParams []hypervisor.Param, hParams []hypervisor.P
 
 func testCreateSandbox(t *testing.T, id string,
 	htype hypervisor.Type, hconfig hypervisor.Config, atype AgentType,
-	nconfig NetworkConfig, containers []ContainerConfig,
+	nconfig types.NetworkConfig, containers []ContainerConfig,
 	volumes []types.Volume) (*Sandbox, error) {
 
 	sconfig := SandboxConfig{
@@ -81,7 +81,7 @@ func testCreateSandbox(t *testing.T, id string,
 }
 
 func TestCreateEmptySandbox(t *testing.T) {
-	_, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hypervisor.Config{}, NoopAgentType, NetworkConfig{}, nil, nil)
+	_, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hypervisor.Config{}, NoopAgentType, types.NetworkConfig{}, nil, nil)
 	if err == nil {
 		t.Fatalf("VirtContainers should not allow empty sandboxes")
 	}
@@ -89,7 +89,7 @@ func TestCreateEmptySandbox(t *testing.T) {
 }
 
 func TestCreateEmptyHypervisorSandbox(t *testing.T) {
-	_, err := testCreateSandbox(t, testSandboxID, hypervisor.Qemu, hypervisor.Config{}, NoopAgentType, NetworkConfig{}, nil, nil)
+	_, err := testCreateSandbox(t, testSandboxID, hypervisor.Qemu, hypervisor.Config{}, NoopAgentType, types.NetworkConfig{}, nil, nil)
 	if err == nil {
 		t.Fatalf("VirtContainers should not allow sandboxes with empty hypervisors")
 	}
@@ -99,7 +99,7 @@ func TestCreateEmptyHypervisorSandbox(t *testing.T) {
 func TestCreateMockSandbox(t *testing.T) {
 	hConfig := newHypervisorConfig(nil, nil)
 
-	_, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, NetworkConfig{}, nil, nil)
+	_, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, types.NetworkConfig{}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestCreateMockSandbox(t *testing.T) {
 func TestCreateSandboxEmptyID(t *testing.T) {
 	hConfig := newHypervisorConfig(nil, nil)
 
-	p, err := testCreateSandbox(t, "", hypervisor.Mock, hConfig, NoopAgentType, NetworkConfig{}, nil, nil)
+	p, err := testCreateSandbox(t, "", hypervisor.Mock, hConfig, NoopAgentType, types.NetworkConfig{}, nil, nil)
 	if err == nil {
 		t.Fatalf("Expected sandbox with empty ID to fail, but got sandbox %v", p)
 	}
@@ -119,7 +119,7 @@ func TestCreateSandboxEmptyID(t *testing.T) {
 func testSandboxStateTransition(t *testing.T, state types.StateString, newState types.StateString) error {
 	hConfig := newHypervisorConfig(nil, nil)
 
-	p, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, NetworkConfig{}, nil, nil)
+	p, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, types.NetworkConfig{}, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -451,7 +451,7 @@ func TestSandboxSetSandboxAndContainerState(t *testing.T) {
 	hConfig := newHypervisorConfig(nil, nil)
 
 	// create a sandbox
-	p, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, NetworkConfig{}, []ContainerConfig{contConfig}, nil)
+	p, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, types.NetworkConfig{}, []ContainerConfig{contConfig}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -649,7 +649,7 @@ func TestSandboxGetContainer(t *testing.T) {
 	}
 
 	hConfig := newHypervisorConfig(nil, nil)
-	p, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, NetworkConfig{}, nil, nil)
+	p, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, types.NetworkConfig{}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -695,7 +695,7 @@ func TestContainerSetStateBlockIndex(t *testing.T) {
 	}
 
 	hConfig := newHypervisorConfig(nil, nil)
-	sandbox, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, NetworkConfig{}, containers, nil)
+	sandbox, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, types.NetworkConfig{}, containers, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -790,7 +790,7 @@ func TestContainerStateSetFstype(t *testing.T) {
 	}
 
 	hConfig := newHypervisorConfig(nil, nil)
-	sandbox, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, NetworkConfig{}, containers, nil)
+	sandbox, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, hConfig, NoopAgentType, types.NetworkConfig{}, containers, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1062,7 +1062,7 @@ func TestRemoveContainerSuccess(t *testing.T) {
 }
 
 func TestCreateContainer(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1073,7 +1073,7 @@ func TestCreateContainer(t *testing.T) {
 }
 
 func TestDeleteContainer(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1090,7 +1090,7 @@ func TestDeleteContainer(t *testing.T) {
 }
 
 func TestStartContainer(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1110,7 +1110,7 @@ func TestStartContainer(t *testing.T) {
 }
 
 func TestStatusContainer(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1130,7 +1130,7 @@ func TestStatusContainer(t *testing.T) {
 }
 
 func TestStatusSandbox(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1138,7 +1138,7 @@ func TestStatusSandbox(t *testing.T) {
 }
 
 func TestEnterContainer(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1162,7 +1162,7 @@ func TestEnterContainer(t *testing.T) {
 }
 
 func TestMonitor(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1182,7 +1182,7 @@ func TestMonitor(t *testing.T) {
 }
 
 func TestWaitProcess(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1212,7 +1212,7 @@ func TestWaitProcess(t *testing.T) {
 }
 
 func TestSignalProcess(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1242,7 +1242,7 @@ func TestSignalProcess(t *testing.T) {
 }
 
 func TestWinsizeProcess(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1272,7 +1272,7 @@ func TestWinsizeProcess(t *testing.T) {
 }
 
 func TestContainerProcessIOStream(t *testing.T) {
-	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, NetworkConfig{}, nil, nil)
+	s, err := testCreateSandbox(t, testSandboxID, hypervisor.Mock, newHypervisorConfig(nil, nil), NoopAgentType, types.NetworkConfig{}, nil, nil)
 	assert.Nil(t, err, "VirtContainers should not allow empty sandboxes")
 	defer cleanUp()
 
@@ -1498,8 +1498,8 @@ func TestStartNetworkMonitor(t *testing.T) {
 	s := &Sandbox{
 		id: testSandboxID,
 		config: &SandboxConfig{
-			NetworkConfig: NetworkConfig{
-				NetmonConfig: NetmonConfig{
+			NetworkConfig: types.NetworkConfig{
+				NetmonConfig: types.NetmonConfig{
 					Path: trueBinPath,
 				},
 			},

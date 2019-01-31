@@ -3,36 +3,38 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 func TestCreateBridgedMacvlanEndpoint(t *testing.T) {
 	macAddr := net.HardwareAddr{0x02, 0x00, 0xCA, 0xFE, 0x00, 0x04}
 
 	expected := &BridgedMacvlanEndpoint{
-		NetPair: NetworkInterfacePair{
-			TapInterface: TapInterface{
+		NetPair: types.NetworkInterfacePair{
+			TapInterface: types.TapInterface{
 				ID:   "uniqueTestID-4",
 				Name: "br4_kata",
-				TAPIface: NetworkInterface{
+				TAPIface: types.NetworkInterface{
 					Name: "tap4_kata",
 				},
 			},
-			VirtIface: NetworkInterface{
+			VirtIface: types.NetworkInterface{
 				Name:     "eth4",
 				HardAddr: macAddr.String(),
 			},
-			NetInterworkingModel: DefaultNetInterworkingModel,
+			NetInterworkingModel: types.DefaultNetInterworkingModel,
 		},
 		EndpointType: BridgedMacvlanEndpointType,
 	}
 
-	result, err := createBridgedMacvlanNetworkEndpoint(4, "", DefaultNetInterworkingModel)
+	result, err := createBridgedMacvlanNetworkEndpoint(4, "", types.DefaultNetInterworkingModel)
 	if err != nil {
 		t.Fatal(err)
 	}

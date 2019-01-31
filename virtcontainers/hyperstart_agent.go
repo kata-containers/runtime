@@ -153,8 +153,8 @@ func (h *hyper) processHyperRoute(route netlink.Route, deviceName string) *hyper
 		destination = ""
 	} else {
 		destination = route.Dst.String()
-		if destination == defaultRouteDest {
-			destination = defaultRouteLabel
+		if destination == types.DefaultRouteDest {
+			destination = types.DefaultRouteLabel
 		}
 
 		// Skip IPv6 because not supported by hyperstart

@@ -146,7 +146,7 @@ func newTestSandboxConfigHyperstartAgentDefaultNetwork() SandboxConfig {
 		SockTtyName: testHyperstartTtySocket,
 	}
 
-	netConfig := NetworkConfig{}
+	netConfig := types.NetworkConfig{}
 
 	sandboxConfig := SandboxConfig{
 		ID: testSandboxID,
@@ -2001,7 +2001,7 @@ func createNewSandboxConfig(hType hypervisor.Type, aType AgentType, aConfig inte
 		HypervisorPath: "/usr/bin/qemu-system-x86_64",
 	}
 
-	netConfig := NetworkConfig{}
+	netConfig := types.NetworkConfig{}
 
 	return SandboxConfig{
 		ID:               testSandboxID,
@@ -2421,7 +2421,7 @@ func TestNetworkOperation(t *testing.T) {
 	defer deleteNetNS(netNSPath)
 
 	config := newTestSandboxConfigNoop()
-	config.NetworkConfig = NetworkConfig{
+	config.NetworkConfig = types.NetworkConfig{
 		NetNSPath: netNSPath,
 	}
 

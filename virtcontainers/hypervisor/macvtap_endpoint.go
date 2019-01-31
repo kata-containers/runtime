@@ -3,25 +3,25 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // MacvtapEndpoint represents a macvtap endpoint
 type MacvtapEndpoint struct {
-	EndpointProperties NetworkInfo
+	EndpointProperties types.NetworkInfo
 	EndpointType       EndpointType
 	VMFds              []*os.File
 	VhostFds           []*os.File
 	PCIAddr            string
 }
 
-func createMacvtapNetworkEndpoint(netInfo NetworkInfo) (*MacvtapEndpoint, error) {
+func createMacvtapNetworkEndpoint(netInfo types.NetworkInfo) (*MacvtapEndpoint, error) {
 	endpoint := &MacvtapEndpoint{
 		EndpointType:       MacvtapEndpointType,
 		EndpointProperties: netInfo,
@@ -31,7 +31,7 @@ func createMacvtapNetworkEndpoint(netInfo NetworkInfo) (*MacvtapEndpoint, error)
 }
 
 // Properties returns the properties of the macvtap interface.
-func (endpoint *MacvtapEndpoint) Properties() NetworkInfo {
+func (endpoint *MacvtapEndpoint) Properties() types.NetworkInfo {
 	return endpoint.EndpointProperties
 }
 
@@ -51,12 +51,12 @@ func (endpoint *MacvtapEndpoint) Type() EndpointType {
 }
 
 // SetProperties sets the properties of the macvtap endpoint.
-func (endpoint *MacvtapEndpoint) SetProperties(properties NetworkInfo) {
+func (endpoint *MacvtapEndpoint) SetProperties(properties types.NetworkInfo) {
 	endpoint.EndpointProperties = properties
 }
 
-// Attach for macvtap endpoint passes macvtap device to the hypervisor.
-func (endpoint *MacvtapEndpoint) Attach(h hypervisor.Hypervisor) error {
+// Attach for macvtap endpoint passes macvtap device to the hypervisir.
+func (endpoint *MacvtapEndpoint) Attach(h Hypervisor) error {
 	var err error
 
 	endpoint.VMFds, err = createMacvtapFds(endpoint.EndpointProperties.Iface.Index, int(h.Config().NumVCPUs))
@@ -72,7 +72,7 @@ func (endpoint *MacvtapEndpoint) Attach(h hypervisor.Hypervisor) error {
 		endpoint.VhostFds = vhostFds
 	}
 
-	return h.AddDevice(endpoint, hypervisor.NetDev)
+	return h.AddDevice(endpoint, NetDev)
 }
 
 // Detach for macvtap endpoint does nothing.
@@ -81,12 +81,12 @@ func (endpoint *MacvtapEndpoint) Detach(netNsCreated bool, netNsPath string) err
 }
 
 // HotAttach for macvtap endpoint not supported yet
-func (endpoint *MacvtapEndpoint) HotAttach(h hypervisor.Hypervisor) error {
+func (endpoint *MacvtapEndpoint) HotAttach(h Hypervisor) error {
 	return fmt.Errorf("MacvtapEndpoint does not support Hot attach")
 }
 
 // HotDetach for macvtap endpoint not supported yet
-func (endpoint *MacvtapEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *MacvtapEndpoint) HotDetach(h Hypervisor, netNsCreated bool, netNsPath string) error {
 	return fmt.Errorf("MacvtapEndpoint does not support Hot detach")
 }
 
@@ -101,6 +101,6 @@ func (endpoint *MacvtapEndpoint) SetPciAddr(pciAddr string) {
 }
 
 // NetworkPair returns the network pair of the endpoint.
-func (endpoint *MacvtapEndpoint) NetworkPair() *NetworkInterfacePair {
+func (endpoint *MacvtapEndpoint) NetworkPair() *types.NetworkInterfacePair {
 	return nil
 }

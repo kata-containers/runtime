@@ -3,24 +3,24 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // BridgedMacvlanEndpoint represents a macvlan endpoint that is bridged to the VM
 type BridgedMacvlanEndpoint struct {
-	NetPair            NetworkInterfacePair
-	EndpointProperties NetworkInfo
+	NetPair            types.NetworkInterfacePair
+	EndpointProperties types.NetworkInfo
 	EndpointType       EndpointType
 	PCIAddr            string
 }
 
-func createBridgedMacvlanNetworkEndpoint(idx int, ifName string, interworkingModel NetInterworkingModel) (*BridgedMacvlanEndpoint, error) {
+func createBridgedMacvlanNetworkEndpoint(idx int, ifName string, interworkingModel types.NetInterworkingModel) (*BridgedMacvlanEndpoint, error) {
 	if idx < 0 {
 		return &BridgedMacvlanEndpoint{}, fmt.Errorf("invalid network endpoint index: %d", idx)
 	}
@@ -42,7 +42,7 @@ func createBridgedMacvlanNetworkEndpoint(idx int, ifName string, interworkingMod
 }
 
 // Properties returns properties of the interface.
-func (endpoint *BridgedMacvlanEndpoint) Properties() NetworkInfo {
+func (endpoint *BridgedMacvlanEndpoint) Properties() types.NetworkInfo {
 	return endpoint.EndpointProperties
 }
 
@@ -63,7 +63,7 @@ func (endpoint *BridgedMacvlanEndpoint) Type() EndpointType {
 }
 
 // SetProperties sets the properties for the endpoint.
-func (endpoint *BridgedMacvlanEndpoint) SetProperties(properties NetworkInfo) {
+func (endpoint *BridgedMacvlanEndpoint) SetProperties(properties types.NetworkInfo) {
 	endpoint.EndpointProperties = properties
 }
 
@@ -78,19 +78,19 @@ func (endpoint *BridgedMacvlanEndpoint) SetPciAddr(pciAddr string) {
 }
 
 // NetworkPair returns the network pair of the endpoint.
-func (endpoint *BridgedMacvlanEndpoint) NetworkPair() *NetworkInterfacePair {
+func (endpoint *BridgedMacvlanEndpoint) NetworkPair() *types.NetworkInterfacePair {
 	return &endpoint.NetPair
 }
 
 // Attach for virtual endpoint bridges the network pair and adds the
 // tap interface of the network pair to the hypervisor.
-func (endpoint *BridgedMacvlanEndpoint) Attach(h hypervisor.Hypervisor) error {
+func (endpoint *BridgedMacvlanEndpoint) Attach(h Hypervisor) error {
 	if err := xConnectVMNetwork(endpoint, h); err != nil {
 		networkLogger().WithError(err).Error("Error bridging virtual ep")
 		return err
 	}
 
-	return h.AddDevice(endpoint, hypervisor.NetDev)
+	return h.AddDevice(endpoint, NetDev)
 }
 
 // Detach for the virtual endpoint tears down the tap and bridge
@@ -102,17 +102,17 @@ func (endpoint *BridgedMacvlanEndpoint) Detach(netNsCreated bool, netNsPath stri
 		return nil
 	}
 
-	return doNetNS(netNsPath, func(_ ns.NetNS) error {
+	return DoNetNS(netNsPath, func(_ ns.NetNS) error {
 		return xDisconnectVMNetwork(endpoint)
 	})
 }
 
 // HotAttach for physical endpoint not supported yet
-func (endpoint *BridgedMacvlanEndpoint) HotAttach(h hypervisor.Hypervisor) error {
+func (endpoint *BridgedMacvlanEndpoint) HotAttach(h Hypervisor) error {
 	return fmt.Errorf("BridgedMacvlanEndpoint does not support Hot attach")
 }
 
 // HotDetach for physical endpoint not supported yet
-func (endpoint *BridgedMacvlanEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *BridgedMacvlanEndpoint) HotDetach(h Hypervisor, netNsCreated bool, netNsPath string) error {
 	return fmt.Errorf("BridgedMacvlanEndpoint does not support Hot detach")
 }

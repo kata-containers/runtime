@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"net"
@@ -88,7 +88,7 @@ func TestIsPhysicalIface(t *testing.T) {
 	}
 
 	var isPhysical bool
-	err = doNetNS(n.Path(), func(_ ns.NetNS) error {
+	err = DoNetNS(n.Path(), func(_ ns.NetNS) error {
 		var err error
 		isPhysical, err = isPhysicalIface(testNetIface)
 		return err

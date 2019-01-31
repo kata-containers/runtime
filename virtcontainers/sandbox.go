@@ -71,7 +71,7 @@ type SandboxConfig struct {
 	ShimType   ShimType
 	ShimConfig interface{}
 
-	NetworkConfig NetworkConfig
+	NetworkConfig types.NetworkConfig
 
 	// Volumes is a list of shared volumes between the host and the Sandbox.
 	Volumes []types.Volume
@@ -807,10 +807,10 @@ func (s *Sandbox) removeNetwork() error {
 	return s.network.Remove(s.ctx, &s.networkNS, s.hypervisor, s.factory != nil)
 }
 
-func (s *Sandbox) generateNetInfo(inf *vcTypes.Interface) (NetworkInfo, error) {
+func (s *Sandbox) generateNetInfo(inf *vcTypes.Interface) (types.NetworkInfo, error) {
 	hw, err := net.ParseMAC(inf.HwAddr)
 	if err != nil {
-		return NetworkInfo{}, err
+		return types.NetworkInfo{}, err
 	}
 
 	var addrs []netlink.Addr
@@ -818,14 +818,14 @@ func (s *Sandbox) generateNetInfo(inf *vcTypes.Interface) (NetworkInfo, error) {
 		netlinkAddrStr := fmt.Sprintf("%s/%s", addr.Address, addr.Mask)
 		netlinkAddr, err := netlink.ParseAddr(netlinkAddrStr)
 		if err != nil {
-			return NetworkInfo{}, fmt.Errorf("could not parse %q: %v", netlinkAddrStr, err)
+			return types.NetworkInfo{}, fmt.Errorf("could not parse %q: %v", netlinkAddrStr, err)
 		}
 
 		addrs = append(addrs, *netlinkAddr)
 	}
 
-	return NetworkInfo{
-		Iface: NetlinkIface{
+	return types.NetworkInfo{
+		Iface: types.NetlinkIface{
 			LinkAttrs: netlink.LinkAttrs{
 				Name:         inf.Name,
 				HardwareAddr: hw,
@@ -844,13 +844,13 @@ func (s *Sandbox) AddInterface(inf *vcTypes.Interface) (*vcTypes.Interface, erro
 		return nil, err
 	}
 
-	endpoint, err := createEndpoint(netInfo, len(s.networkNS.Endpoints), s.config.NetworkConfig.InterworkingModel)
+	endpoint, err := hypervisor.CreateEndpoint(netInfo, len(s.networkNS.Endpoints), s.config.NetworkConfig.InterworkingModel)
 	if err != nil {
 		return nil, err
 	}
 
 	endpoint.SetProperties(netInfo)
-	if err := doNetNS(s.networkNS.NetNsPath, func(_ ns.NetNS) error {
+	if err := hypervisor.DoNetNS(s.networkNS.NetNsPath, func(_ ns.NetNS) error {
 		s.Logger().WithField("endpoint-type", endpoint.Type()).Info("Hot attaching endpoint")
 		return endpoint.HotAttach(s.hypervisor)
 	}); err != nil {
@@ -1324,7 +1324,7 @@ func (s *Sandbox) Stop() error {
 		return err
 	}
 
-	// Remove the network.
+	// Remove the hypervisor.
 	return s.removeNetwork()
 }
 

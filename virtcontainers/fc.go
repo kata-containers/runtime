@@ -509,7 +509,7 @@ func (fc *firecracker) fcAddVsock(vs kataVSOCK) error {
 	return nil
 }
 
-func (fc *firecracker) fcAddNetDevice(endpoint Endpoint) error {
+func (fc *firecracker) fcAddNetDevice(endpoint hypervisor.Endpoint) error {
 	span, _ := fc.trace("fcAddNetDevice")
 	defer span.Finish()
 
@@ -613,7 +613,7 @@ func (fc *firecracker) addDevice(devInfo interface{}, devType hypervisor.Device)
 	}
 
 	switch v := devInfo.(type) {
-	case Endpoint:
+	case hypervisor.Endpoint:
 		fc.Logger().WithField("device-type-endpoint", devInfo).Info("Adding device")
 		return fc.fcAddNetDevice(v)
 	case config.BlockDrive:

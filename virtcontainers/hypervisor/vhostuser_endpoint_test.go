@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
@@ -14,6 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
+
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 func TestVhostUserSocketPath(t *testing.T) {
@@ -47,7 +49,7 @@ func TestVhostUserSocketPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	netinfo := NetworkInfo{
+	netinfo := types.NetworkInfo{
 		Addrs: addresses,
 	}
 
@@ -66,7 +68,7 @@ func TestVhostUserSocketPath(t *testing.T) {
 			},
 		},
 	}
-	netinfoFail := NetworkInfo{
+	netinfoFail := types.NetworkInfo{
 		Addrs: addressesFalse,
 	}
 
@@ -135,8 +137,8 @@ func TestCreateVhostUserEndpoint(t *testing.T) {
 	ifcName := "vhost-deadbeef"
 	socket := "/tmp/vhu_192.168.0.1"
 
-	netinfo := NetworkInfo{
-		Iface: NetlinkIface{
+	netinfo := types.NetworkInfo{
+		Iface: types.NetlinkIface{
 			LinkAttrs: netlink.LinkAttrs{
 				HardwareAddr: macAddr,
 				Name:         ifcName,

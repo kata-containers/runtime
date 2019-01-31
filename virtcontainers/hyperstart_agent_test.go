@@ -130,12 +130,12 @@ func TestProcessHyperRouteEmptyGWSuccessful(t *testing.T) {
 
 func TestProcessHyperRouteEmptyDestSuccessful(t *testing.T) {
 	expected := &hyperstart.Route{
-		Dest:    defaultRouteLabel,
+		Dest:    types.DefaultRouteLabel,
 		Gateway: testRouteGateway,
 		Device:  testRouteDeviceName,
 	}
 
-	_, dest, err := net.ParseCIDR(defaultRouteDest)
+	_, dest, err := net.ParseCIDR(types.DefaultRouteDest)
 	if err != nil {
 		t.Fatal(err)
 	}

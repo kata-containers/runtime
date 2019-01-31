@@ -616,7 +616,7 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 	//
 	// Setup network interfaces and routes
 	//
-	interfaces, routes, err := generateInterfacesAndRoutes(sandbox.networkNS)
+	interfaces, routes, err := sandbox.networkNS.interfacesAndRoutes(sandbox.networkNS)
 	if err != nil {
 		return err
 	}

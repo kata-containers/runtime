@@ -3,16 +3,18 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"reflect"
 	"testing"
+
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 func TestCreateMacvtapEndpoint(t *testing.T) {
-	netInfo := NetworkInfo{
-		Iface: NetlinkIface{
+	netInfo := types.NetworkInfo{
+		Iface: types.NetlinkIface{
 			Type: "macvtap",
 		},
 	}

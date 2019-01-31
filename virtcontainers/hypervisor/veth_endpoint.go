@@ -3,25 +3,25 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // VethEndpoint gathers a network pair and its properties.
 type VethEndpoint struct {
-	NetPair            NetworkInterfacePair
-	EndpointProperties NetworkInfo
+	NetPair            types.NetworkInterfacePair
+	EndpointProperties types.NetworkInfo
 	Physical           bool
 	EndpointType       EndpointType
 	PCIAddr            string
 }
 
-func createVethNetworkEndpoint(idx int, ifName string, interworkingModel NetInterworkingModel) (*VethEndpoint, error) {
+func createVethNetworkEndpoint(idx int, ifName string, interworkingModel types.NetInterworkingModel) (*VethEndpoint, error) {
 	if idx < 0 {
 		return &VethEndpoint{}, fmt.Errorf("invalid network endpoint index: %d", idx)
 	}
@@ -46,7 +46,7 @@ func createVethNetworkEndpoint(idx int, ifName string, interworkingModel NetInte
 }
 
 // Properties returns properties for the veth interface in the network pair.
-func (endpoint *VethEndpoint) Properties() NetworkInfo {
+func (endpoint *VethEndpoint) Properties() types.NetworkInfo {
 	return endpoint.EndpointProperties
 }
 
@@ -77,24 +77,24 @@ func (endpoint *VethEndpoint) SetPciAddr(pciAddr string) {
 }
 
 // NetworkPair returns the network pair of the endpoint.
-func (endpoint *VethEndpoint) NetworkPair() *NetworkInterfacePair {
+func (endpoint *VethEndpoint) NetworkPair() *types.NetworkInterfacePair {
 	return &endpoint.NetPair
 }
 
 // SetProperties sets the properties for the endpoint.
-func (endpoint *VethEndpoint) SetProperties(properties NetworkInfo) {
+func (endpoint *VethEndpoint) SetProperties(properties types.NetworkInfo) {
 	endpoint.EndpointProperties = properties
 }
 
 // Attach for veth endpoint bridges the network pair and adds the
 // tap interface of the network pair to the hypervisor.
-func (endpoint *VethEndpoint) Attach(h hypervisor.Hypervisor) error {
+func (endpoint *VethEndpoint) Attach(h Hypervisor) error {
 	if err := xConnectVMNetwork(endpoint, h); err != nil {
 		networkLogger().WithError(err).Error("Error bridging virtual endpoint")
 		return err
 	}
 
-	return h.AddDevice(endpoint, hypervisor.NetDev)
+	return h.AddDevice(endpoint, NetDev)
 }
 
 // Detach for the veth endpoint tears down the tap and bridge
@@ -106,19 +106,19 @@ func (endpoint *VethEndpoint) Detach(netNsCreated bool, netNsPath string) error 
 		return nil
 	}
 
-	return doNetNS(netNsPath, func(_ ns.NetNS) error {
+	return DoNetNS(netNsPath, func(_ ns.NetNS) error {
 		return xDisconnectVMNetwork(endpoint)
 	})
 }
 
 // HotAttach for the veth endpoint uses hot plug device
-func (endpoint *VethEndpoint) HotAttach(h hypervisor.Hypervisor) error {
+func (endpoint *VethEndpoint) HotAttach(h Hypervisor) error {
 	if err := xConnectVMNetwork(endpoint, h); err != nil {
 		networkLogger().WithError(err).Error("Error bridging virtual ep")
 		return err
 	}
 
-	if _, err := h.HotplugAddDevice(endpoint, hypervisor.NetDev); err != nil {
+	if _, err := h.HotplugAddDevice(endpoint, NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error attach virtual ep")
 		return err
 	}
@@ -126,18 +126,18 @@ func (endpoint *VethEndpoint) HotAttach(h hypervisor.Hypervisor) error {
 }
 
 // HotDetach for the veth endpoint uses hot pull device
-func (endpoint *VethEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *VethEndpoint) HotDetach(h Hypervisor, netNsCreated bool, netNsPath string) error {
 	if !netNsCreated {
 		return nil
 	}
 
-	if err := doNetNS(netNsPath, func(_ ns.NetNS) error {
+	if err := DoNetNS(netNsPath, func(_ ns.NetNS) error {
 		return xDisconnectVMNetwork(endpoint)
 	}); err != nil {
 		networkLogger().WithError(err).Warn("Error un-bridging virtual ep")
 	}
 
-	if _, err := h.HotplugRemoveDevice(endpoint, hypervisor.NetDev); err != nil {
+	if _, err := h.HotplugRemoveDevice(endpoint, NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error detach virtual ep")
 		return err
 	}

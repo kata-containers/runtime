@@ -82,7 +82,7 @@ type qemuArch interface {
 	appendVSockPCI(devices []govmmQemu.Device, vsock kataVSOCK) []govmmQemu.Device
 
 	// appendNetwork appends a endpoint device to devices
-	appendNetwork(devices []govmmQemu.Device, endpoint Endpoint) []govmmQemu.Device
+	appendNetwork(devices []govmmQemu.Device, endpoint hypervisor.Endpoint) []govmmQemu.Device
 
 	// appendBlockDevice appends a block drive to devices
 	appendBlockDevice(devices []govmmQemu.Device, drive config.BlockDrive) []govmmQemu.Device
@@ -431,11 +431,11 @@ func (q *qemuArchBase) appendVSockPCI(devices []govmmQemu.Device, vsock kataVSOC
 
 }
 
-func networkModelToQemuType(model NetInterworkingModel) govmmQemu.NetDeviceType {
+func networkModelToQemuType(model types.NetInterworkingModel) govmmQemu.NetDeviceType {
 	switch model {
-	case NetXConnectBridgedModel:
+	case types.NetXConnectBridgedModel:
 		return govmmQemu.MACVTAP //TODO: We should rename MACVTAP to .NET_FD
-	case NetXConnectMacVtapModel:
+	case types.NetXConnectMacVtapModel:
 		return govmmQemu.MACVTAP
 	//case ModelEnlightened:
 	// Here the Network plugin will create a VM native interface
@@ -448,9 +448,9 @@ func networkModelToQemuType(model NetInterworkingModel) govmmQemu.NetDeviceType 
 	}
 }
 
-func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint Endpoint) []govmmQemu.Device {
+func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint hypervisor.Endpoint) []govmmQemu.Device {
 	switch ep := endpoint.(type) {
-	case *VethEndpoint, *BridgedMacvlanEndpoint, *IPVlanEndpoint:
+	case *hypervisor.VethEndpoint, *hypervisor.BridgedMacvlanEndpoint, *hypervisor.IPVlanEndpoint:
 		netPair := ep.NetworkPair()
 		devices = append(devices,
 			govmmQemu.NetDevice{
@@ -468,7 +468,7 @@ func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint Endpoi
 			},
 		)
 		q.networkIndex++
-	case *MacvtapEndpoint:
+	case *hypervisor.MacvtapEndpoint:
 		devices = append(devices,
 			govmmQemu.NetDevice{
 				Type:          govmmQemu.MACVTAP,

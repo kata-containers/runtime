@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 )
@@ -108,14 +108,14 @@ func TestSetupNetworkNamespace(t *testing.T) {
 	assert := assert.New(t)
 
 	// Network namespace same as the host
-	config := &vc.NetworkConfig{
+	config := &types.NetworkConfig{
 		NetNSPath: "/proc/self/ns/net",
 	}
 	err := SetupNetworkNamespace(config)
 	assert.Error(err)
 
 	// Non-existent netns path
-	config = &vc.NetworkConfig{
+	config = &types.NetworkConfig{
 		NetNSPath: "/proc/123456789/ns/net",
 	}
 	err = SetupNetworkNamespace(config)
@@ -124,7 +124,7 @@ func TestSetupNetworkNamespace(t *testing.T) {
 	// Existent netns path
 	n, err := ns.NewNS()
 	assert.NoError(err)
-	config = &vc.NetworkConfig{
+	config = &types.NetworkConfig{
 		NetNSPath: n.Path(),
 	}
 	err = SetupNetworkNamespace(config)
@@ -132,7 +132,7 @@ func TestSetupNetworkNamespace(t *testing.T) {
 	n.Close()
 
 	// Empty netns path
-	config = &vc.NetworkConfig{}
+	config = &types.NetworkConfig{}
 	err = SetupNetworkNamespace(config)
 	assert.NoError(err)
 	n, err = ns.GetNS(config.NetNSPath)
@@ -144,7 +144,7 @@ func TestSetupNetworkNamespace(t *testing.T) {
 	os.RemoveAll(config.NetNSPath)
 
 	// Config with DisableNewNetNs
-	config = &vc.NetworkConfig{DisableNewNetNs: true}
+	config = &types.NetworkConfig{DisableNewNetNs: true}
 	err = SetupNetworkNamespace(config)
 	assert.NoError(err)
 }

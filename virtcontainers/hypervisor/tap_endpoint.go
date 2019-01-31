@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
@@ -11,20 +11,20 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // TapEndpoint represents just a tap endpoint
 type TapEndpoint struct {
-	TapInterface       TapInterface
-	EndpointProperties NetworkInfo
+	TapInterface       types.TapInterface
+	EndpointProperties types.NetworkInfo
 	EndpointType       EndpointType
 	PCIAddr            string
 }
 
 // Properties returns the properties of the tap interface.
-func (endpoint *TapEndpoint) Properties() NetworkInfo {
+func (endpoint *TapEndpoint) Properties() types.NetworkInfo {
 	return endpoint.EndpointProperties
 }
 
@@ -54,17 +54,17 @@ func (endpoint *TapEndpoint) SetPciAddr(pciAddr string) {
 }
 
 // NetworkPair returns the network pair of the endpoint.
-func (endpoint *TapEndpoint) NetworkPair() *NetworkInterfacePair {
+func (endpoint *TapEndpoint) NetworkPair() *types.NetworkInterfacePair {
 	return nil
 }
 
 // SetProperties sets the properties for the endpoint.
-func (endpoint *TapEndpoint) SetProperties(properties NetworkInfo) {
+func (endpoint *TapEndpoint) SetProperties(properties types.NetworkInfo) {
 	endpoint.EndpointProperties = properties
 }
 
 // Attach for tap endpoint adds the tap interface to the hypervisor.
-func (endpoint *TapEndpoint) Attach(h hypervisor.Hypervisor) error {
+func (endpoint *TapEndpoint) Attach(h Hypervisor) error {
 	return fmt.Errorf("TapEndpoint does not support Attach, if you're using docker please use --net none")
 }
 
@@ -75,20 +75,20 @@ func (endpoint *TapEndpoint) Detach(netNsCreated bool, netNsPath string) error {
 	}
 
 	networkLogger().WithField("endpoint-type", TapEndpointType).Info("Detaching endpoint")
-	return doNetNS(netNsPath, func(_ ns.NetNS) error {
+	return DoNetNS(netNsPath, func(_ ns.NetNS) error {
 		return unTapNetwork(endpoint.TapInterface.TAPIface.Name)
 	})
 }
 
 // HotAttach for the tap endpoint uses hot plug device
-func (endpoint *TapEndpoint) HotAttach(h hypervisor.Hypervisor) error {
+func (endpoint *TapEndpoint) HotAttach(h Hypervisor) error {
 	networkLogger().Info("Hot attaching tap endpoint")
 	if err := tapNetwork(endpoint, h.Config().NumVCPUs, h.Config().DisableVhostNet); err != nil {
 		networkLogger().WithError(err).Error("Error bridging tap ep")
 		return err
 	}
 
-	if _, err := h.HotplugAddDevice(endpoint, hypervisor.NetDev); err != nil {
+	if _, err := h.HotplugAddDevice(endpoint, NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error attach tap ep")
 		return err
 	}
@@ -96,15 +96,15 @@ func (endpoint *TapEndpoint) HotAttach(h hypervisor.Hypervisor) error {
 }
 
 // HotDetach for the tap endpoint uses hot pull device
-func (endpoint *TapEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *TapEndpoint) HotDetach(h Hypervisor, netNsCreated bool, netNsPath string) error {
 	networkLogger().Info("Hot detaching tap endpoint")
-	if err := doNetNS(netNsPath, func(_ ns.NetNS) error {
+	if err := DoNetNS(netNsPath, func(_ ns.NetNS) error {
 		return unTapNetwork(endpoint.TapInterface.TAPIface.Name)
 	}); err != nil {
 		networkLogger().WithError(err).Warn("Error un-bridging tap ep")
 	}
 
-	if _, err := h.HotplugRemoveDevice(endpoint, hypervisor.NetDev); err != nil {
+	if _, err := h.HotplugRemoveDevice(endpoint, NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error detach tap ep")
 		return err
 	}
@@ -118,10 +118,10 @@ func createTapNetworkEndpoint(idx int, ifName string) (*TapEndpoint, error) {
 	uniqueID := uuid.Generate().String()
 
 	endpoint := &TapEndpoint{
-		TapInterface: TapInterface{
+		TapInterface: types.TapInterface{
 			ID:   uniqueID,
 			Name: fmt.Sprintf("eth%d", idx),
-			TAPIface: NetworkInterface{
+			TAPIface: types.NetworkInterface{
 				Name: fmt.Sprintf("tap%d_kata", idx),
 			},
 		},

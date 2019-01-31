@@ -119,7 +119,7 @@ type RuntimeConfig struct {
 
 	//Determines how the VM should be connected to the
 	//the container network interface
-	InterNetworkModel vc.NetInterworkingModel
+	InterNetworkModel types.NetInterworkingModel
 	FactoryConfig     FactoryConfig
 	Debug             bool
 	Trace             bool
@@ -316,13 +316,13 @@ func ContainerCapabilities(s CompatOCISpec) (types.LinuxCapabilities, error) {
 	return containerCapabilities(s)
 }
 
-func networkConfig(ocispec CompatOCISpec, config RuntimeConfig) (vc.NetworkConfig, error) {
+func networkConfig(ocispec CompatOCISpec, config RuntimeConfig) (types.NetworkConfig, error) {
 	linux := ocispec.Linux
 	if linux == nil {
-		return vc.NetworkConfig{}, ErrNoLinux
+		return types.NetworkConfig{}, ErrNoLinux
 	}
 
-	var netConf vc.NetworkConfig
+	var netConf types.NetworkConfig
 
 	for _, n := range linux.Namespaces {
 		if n.Type != spec.NetworkNamespace {
@@ -336,7 +336,7 @@ func networkConfig(ocispec CompatOCISpec, config RuntimeConfig) (vc.NetworkConfi
 	netConf.InterworkingModel = config.InterNetworkModel
 	netConf.DisableNewNetNs = config.DisableNewNetNs
 
-	netConf.NetmonConfig = vc.NetmonConfig{
+	netConf.NetmonConfig = types.NetmonConfig{
 		Path:   config.NetmonConfig.Path,
 		Debug:  config.NetmonConfig.Debug,
 		Enable: config.NetmonConfig.Enable,

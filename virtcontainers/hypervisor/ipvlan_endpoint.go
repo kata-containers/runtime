@@ -3,19 +3,19 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // IPVlanEndpoint represents a ipvlan endpoint that is bridged to the VM
 type IPVlanEndpoint struct {
-	NetPair            NetworkInterfacePair
-	EndpointProperties NetworkInfo
+	NetPair            types.NetworkInterfacePair
+	EndpointProperties types.NetworkInfo
 	EndpointType       EndpointType
 	PCIAddr            string
 }
@@ -27,7 +27,7 @@ func createIPVlanNetworkEndpoint(idx int, ifName string) (*IPVlanEndpoint, error
 
 	// Use tc filtering for ipvlan, since the other inter networking models will
 	// not work for ipvlan.
-	interworkingModel := NetXConnectTCFilterModel
+	interworkingModel := types.NetXConnectTCFilterModel
 	netPair, err := createNetworkInterfacePair(idx, ifName, interworkingModel)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func createIPVlanNetworkEndpoint(idx int, ifName string) (*IPVlanEndpoint, error
 }
 
 // Properties returns properties of the interface.
-func (endpoint *IPVlanEndpoint) Properties() NetworkInfo {
+func (endpoint *IPVlanEndpoint) Properties() types.NetworkInfo {
 	return endpoint.EndpointProperties
 }
 
@@ -66,7 +66,7 @@ func (endpoint *IPVlanEndpoint) Type() EndpointType {
 }
 
 // SetProperties sets the properties for the endpoint.
-func (endpoint *IPVlanEndpoint) SetProperties(properties NetworkInfo) {
+func (endpoint *IPVlanEndpoint) SetProperties(properties types.NetworkInfo) {
 	endpoint.EndpointProperties = properties
 }
 
@@ -81,19 +81,19 @@ func (endpoint *IPVlanEndpoint) SetPciAddr(pciAddr string) {
 }
 
 // NetworkPair returns the network pair of the endpoint.
-func (endpoint *IPVlanEndpoint) NetworkPair() *NetworkInterfacePair {
+func (endpoint *IPVlanEndpoint) NetworkPair() *types.NetworkInterfacePair {
 	return &endpoint.NetPair
 }
 
 // Attach for virtual endpoint bridges the network pair and adds the
 // tap interface of the network pair to the hypervisor.
-func (endpoint *IPVlanEndpoint) Attach(h hypervisor.Hypervisor) error {
+func (endpoint *IPVlanEndpoint) Attach(h Hypervisor) error {
 	if err := xConnectVMNetwork(endpoint, h); err != nil {
 		networkLogger().WithError(err).Error("Error bridging virtual ep")
 		return err
 	}
 
-	return h.AddDevice(endpoint, hypervisor.NetDev)
+	return h.AddDevice(endpoint, NetDev)
 }
 
 // Detach for the virtual endpoint tears down the tap and bridge
@@ -105,17 +105,17 @@ func (endpoint *IPVlanEndpoint) Detach(netNsCreated bool, netNsPath string) erro
 		return nil
 	}
 
-	return doNetNS(netNsPath, func(_ ns.NetNS) error {
+	return DoNetNS(netNsPath, func(_ ns.NetNS) error {
 		return xDisconnectVMNetwork(endpoint)
 	})
 }
 
 // HotAttach for physical endpoint not supported yet
-func (endpoint *IPVlanEndpoint) HotAttach(h hypervisor.Hypervisor) error {
+func (endpoint *IPVlanEndpoint) HotAttach(h Hypervisor) error {
 	return fmt.Errorf("IPVlanEndpoint does not support Hot attach")
 }
 
 // HotDetach for physical endpoint not supported yet
-func (endpoint *IPVlanEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *IPVlanEndpoint) HotDetach(h Hypervisor, netNsCreated bool, netNsPath string) error {
 	return fmt.Errorf("IPVlanEndpoint does not support Hot detach")
 }

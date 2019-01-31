@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	vc "github.com/kata-containers/runtime/virtcontainers"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"golang.org/x/sys/unix"
 )
 
@@ -52,7 +52,7 @@ func EnterNetNS(netNSPath string, cb func() error) error {
 }
 
 // SetupNetworkNamespace create a network namespace
-func SetupNetworkNamespace(config *vc.NetworkConfig) error {
+func SetupNetworkNamespace(config *types.NetworkConfig) error {
 	if config.DisableNewNetNs {
 		kataUtilsLogger.Info("DisableNewNetNs is on, shim and hypervisor are running in the host netns")
 		return nil

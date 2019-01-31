@@ -18,6 +18,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	vcHypervisor "github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -894,7 +895,7 @@ func checkNetNsConfig(config oci.RuntimeConfig) error {
 		if config.NetmonConfig.Enable {
 			return fmt.Errorf("config disable_new_netns conflicts with enable_netmon")
 		}
-		if config.InterNetworkModel != vc.NetXConnectNoneModel {
+		if config.InterNetworkModel != types.NetXConnectNoneModel {
 			return fmt.Errorf("config disable_new_netns only works with 'none' internetworking_model")
 		}
 	} else if config.ShimConfig.(vc.ShimConfig).Trace {

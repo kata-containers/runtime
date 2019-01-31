@@ -3,32 +3,34 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 func TestCreateIPVlanEndpoint(t *testing.T) {
 	macAddr := net.HardwareAddr{0x02, 0x00, 0xCA, 0xFE, 0x00, 0x04}
 
 	expected := &IPVlanEndpoint{
-		NetPair: NetworkInterfacePair{
-			TapInterface: TapInterface{
+		NetPair: types.NetworkInterfacePair{
+			TapInterface: types.TapInterface{
 				ID:   "uniqueTestID-5",
 				Name: "br5_kata",
-				TAPIface: NetworkInterface{
+				TAPIface: types.NetworkInterface{
 					Name: "tap5_kata",
 				},
 			},
-			VirtIface: NetworkInterface{
+			VirtIface: types.NetworkInterface{
 				Name:     "eth5",
 				HardAddr: macAddr.String(),
 			},
 
-			NetInterworkingModel: NetXConnectTCFilterModel,
+			NetInterworkingModel: types.NetXConnectTCFilterModel,
 		},
 		EndpointType: IPVlanEndpointType,
 	}

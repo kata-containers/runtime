@@ -928,20 +928,20 @@ func (q *qemu) hotAddNetDevice(name, hardAddr string, VMFds, VhostFds []*os.File
 	return q.qmpMonitorCh.qmp.ExecuteNetdevAddByFds(q.qmpMonitorCh.ctx, "tap", name, VMFdNames, VhostFdNames)
 }
 
-func (q *qemu) hotplugNetDevice(endpoint Endpoint, op hypervisor.Operation) error {
+func (q *qemu) hotplugNetDevice(endpoint hypervisor.Endpoint, op hypervisor.Operation) error {
 	err := q.qmpSetup()
 	if err != nil {
 		return err
 	}
-	var tap TapInterface
+	var tap types.TapInterface
 	devID := "virtio-" + tap.ID
 
 	switch endpoint.Type() {
-	case VethEndpointType:
-		drive := endpoint.(*VethEndpoint)
+	case hypervisor.VethEndpointType:
+		drive := endpoint.(*hypervisor.VethEndpoint)
 		tap = drive.NetPair.TapInterface
-	case TapEndpointType:
-		drive := endpoint.(*TapEndpoint)
+	case hypervisor.TapEndpointType:
+		drive := endpoint.(*hypervisor.TapEndpoint)
 		tap = drive.TapInterface
 	default:
 		return fmt.Errorf("this endpoint is not supported")
@@ -1000,7 +1000,7 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType hypervisor.Device, op 
 		memdev := devInfo.(*hypervisor.MemoryDevice)
 		return q.hotplugMemory(memdev, op)
 	case hypervisor.NetDev:
-		device := devInfo.(Endpoint)
+		device := devInfo.(hypervisor.Endpoint)
 		return nil, q.hotplugNetDevice(device, op)
 	default:
 		return nil, fmt.Errorf("cannot hotplug device: unsupported device type '%v'", devType)
@@ -1244,7 +1244,7 @@ func (q *qemu) AddDevice(devInfo interface{}, devType hypervisor.Device) error {
 	case kataVSOCK:
 		q.fds = append(q.fds, v.vhostFd)
 		q.qemuConfig.Devices = q.arch.appendVSockPCI(q.qemuConfig.Devices, v)
-	case Endpoint:
+	case hypervisor.Endpoint:
 		q.qemuConfig.Devices = q.arch.appendNetwork(q.qemuConfig.Devices, v)
 	case config.BlockDrive:
 		q.qemuConfig.Devices = q.arch.appendBlockDevice(q.qemuConfig.Devices, v)

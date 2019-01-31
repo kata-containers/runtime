@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/safchain/ethtool"
 )
 
@@ -22,7 +22,7 @@ import (
 type PhysicalEndpoint struct {
 	IfaceName          string
 	HardAddr           string
-	EndpointProperties NetworkInfo
+	EndpointProperties types.NetworkInfo
 	EndpointType       EndpointType
 	BDF                string
 	Driver             string
@@ -31,7 +31,7 @@ type PhysicalEndpoint struct {
 }
 
 // Properties returns the properties of the physical interface.
-func (endpoint *PhysicalEndpoint) Properties() NetworkInfo {
+func (endpoint *PhysicalEndpoint) Properties() types.NetworkInfo {
 	return endpoint.EndpointProperties
 }
 
@@ -61,18 +61,18 @@ func (endpoint *PhysicalEndpoint) SetPciAddr(pciAddr string) {
 }
 
 // SetProperties sets the properties of the physical endpoint.
-func (endpoint *PhysicalEndpoint) SetProperties(properties NetworkInfo) {
+func (endpoint *PhysicalEndpoint) SetProperties(properties types.NetworkInfo) {
 	endpoint.EndpointProperties = properties
 }
 
 // NetworkPair returns the network pair of the endpoint.
-func (endpoint *PhysicalEndpoint) NetworkPair() *NetworkInterfacePair {
+func (endpoint *PhysicalEndpoint) NetworkPair() *types.NetworkInterfacePair {
 	return nil
 }
 
 // Attach for physical endpoint binds the physical network interface to
 // vfio-pci and adds device to the hypervisor with vfio-passthrough.
-func (endpoint *PhysicalEndpoint) Attach(h hypervisor.Hypervisor) error {
+func (endpoint *PhysicalEndpoint) Attach(h Hypervisor) error {
 	// Unbind physical interface from host driver and bind to vfio
 	// so that it can be passed to qemu.
 	if err := bindNICToVFIO(endpoint); err != nil {
@@ -84,7 +84,7 @@ func (endpoint *PhysicalEndpoint) Attach(h hypervisor.Hypervisor) error {
 		BDF: endpoint.BDF,
 	}
 
-	return h.AddDevice(d, hypervisor.VfioDev)
+	return h.AddDevice(d, VfioDev)
 }
 
 // Detach for physical endpoint unbinds the physical network interface from vfio-pci
@@ -100,12 +100,12 @@ func (endpoint *PhysicalEndpoint) Detach(netNsCreated bool, netNsPath string) er
 }
 
 // HotAttach for physical endpoint not supported yet
-func (endpoint *PhysicalEndpoint) HotAttach(h hypervisor.Hypervisor) error {
+func (endpoint *PhysicalEndpoint) HotAttach(h Hypervisor) error {
 	return fmt.Errorf("PhysicalEndpoint does not support Hot attach")
 }
 
 // HotDetach for physical endpoint not supported yet
-func (endpoint *PhysicalEndpoint) HotDetach(h hypervisor.Hypervisor, netNsCreated bool, netNsPath string) error {
+func (endpoint *PhysicalEndpoint) HotDetach(h Hypervisor, netNsCreated bool, netNsPath string) error {
 	return fmt.Errorf("PhysicalEndpoint does not support Hot detach")
 }
 
@@ -138,7 +138,7 @@ func isPhysicalIface(ifaceName string) (bool, error) {
 
 var sysPCIDevicesPath = "/sys/bus/pci/devices"
 
-func createPhysicalEndpoint(netInfo NetworkInfo) (*PhysicalEndpoint, error) {
+func createPhysicalEndpoint(netInfo types.NetworkInfo) (*PhysicalEndpoint, error) {
 	// Get ethtool handle to derive driver and bus
 	ethHandle, err := ethtool.NewEthtool()
 	if err != nil {

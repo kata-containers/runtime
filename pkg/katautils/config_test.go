@@ -23,6 +23,7 @@ import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vcHypervisor "github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -1532,7 +1533,7 @@ func TestCheckNetNsConfig(t *testing.T) {
 
 	config = oci.RuntimeConfig{
 		DisableNewNetNs:   true,
-		InterNetworkModel: vc.NetXConnectDefaultModel,
+		InterNetworkModel: types.NetXConnectDefaultModel,
 	}
 	err = checkNetNsConfig(config)
 	assert.Error(err)
@@ -1584,18 +1585,18 @@ func TestCheckNetNsConfigShimTrace(t *testing.T) {
 
 	type testData struct {
 		disableNetNs bool
-		networkModel vc.NetInterworkingModel
+		networkModel types.NetInterworkingModel
 		shimTrace    bool
 		expectError  bool
 	}
 
 	data := []testData{
-		{false, vc.NetXConnectMacVtapModel, false, false},
-		{false, vc.NetXConnectMacVtapModel, true, true},
-		{true, vc.NetXConnectMacVtapModel, true, true},
-		{true, vc.NetXConnectMacVtapModel, false, true},
-		{true, vc.NetXConnectNoneModel, false, false},
-		{true, vc.NetXConnectNoneModel, true, false},
+		{false, types.NetXConnectMacVtapModel, false, false},
+		{false, types.NetXConnectMacVtapModel, true, true},
+		{true, types.NetXConnectMacVtapModel, true, true},
+		{true, types.NetXConnectMacVtapModel, false, true},
+		{true, types.NetXConnectNoneModel, false, false},
+		{true, types.NetXConnectNoneModel, true, false},
 	}
 
 	for i, d := range data {

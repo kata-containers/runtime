@@ -3,36 +3,38 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 func TestCreateVethNetworkEndpoint(t *testing.T) {
 	macAddr := net.HardwareAddr{0x02, 0x00, 0xCA, 0xFE, 0x00, 0x04}
 
 	expected := &VethEndpoint{
-		NetPair: NetworkInterfacePair{
-			TapInterface: TapInterface{
+		NetPair: types.NetworkInterfacePair{
+			TapInterface: types.TapInterface{
 				ID:   "uniqueTestID-4",
 				Name: "br4_kata",
-				TAPIface: NetworkInterface{
+				TAPIface: types.NetworkInterface{
 					Name: "tap4_kata",
 				},
 			},
-			VirtIface: NetworkInterface{
+			VirtIface: types.NetworkInterface{
 				Name:     "eth4",
 				HardAddr: macAddr.String(),
 			},
-			NetInterworkingModel: DefaultNetInterworkingModel,
+			NetInterworkingModel: types.DefaultNetInterworkingModel,
 		},
 		EndpointType: VethEndpointType,
 	}
 
-	result, err := createVethNetworkEndpoint(4, "", DefaultNetInterworkingModel)
+	result, err := createVethNetworkEndpoint(4, "", types.DefaultNetInterworkingModel)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,24 +54,24 @@ func TestCreateVethNetworkEndpointChooseIfaceName(t *testing.T) {
 	macAddr := net.HardwareAddr{0x02, 0x00, 0xCA, 0xFE, 0x00, 0x04}
 
 	expected := &VethEndpoint{
-		NetPair: NetworkInterfacePair{
-			TapInterface: TapInterface{
+		NetPair: types.NetworkInterfacePair{
+			TapInterface: types.TapInterface{
 				ID:   "uniqueTestID-4",
 				Name: "br4_kata",
-				TAPIface: NetworkInterface{
+				TAPIface: types.NetworkInterface{
 					Name: "tap4_kata",
 				},
 			},
-			VirtIface: NetworkInterface{
+			VirtIface: types.NetworkInterface{
 				Name:     "eth1",
 				HardAddr: macAddr.String(),
 			},
-			NetInterworkingModel: DefaultNetInterworkingModel,
+			NetInterworkingModel: types.DefaultNetInterworkingModel,
 		},
 		EndpointType: VethEndpointType,
 	}
 
-	result, err := createVethNetworkEndpoint(4, "eth1", DefaultNetInterworkingModel)
+	result, err := createVethNetworkEndpoint(4, "eth1", types.DefaultNetInterworkingModel)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +100,7 @@ func TestCreateVethNetworkEndpointInvalidArgs(t *testing.T) {
 	}
 
 	for _, d := range failingValues {
-		result, err := createVethNetworkEndpoint(d.idx, d.ifName, DefaultNetInterworkingModel)
+		result, err := createVethNetworkEndpoint(d.idx, d.ifName, types.DefaultNetInterworkingModel)
 		if err == nil {
 			t.Fatalf("expected invalid endpoint for %v, got %v", d, result)
 		}
