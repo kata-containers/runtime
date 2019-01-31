@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
@@ -12,13 +12,12 @@ import (
 	"testing"
 
 	govmmQemu "github.com/intel/govmm/qemu"
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 )
 
 func newTestQemu(machineType string) qemuArch {
-	config := hypervisor.Config{
+	config := Config{
 		HypervisorMachineType: machineType,
 	}
 	return newQemuArch(config)

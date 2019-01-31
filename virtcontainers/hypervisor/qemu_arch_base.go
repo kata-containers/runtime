@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"encoding/hex"
@@ -14,7 +14,6 @@ import (
 	govmmQemu "github.com/intel/govmm/qemu"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 )
@@ -43,7 +42,7 @@ type qemuArch interface {
 
 	// kernelParameters returns the kernel parameters
 	// if debug is true then kernel debug parameters are included
-	kernelParameters(debug bool) []hypervisor.Param
+	kernelParameters(debug bool) []Param
 
 	//capabilities returns the capabilities supported by QEMU
 	capabilities() types.Capabilities
@@ -82,7 +81,7 @@ type qemuArch interface {
 	appendVSockPCI(devices []govmmQemu.Device, vsock types.VSOCK) []govmmQemu.Device
 
 	// appendNetwork appends a endpoint device to devices
-	appendNetwork(devices []govmmQemu.Device, endpoint hypervisor.Endpoint) []govmmQemu.Device
+	appendNetwork(devices []govmmQemu.Device, endpoint Endpoint) []govmmQemu.Device
 
 	// appendBlockDevice appends a block drive to devices
 	appendBlockDevice(devices []govmmQemu.Device, drive config.BlockDrive) []govmmQemu.Device
@@ -97,7 +96,7 @@ type qemuArch interface {
 	appendRNGDevice(devices []govmmQemu.Device, rngDevice config.RNGDev) []govmmQemu.Device
 
 	// handleImagePath handles the Hypervisor Config image path
-	handleImagePath(config hypervisor.Config)
+	handleImagePath(config Config)
 
 	// supportGuestMemoryHotplug returns if the guest supports memory hotplug
 	supportGuestMemoryHotplug() bool
@@ -111,9 +110,9 @@ type qemuArchBase struct {
 	networkIndex          int
 	qemuPaths             map[string]string
 	supportedQemuMachines []govmmQemu.Machine
-	kernelParamsNonDebug  []hypervisor.Param
-	kernelParamsDebug     []hypervisor.Param
-	kernelParams          []hypervisor.Param
+	kernelParamsNonDebug  []Param
+	kernelParamsDebug     []Param
+	kernelParams          []Param
 }
 
 const (
@@ -122,7 +121,6 @@ const (
 	defaultCPUModel         = "host"
 	defaultBridgeBus        = "pcie.0"
 	maxDevIDSize            = 31
-	defaultMsize9p          = 8192
 )
 
 // This is the PCI start address assigned to the first bridge that
@@ -153,27 +151,27 @@ const (
 
 // kernelParamsNonDebug is a list of the default kernel
 // parameters that will be used in standard (non-debug) mode.
-var kernelParamsNonDebug = []hypervisor.Param{
+var kernelParamsNonDebug = []Param{
 	{"quiet", ""},
 }
 
 // kernelParamsSystemdNonDebug is a list of the default systemd related
 // kernel parameters that will be used in standard (non-debug) mode.
-var kernelParamsSystemdNonDebug = []hypervisor.Param{
+var kernelParamsSystemdNonDebug = []Param{
 	{"systemd.show_status", "false"},
 }
 
 // kernelParamsDebug is a list of the default kernel
 // parameters that will be used in debug mode (as much boot output as
 // possible).
-var kernelParamsDebug = []hypervisor.Param{
+var kernelParamsDebug = []Param{
 	{"debug", ""},
 }
 
 // kernelParamsSystemdDebug is a list of the default systemd related kernel
 // parameters that will be used in debug mode (as much boot output as
 // possible).
-var kernelParamsSystemdDebug = []hypervisor.Param{
+var kernelParamsSystemdDebug = []Param{
 	{"systemd.show_status", "true"},
 	{"systemd.log_level", "debug"},
 }
@@ -217,7 +215,7 @@ func (q *qemuArchBase) qemuPath() (string, error) {
 	return p, nil
 }
 
-func (q *qemuArchBase) kernelParameters(debug bool) []hypervisor.Param {
+func (q *qemuArchBase) kernelParameters(debug bool) []Param {
 	params := q.kernelParams
 
 	if debug {
@@ -448,9 +446,9 @@ func networkModelToQemuType(model types.NetInterworkingModel) govmmQemu.NetDevic
 	}
 }
 
-func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint hypervisor.Endpoint) []govmmQemu.Device {
+func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint Endpoint) []govmmQemu.Device {
 	switch ep := endpoint.(type) {
-	case *hypervisor.VethEndpoint, *hypervisor.BridgedMacvlanEndpoint, *hypervisor.IPVlanEndpoint:
+	case *VethEndpoint, *BridgedMacvlanEndpoint, *IPVlanEndpoint:
 		netPair := ep.NetworkPair()
 		devices = append(devices,
 			govmmQemu.NetDevice{
@@ -468,7 +466,7 @@ func (q *qemuArchBase) appendNetwork(devices []govmmQemu.Device, endpoint hyperv
 			},
 		)
 		q.networkIndex++
-	case *hypervisor.MacvtapEndpoint:
+	case *MacvtapEndpoint:
 		devices = append(devices,
 			govmmQemu.NetDevice{
 				Type:          govmmQemu.MACVTAP,
@@ -561,7 +559,7 @@ func (q *qemuArchBase) appendRNGDevice(devices []govmmQemu.Device, rngDev config
 	return devices
 }
 
-func (q *qemuArchBase) handleImagePath(config hypervisor.Config) {
+func (q *qemuArchBase) handleImagePath(config Config) {
 	if config.ImagePath != "" {
 		q.kernelParams = append(q.kernelParams, kernelRootParams...)
 		q.kernelParamsNonDebug = append(q.kernelParamsNonDebug, kernelParamsSystemdNonDebug...)

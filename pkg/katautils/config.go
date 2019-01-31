@@ -251,7 +251,7 @@ func (h hypervisor) defaultVCPUs() uint32 {
 
 func (h hypervisor) defaultMaxVCPUs() uint32 {
 	numcpus := uint32(goruntime.NumCPU())
-	maxvcpus := vc.MaxQemuVCPUs()
+	maxvcpus := vcHypervisor.MaxQemuVCPUs()
 	reqVCPUs := h.DefaultMaxVCPUs
 
 	//don't exceed the number of physical CPUs. If a default is not provided, use the

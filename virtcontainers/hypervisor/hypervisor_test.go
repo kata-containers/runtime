@@ -6,12 +6,15 @@
 package hypervisor
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/kata-containers/runtime/virtcontainers/store"
 )
 
 const testKernel = "kernel"
@@ -92,11 +95,11 @@ func testNewHypervisorFromType(t *testing.T, hypervisorType Type, expected Hyper
 	}
 }
 
-// func TestNewHypervisorFromQemuType(t *testing.T) {
-// 	hypervisorType := Qemu
-// 	expectedHypervisor := &qemu{}
-// 	testNewHypervisorFromType(t, hypervisorType, expectedHypervisor)
-// }
+func TestNewHypervisorFromQemuType(t *testing.T) {
+	hypervisorType := Qemu
+	expectedHypervisor := &qemu{}
+	testNewHypervisorFromType(t, hypervisorType, expectedHypervisor)
+}
 
 // func TestNewHypervisorFromMockType(t *testing.T) {
 // 	hypervisorType := Mock
@@ -526,4 +529,59 @@ func TestRunningOnVMMNotExistingCPUInfoPathFailure(t *testing.T) {
 	if _, err := RunningOnVMM(filePath); err == nil {
 		t.Fatalf("Should fail because %q file path does not exist", filePath)
 	}
+}
+
+// TestMain is the common main function used by ALL the test functions
+// for this package.
+func TestMain(m *testing.M) {
+	var err error
+
+	flag.Parse()
+
+	testDir, err = ioutil.TempDir("", "vc-qemu-tmp-")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("INFO: Creating hypervisor test directory %s\n", testDir)
+	err = os.MkdirAll(testDir, store.DirMode)
+	if err != nil {
+		fmt.Println("Could not create test directories:", err)
+		os.Exit(1)
+	}
+
+	testQemuKernelPath = filepath.Join(testDir, testKernel)
+	testQemuInitrdPath = filepath.Join(testDir, testInitrd)
+	testQemuImagePath = filepath.Join(testDir, testImage)
+	testQemuPath = filepath.Join(testDir, testHypervisor)
+
+	fmt.Printf("INFO: Creating hypervisor test kernel %s\n", testQemuKernelPath)
+	_, err = os.Create(testQemuKernelPath)
+	if err != nil {
+		fmt.Println("Could not create test kernel:", err)
+		os.RemoveAll(testDir)
+		os.Exit(1)
+	}
+
+	fmt.Printf("INFO: Creating hypervisor test image %s\n", testQemuImagePath)
+	_, err = os.Create(testQemuImagePath)
+	if err != nil {
+		fmt.Println("Could not create test image:", err)
+		os.RemoveAll(testDir)
+		os.Exit(1)
+	}
+
+	fmt.Printf("INFO: Creating hypervisor test hypervisor %s\n", testQemuPath)
+	_, err = os.Create(testQemuPath)
+	if err != nil {
+		fmt.Println("Could not create test hypervisor:", err)
+		os.RemoveAll(testDir)
+		os.Exit(1)
+	}
+
+	ret := m.Run()
+
+	os.RemoveAll(testDir)
+
+	os.Exit(ret)
 }

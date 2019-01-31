@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
@@ -55,7 +55,7 @@ func MaxQemuVCPUs() uint32 {
 	return uint32(248)
 }
 
-func newQemuArch(config HypervisorConfig) qemuArch {
+func newQemuArch(config Config) qemuArch {
 	machineType := config.HypervisorMachineType
 	if machineType == "" {
 		machineType = defaultQemuMachineType

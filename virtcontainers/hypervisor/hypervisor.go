@@ -155,7 +155,12 @@ func (t *Type) String() string {
 
 // New returns an hypervisor from and hypervisor type.
 func New(t Type) (Hypervisor, error) {
-	return nil, fmt.Errorf("Unknown hypervisor type %s", t)
+	switch t {
+	case Qemu:
+		return &qemu{}, nil
+	default:
+		return nil, fmt.Errorf("Unknown hypervisor type %s", t)
+	}
 }
 
 // Param is a key/value representation for hypervisor and kernel parameters.

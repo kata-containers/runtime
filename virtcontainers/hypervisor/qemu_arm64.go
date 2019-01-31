@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"io/ioutil"
@@ -51,7 +51,7 @@ var supportedQemuMachines = []govmmQemu.Machine{
 
 // Logger returns a logrus logger appropriate for logging qemu-aarch64 messages
 func qemuArmLogger() *logrus.Entry {
-	return virtLog.WithField("subsystem", "qemu-aarch64")
+	return logrus.WithField("subsystem", "hypervisor/qemu-aarch64")
 }
 
 // On ARM platform, we have different GIC interrupt controllers. Different
@@ -127,7 +127,7 @@ func MaxQemuVCPUs() uint32 {
 	return uint32(runtime.NumCPU())
 }
 
-func newQemuArch(config HypervisorConfig) qemuArch {
+func newQemuArch(config Config) qemuArch {
 	machineType := config.HypervisorMachineType
 	if machineType == "" {
 		machineType = defaultQemuMachineType

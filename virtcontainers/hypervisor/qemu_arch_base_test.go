@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"fmt"
@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 )
@@ -30,18 +29,18 @@ var qemuArchBaseQemuPaths = map[string]string{
 	qemuArchBaseMachineType: qemuArchBaseQemuPath,
 }
 
-var qemuArchBaseKernelParamsNonDebug = []hypervisor.Param{
+var qemuArchBaseKernelParamsNonDebug = []Param{
 	{"quiet", ""},
 	{"systemd.show_status", "false"},
 }
 
-var qemuArchBaseKernelParamsDebug = []hypervisor.Param{
+var qemuArchBaseKernelParamsDebug = []Param{
 	{"debug", ""},
 	{"systemd.show_status", "true"},
 	{"systemd.log_level", "debug"},
 }
 
-var qemuArchBaseKernelParams = []hypervisor.Param{
+var qemuArchBaseKernelParams = []Param{
 	{"root", "/dev/vda"},
 	{"rootfstype", "ext4"},
 }
@@ -121,15 +120,15 @@ func TestQemuArchBaseKernelParameters(t *testing.T) {
 	qemuArchBase := newQemuArchBase()
 
 	// with debug params
-	expectedParams := []hypervisor.Param(qemuArchBaseKernelParams)
-	debugParams := []hypervisor.Param(qemuArchBaseKernelParamsDebug)
+	expectedParams := []Param(qemuArchBaseKernelParams)
+	debugParams := []Param(qemuArchBaseKernelParamsDebug)
 	expectedParams = append(expectedParams, debugParams...)
 	p := qemuArchBase.kernelParameters(true)
 	assert.Equal(expectedParams, p)
 
 	// with non-debug params
-	expectedParams = []hypervisor.Param(qemuArchBaseKernelParams)
-	nonDebugParams := []hypervisor.Param(qemuArchBaseKernelParamsNonDebug)
+	expectedParams = []Param(qemuArchBaseKernelParams)
+	nonDebugParams := []Param(qemuArchBaseKernelParamsNonDebug)
 	expectedParams = append(expectedParams, nonDebugParams...)
 	p = qemuArchBase.kernelParameters(false)
 	assert.Equal(expectedParams, p)
@@ -446,7 +445,7 @@ func TestQemuArchBaseAppendNetwork(t *testing.T) {
 
 	macAddr := net.HardwareAddr{0x02, 0x00, 0xCA, 0xFE, 0x00, 0x04}
 
-	macvlanEp := &hypervisor.BridgedMacvlanEndpoint{
+	macvlanEp := &BridgedMacvlanEndpoint{
 		NetPair: types.NetworkInterfacePair{
 			TapInterface: types.TapInterface{
 				ID:   "uniqueTestID-4",
@@ -461,11 +460,11 @@ func TestQemuArchBaseAppendNetwork(t *testing.T) {
 			},
 			NetInterworkingModel: types.DefaultNetInterworkingModel,
 		},
-		EndpointType: hypervisor.BridgedMacvlanEndpointType,
+		EndpointType: BridgedMacvlanEndpointType,
 	}
 
-	macvtapEp := &hypervisor.MacvtapEndpoint{
-		EndpointType: hypervisor.MacvtapEndpointType,
+	macvtapEp := &MacvtapEndpoint{
+		EndpointType: MacvtapEndpointType,
 		EndpointProperties: types.NetworkInfo{
 			Iface: types.NetlinkIface{
 				Type: "macvtap",

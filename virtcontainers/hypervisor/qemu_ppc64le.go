@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"encoding/hex"
@@ -58,7 +58,7 @@ var supportedQemuMachines = []govmmQemu.Machine{
 
 // Logger returns a logrus logger appropriate for logging qemu messages
 func (q *qemuPPC64le) Logger() *logrus.Entry {
-	return virtLog.WithField("subsystem", "qemu")
+	return logrus.WithField("subsystem", "hypervisor/qemu-ppc64le")
 }
 
 // MaxQemuVCPUs returns the maximum number of vCPUs supported
@@ -66,7 +66,7 @@ func MaxQemuVCPUs() uint32 {
 	return uint32(128)
 }
 
-func newQemuArch(config HypervisorConfig) qemuArch {
+func newQemuArch(config Config) qemuArch {
 	machineType := config.HypervisorMachineType
 	if machineType == "" {
 		machineType = defaultQemuMachineType

@@ -935,7 +935,7 @@ func TestHypervisorDefaults(t *testing.T) {
 	h.DefaultMaxVCPUs = uint32(numCPUs) + 1
 	assert.Equal(h.defaultMaxVCPUs(), uint32(numCPUs), "default max vCPU number is wrong")
 
-	maxvcpus := vc.MaxQemuVCPUs()
+	maxvcpus := vcHypervisor.MaxQemuVCPUs()
 	h.DefaultMaxVCPUs = uint32(maxvcpus) + 1
 	assert.Equal(h.defaultMaxVCPUs(), uint32(numCPUs), "default max vCPU number is wrong")
 

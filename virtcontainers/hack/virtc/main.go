@@ -49,7 +49,7 @@ var sandboxConfigFlags = []cli.Flag{
 
 	cli.StringFlag{
 		Name:  "machine-type",
-		Value: vc.QemuPC,
+		Value: hypervisor.QemuPC,
 		Usage: "hypervisor machine type",
 	},
 
@@ -156,7 +156,7 @@ func buildSandboxConfig(context *cli.Context) (vc.SandboxConfig, error) {
 	}
 
 	kernelPath := "/usr/share/clear-containers/vmlinuz.container"
-	if machineType == vc.QemuPCLite {
+	if machineType == hypervisor.QemuPCLite {
 		kernelPath = "/usr/share/clear-containers/vmlinux.container"
 	}
 

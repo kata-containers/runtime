@@ -3,12 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"os"
 
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 
 	govmmQemu "github.com/intel/govmm/qemu"
@@ -33,13 +32,13 @@ var qemuPaths = map[string]string{
 	QemuQ35:    defaultQemuPath,
 }
 
-var kernelRootParams = []hypervisor.Param{
+var kernelRootParams = []Param{
 	{"root", "/dev/pmem0p1"},
 	{"rootflags", "dax,data=ordered,errors=remount-ro rw"},
 	{"rootfstype", "ext4"},
 }
 
-var kernelParams = []hypervisor.Param{
+var kernelParams = []Param{
 	{"tsc", "reliable"},
 	{"no_timer_check", ""},
 	{"rcupdate.rcu_expedited", "1"},
@@ -81,7 +80,7 @@ func MaxQemuVCPUs() uint32 {
 	return uint32(240)
 }
 
-func newQemuArch(config hypervisor.Config) qemuArch {
+func newQemuArch(config Config) qemuArch {
 	machineType := config.HypervisorMachineType
 	if machineType == "" {
 		machineType = defaultQemuMachineType

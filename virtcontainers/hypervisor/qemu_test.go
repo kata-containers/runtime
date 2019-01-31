@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"context"
@@ -15,28 +15,34 @@ import (
 	"testing"
 
 	govmmQemu "github.com/intel/govmm/qemu"
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 )
 
-func newQemuConfig() hypervisor.Config {
-	return hypervisor.Config{
+const sandboxID = "123456789"
+
+var testQemuKernelPath = ""
+var testQemuInitrdPath = ""
+var testQemuImagePath = ""
+var testQemuPath = ""
+
+func newQemuConfig() Config {
+	return Config{
 		KernelPath:        testQemuKernelPath,
 		ImagePath:         testQemuImagePath,
 		InitrdPath:        testQemuInitrdPath,
 		HypervisorPath:    testQemuPath,
-		NumVCPUs:          hypervisor.DefaultVCPUs,
-		MemorySize:        hypervisor.DefaultMemSzMiB,
-		DefaultBridges:    hypervisor.DefaultBridges,
-		BlockDeviceDriver: hypervisor.DefaultBlockDriver,
+		NumVCPUs:          DefaultVCPUs,
+		MemorySize:        DefaultMemSzMiB,
+		DefaultBridges:    DefaultBridges,
+		BlockDeviceDriver: DefaultBlockDriver,
 		DefaultMaxVCPUs:   MaxQemuVCPUs(),
-		Msize9p:           hypervisor.DefaultMsize9p,
+		Msize9p:           DefaultMsize9p,
 	}
 }
 
-func testQemuKernelParameters(t *testing.T, kernelParams []hypervisor.Param, expected string, debug bool) {
+func testQemuKernelParameters(t *testing.T, kernelParams []Param, expected string, debug bool) {
 	qemuConfig := newQemuConfig()
 	qemuConfig.KernelParams = kernelParams
 
@@ -58,7 +64,7 @@ func testQemuKernelParameters(t *testing.T, kernelParams []hypervisor.Param, exp
 
 func TestQemuKernelParameters(t *testing.T) {
 	expectedOut := fmt.Sprintf("panic=1 nr_cpus=%d foo=foo bar=bar", MaxQemuVCPUs())
-	params := []hypervisor.Param{
+	params := []Param{
 		{
 			Key:   "foo",
 			Value: "foo",
@@ -77,19 +83,12 @@ func TestQemuCreateSandbox(t *testing.T) {
 	qemuConfig := newQemuConfig()
 	q := &qemu{}
 
-	sandbox := &Sandbox{
-		ctx: context.Background(),
-		id:  "testSandbox",
-		config: &SandboxConfig{
-			HypervisorConfig: qemuConfig,
-		},
-	}
+	sandboxID := "testSandbox"
 
-	vcStore, err := store.NewVCSandboxStore(sandbox.ctx, sandbox.id)
+	vcStore, err := store.NewVCSandboxStore(context.Background(), sandboxID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sandbox.store = vcStore
 
 	// Create the hypervisor fake binary
 	testQemuPath := filepath.Join(testDir, testHypervisor)
@@ -98,13 +97,13 @@ func TestQemuCreateSandbox(t *testing.T) {
 		t.Fatalf("Could not create hypervisor file %s: %v", testQemuPath, err)
 	}
 
-	// Create parent dir path for hypervisor.json
-	parentDir := store.SandboxConfigurationRootPath(sandbox.id)
+	// Create parent dir path for json
+	parentDir := store.SandboxConfigurationRootPath(sandboxID)
 	if err := os.MkdirAll(parentDir, store.DirMode); err != nil {
 		t.Fatalf("Could not create parent directory %s: %v", parentDir, err)
 	}
 
-	if err := q.CreateSandbox(context.Background(), sandbox.id, &sandbox.config.HypervisorConfig, sandbox.store); err != nil {
+	if err := q.CreateSandbox(context.Background(), sandboxID, &qemuConfig, vcStore); err != nil {
 		t.Fatal(err)
 	}
 
@@ -121,19 +120,12 @@ func TestQemuCreateSandboxMissingParentDirFail(t *testing.T) {
 	qemuConfig := newQemuConfig()
 	q := &qemu{}
 
-	sandbox := &Sandbox{
-		ctx: context.Background(),
-		id:  "testSandbox",
-		config: &SandboxConfig{
-			HypervisorConfig: qemuConfig,
-		},
-	}
+	sandboxID := "testSandbox"
 
-	vcStore, err := store.NewVCSandboxStore(sandbox.ctx, sandbox.id)
+	vcStore, err := store.NewVCSandboxStore(context.Background(), sandboxID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sandbox.store = vcStore
 
 	// Create the hypervisor fake binary
 	testQemuPath := filepath.Join(testDir, testHypervisor)
@@ -142,13 +134,13 @@ func TestQemuCreateSandboxMissingParentDirFail(t *testing.T) {
 		t.Fatalf("Could not create hypervisor file %s: %v", testQemuPath, err)
 	}
 
-	// Ensure parent dir path for hypervisor.json does not exist.
-	parentDir := store.SandboxConfigurationRootPath(sandbox.id)
+	// Ensure parent dir path for json does not exist.
+	parentDir := store.SandboxConfigurationRootPath(sandboxID)
 	if err := os.RemoveAll(parentDir); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := q.CreateSandbox(context.Background(), sandbox.id, &sandbox.config.HypervisorConfig, sandbox.store); err != nil {
+	if err := q.CreateSandbox(context.Background(), sandboxID, &qemuConfig, vcStore); err != nil {
 		t.Fatalf("Qemu createSandbox() is not expected to fail because of missing parent directory for storage: %v", err)
 	}
 }
@@ -158,7 +150,7 @@ func TestQemuCPUTopology(t *testing.T) {
 
 	q := &qemu{
 		arch: &qemuArchBase{},
-		config: hypervisor.Config{
+		config: Config{
 			NumVCPUs:        uint32(vcpus),
 			DefaultMaxVCPUs: uint32(vcpus),
 		},
@@ -186,13 +178,13 @@ func TestQemuMemoryTopology(t *testing.T) {
 
 	q := &qemu{
 		arch: &qemuArchBase{},
-		config: hypervisor.Config{
+		config: Config{
 			MemorySize: mem,
 			MemSlots:   slots,
 		},
 	}
 
-	hostMemKb, err := hypervisor.GetHostMemorySizeKb(hypervisor.ProcMemInfo)
+	hostMemKb, err := GetHostMemorySizeKb(ProcMemInfo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +206,7 @@ func TestQemuMemoryTopology(t *testing.T) {
 	}
 }
 
-func testQemuAddDevice(t *testing.T, devInfo interface{}, devType hypervisor.Device, expected []govmmQemu.Device) {
+func testQemuAddDevice(t *testing.T, devInfo interface{}, devType Device, expected []govmmQemu.Device) {
 	q := &qemu{
 		ctx:  context.Background(),
 		arch: &qemuArchBase{},
@@ -250,7 +242,7 @@ func TestQemuAddDeviceFsDev(t *testing.T) {
 		HostPath: hostPath,
 	}
 
-	testQemuAddDevice(t, volume, hypervisor.FsDev, expectedOut)
+	testQemuAddDevice(t, volume, FsDev, expectedOut)
 }
 
 func TestQemuAddDeviceSerialPortDev(t *testing.T) {
@@ -277,7 +269,7 @@ func TestQemuAddDeviceSerialPortDev(t *testing.T) {
 		Name:     name,
 	}
 
-	testQemuAddDevice(t, socket, hypervisor.SerialPortDev, expectedOut)
+	testQemuAddDevice(t, socket, SerialPortDev, expectedOut)
 }
 
 func TestQemuAddDeviceKataVSOCK(t *testing.T) {
@@ -299,7 +291,7 @@ func TestQemuAddDeviceKataVSOCK(t *testing.T) {
 		VHostFd:   vHostFD,
 	}
 
-	testQemuAddDevice(t, vsock, hypervisor.VSockPCIDev, expectedOut)
+	testQemuAddDevice(t, vsock, VSockPCIDev, expectedOut)
 }
 
 func TestQemuGetSandboxConsole(t *testing.T) {
@@ -395,9 +387,9 @@ func TestHotplugUnsupportedDeviceType(t *testing.T) {
 	}
 	q.store = vcStore
 
-	_, err = q.HotplugAddDevice(&hypervisor.MemoryDevice{0, 128}, hypervisor.FsDev)
+	_, err = q.HotplugAddDevice(&MemoryDevice{0, 128}, FsDev)
 	assert.Error(err)
-	_, err = q.HotplugRemoveDevice(&hypervisor.MemoryDevice{0, 128}, hypervisor.FsDev)
+	_, err = q.HotplugRemoveDevice(&MemoryDevice{0, 128}, FsDev)
 	assert.Error(err)
 }
 
