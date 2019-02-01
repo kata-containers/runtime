@@ -160,6 +160,8 @@ func New(t Type) (Hypervisor, error) {
 		return &qemu{}, nil
 	case Mock:
 		return &mock{}, nil
+	case Firecracker:
+		return &firecracker{}, nil
 	default:
 		return nil, fmt.Errorf("Unknown hypervisor type %s", t)
 	}

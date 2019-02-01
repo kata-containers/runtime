@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 
@@ -101,19 +100,19 @@ type firecracker struct {
 	socketPath   string
 
 	store          *store.VCStore
-	config         hypervisor.Config
+	config         Config
 	pendingDevices []firecrackerDevice // Devices to be added when the FC API is ready
 	ctx            context.Context
 }
 
 type firecrackerDevice struct {
 	dev     interface{}
-	devType hypervisor.Device
+	devType Device
 }
 
 // Logger returns a logrus logger appropriate for logging firecracker  messages
 func (fc *firecracker) Logger() *logrus.Entry {
-	return virtLog.WithField("subsystem", "firecracker")
+	return hLog.WithField("subsystem", "firecracker")
 }
 
 func (fc *firecracker) trace(name string) (opentracing.Span, context.Context) {
@@ -130,9 +129,9 @@ func (fc *firecracker) trace(name string) (opentracing.Span, context.Context) {
 	return span, ctx
 }
 
-// For firecracker this call only sets the internal structure up.
+// CreateSandbox only sets the internal structure up. This is specific to Firecracker.
 // The sandbox will be created and started through startSandbox().
-func (fc *firecracker) createSandbox(ctx context.Context, id string, hypervisorConfig *hypervisor.Config, vcStore *store.VCStore) error {
+func (fc *firecracker) CreateSandbox(ctx context.Context, id string, hypervisorConfig *Config, vcStore *store.VCStore) error {
 	fc.ctx = ctx
 
 	span, _ := fc.trace("createSandbox")
@@ -336,10 +335,10 @@ func (fc *firecracker) fcStartVM() error {
 	return nil
 }
 
-// startSandbox will start the hypervisor for the given sandbox.
+// StartSandbox will start the hypervisor for the given sandbox.
 // In the context of firecracker, this will start the hypervisor,
 // for configuration, but not yet start the actual virtual machine
-func (fc *firecracker) startSandbox(timeout int) error {
+func (fc *firecracker) StartSandbox(timeout int) error {
 	span, _ := fc.trace("startSandbox")
 	defer span.Finish()
 
@@ -353,7 +352,7 @@ func (fc *firecracker) startSandbox(timeout int) error {
 		return err
 	}
 
-	strParams := hypervisor.SerializeParams(fc.config.KernelParams, "=")
+	strParams := SerializeParams(fc.config.KernelParams, "=")
 	formattedParams := strings.Join(strParams, " ")
 
 	fc.fcSetBootSource(kernelPath, formattedParams)
@@ -374,7 +373,7 @@ func (fc *firecracker) startSandbox(timeout int) error {
 	fc.createDiskPool()
 
 	for _, d := range fc.pendingDevices {
-		if err = fc.addDevice(d.dev, d.devType); err != nil {
+		if err = fc.AddDevice(d.dev, d.devType); err != nil {
 			return err
 		}
 	}
@@ -425,8 +424,8 @@ func (fc *firecracker) createDiskPool() error {
 	return nil
 }
 
-// stopSandbox will stop the Sandbox's VM.
-func (fc *firecracker) stopSandbox() (err error) {
+// StopSandbox will stop the Sandbox's VM.
+func (fc *firecracker) StopSandbox() (err error) {
 	span, _ := fc.trace("stopSandbox")
 	defer span.Finish()
 
@@ -474,15 +473,15 @@ func (fc *firecracker) stopSandbox() (err error) {
 	return syscall.Kill(pid, syscall.SIGKILL)
 }
 
-func (fc *firecracker) pauseSandbox() error {
+func (fc *firecracker) PauseSandbox() error {
 	return nil
 }
 
-func (fc *firecracker) saveSandbox() error {
+func (fc *firecracker) SaveSandbox() error {
 	return nil
 }
 
-func (fc *firecracker) resumeSandbox() error {
+func (fc *firecracker) ResumeSandbox() error {
 	return nil
 }
 
@@ -509,7 +508,7 @@ func (fc *firecracker) fcAddVsock(vs types.VSOCK) error {
 	return nil
 }
 
-func (fc *firecracker) fcAddNetDevice(endpoint hypervisor.Endpoint) error {
+func (fc *firecracker) fcAddNetDevice(endpoint Endpoint) error {
 	span, _ := fc.trace("fcAddNetDevice")
 	defer span.Finish()
 
@@ -593,9 +592,9 @@ func (fc *firecracker) fcUpdateBlockDrive(drive config.BlockDrive) error {
 	return nil
 }
 
-// addDevice will add extra devices to firecracker.  Limited to configure before the
+// AddDevice will add extra devices to firecracker.  Limited to configure before the
 // virtual machine starts.  Devices include drivers and network interfaces only.
-func (fc *firecracker) addDevice(devInfo interface{}, devType hypervisor.Device) error {
+func (fc *firecracker) AddDevice(devInfo interface{}, devType Device) error {
 	span, _ := fc.trace("addDevice")
 	defer span.Finish()
 
@@ -613,7 +612,7 @@ func (fc *firecracker) addDevice(devInfo interface{}, devType hypervisor.Device)
 	}
 
 	switch v := devInfo.(type) {
-	case hypervisor.Endpoint:
+	case Endpoint:
 		fc.Logger().WithField("device-type-endpoint", devInfo).Info("Adding device")
 		return fc.fcAddNetDevice(v)
 	case config.BlockDrive:
@@ -630,43 +629,43 @@ func (fc *firecracker) addDevice(devInfo interface{}, devType hypervisor.Device)
 	return nil
 }
 
-// hotplugAddDevice supported in Firecracker VMM
-func (fc *firecracker) hotplugAddDevice(devInfo interface{}, devType hypervisor.Device) (interface{}, error) {
+// HotplugAddDevice supported in Firecracker VMM
+func (fc *firecracker) HotplugAddDevice(devInfo interface{}, devType Device) (interface{}, error) {
 	span, _ := fc.trace("hotplugAddDevice")
 	defer span.Finish()
 
 	switch devType {
-	case hypervisor.BlockDev:
+	case BlockDev:
 		//The drive placeholder has to exist prior to Update
 		return nil, fc.fcUpdateBlockDrive(*devInfo.(*config.BlockDrive))
 	default:
 		fc.Logger().WithFields(logrus.Fields{"devInfo": devInfo,
-			"hypervisor.Device": devType}).Warn("hotplugAddDevice: unsupported device")
-		return nil, fmt.Errorf("hotplugAddDevice: unsupported device: devInfo:%v, hypervisor.Device%v",
+			"Device": devType}).Warn("hotplugAddDevice: unsupported device")
+		return nil, fmt.Errorf("hotplugAddDevice: unsupported device: devInfo:%v, Device%v",
 			devInfo, devType)
 	}
 }
 
-// hotplugRemoveDevice supported in Firecracker VMM, but no-op
-func (fc *firecracker) hotplugRemoveDevice(devInfo interface{}, devType hypervisor.Device) (interface{}, error) {
+// HotplugRemoveDevice supported in Firecracker VMM, but no-op
+func (fc *firecracker) HotplugRemoveDevice(devInfo interface{}, devType Device) (interface{}, error) {
 	return nil, nil
 }
 
-// getSandboxConsole builds the path of the console where we can read
+// GetSandboxConsole builds the path of the console where we can read
 // logs coming from the sandbox.
 //
 // we can get logs from firecracker itself; WIP on enabling.  Who needs
 // logs when you're just hacking?
-func (fc *firecracker) getSandboxConsole(id string) (string, error) {
+func (fc *firecracker) GetSandboxConsole(id string) (string, error) {
 	return "", nil
 }
 
-func (fc *firecracker) disconnect() {
+func (fc *firecracker) Disconnect() {
 	fc.state.set(notReady)
 }
 
-// Adds all capabilities supported by firecracker implementation of hypervisor interface
-func (fc *firecracker) capabilities() types.Capabilities {
+// Capabilities adds all capabilities supported by firecracker implementation of hypervisor interface
+func (fc *firecracker) Capabilities() types.Capabilities {
 	span, _ := fc.trace("capabilities")
 	defer span.Finish()
 	var caps types.Capabilities
@@ -676,30 +675,30 @@ func (fc *firecracker) capabilities() types.Capabilities {
 	return caps
 }
 
-func (fc *firecracker) hypervisorConfig() hypervisor.Config {
+func (fc *firecracker) Config() Config {
 	return fc.config
 }
 
-func (fc *firecracker) resizeMemory(reqMemMB uint32, memoryBlockSizeMB uint32) (uint32, error) {
+func (fc *firecracker) ResizeMemory(reqMemMB uint32, memoryBlockSizeMB uint32) (uint32, error) {
 	return 0, nil
 }
 
-func (fc *firecracker) resizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCPUs uint32, err error) {
+func (fc *firecracker) ResizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCPUs uint32, err error) {
 	return 0, 0, nil
 }
 
-// this is used to apply cgroup information on the host. not sure how necessary this
+// GetThreadIDs is used to apply cgroup information on the host. not sure how necessary this
 // is in the first pass.
 //
 // Need to see if there's an easy way to ask firecracker for thread ids associated with
 // the vCPUs.  Issue opened to ask for per vCPU thread IDs:
 // https://github.com/firecracker-microvm/firecracker/issues/718
-func (fc *firecracker) getThreadIDs() (*hypervisor.ThreadIDs, error) {
+func (fc *firecracker) GetThreadIDs() (*ThreadIDs, error) {
 	//TODO: this may not be exactly supported in Firecracker. Closest is cpu-template as part
 	// of get /machine-config
 	return nil, nil
 }
 
-func (fc *firecracker) cleanup() error {
+func (fc *firecracker) Cleanup() error {
 	return nil
 }
