@@ -30,7 +30,7 @@ func TestNewFactory(t *testing.T) {
 	assert.Error(err)
 
 	config.VMConfig = vc.VMConfig{
-		HypervisorType: vc.MockHypervisor,
+		HypervisorType: hypervisor.Mock,
 		AgentType:      vc.NoopAgentType,
 		ProxyType:      vc.NoopProxyType,
 	}
@@ -105,7 +105,7 @@ func TestVMConfigValid(t *testing.T) {
 	testDir, _ := ioutil.TempDir("", "vmfactory-tmp-")
 
 	config := vc.VMConfig{
-		HypervisorType: vc.MockHypervisor,
+		HypervisorType: hypervisor.Mock,
 		HypervisorConfig: hypervisor.Config{
 			KernelPath: testDir,
 			ImagePath:  testDir,
@@ -135,11 +135,11 @@ func TestCheckVMConfig(t *testing.T) {
 	err := checkVMConfig(config1, config2)
 	assert.Nil(err)
 
-	config1.HypervisorType = vc.MockHypervisor
+	config1.HypervisorType = hypervisor.Mock
 	err = checkVMConfig(config1, config2)
 	assert.Error(err)
 
-	config2.HypervisorType = vc.MockHypervisor
+	config2.HypervisorType = hypervisor.Mock
 	err = checkVMConfig(config1, config2)
 	assert.Nil(err)
 
@@ -176,7 +176,7 @@ func TestFactoryGetVM(t *testing.T) {
 		ImagePath:  testDir,
 	}
 	vmConfig := vc.VMConfig{
-		HypervisorType:   vc.MockHypervisor,
+		HypervisorType:   hypervisor.Mock,
 		HypervisorConfig: hyperConfig,
 		AgentType:        vc.NoopAgentType,
 		ProxyType:        vc.NoopProxyType,
@@ -321,7 +321,7 @@ func TestDeepCompare(t *testing.T) {
 	var err error
 	ctx := context.Background()
 	config.VMConfig = vc.VMConfig{
-		HypervisorType: vc.MockHypervisor,
+		HypervisorType: hypervisor.Mock,
 		AgentType:      vc.NoopAgentType,
 		ProxyType:      vc.NoopProxyType,
 	}

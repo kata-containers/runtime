@@ -3,58 +3,52 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package virtcontainers
+package hypervisor
 
 import (
 	"context"
 	"fmt"
 	"testing"
-
-	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 )
 
 func TestMockHypervisorCreateSandbox(t *testing.T) {
-	var m *mockHypervisor
+	var m *mock
+	sandboxID := "mock_sandbox"
 
-	sandbox := &Sandbox{
-		config: &SandboxConfig{
-			ID: "mock_sandbox",
-			HypervisorConfig: hypervisor.Config{
-				KernelPath:     "",
-				ImagePath:      "",
-				HypervisorPath: "",
-			},
-		},
+	hypervisorConfig := Config{
+		KernelPath:     "",
+		ImagePath:      "",
+		HypervisorPath: "",
 	}
 
 	ctx := context.Background()
 
 	// wrong config
-	if err := m.CreateSandbox(ctx, sandbox.config.ID, &sandbox.config.HypervisorConfig, nil); err == nil {
+	if err := m.CreateSandbox(ctx, sandboxID, &hypervisorConfig, nil); err == nil {
 		t.Fatal()
 	}
 
-	sandbox.config.HypervisorConfig = hypervisor.Config{
+	validHypervisorConfig := Config{
 		KernelPath:     fmt.Sprintf("%s/%s", testDir, testKernel),
 		ImagePath:      fmt.Sprintf("%s/%s", testDir, testImage),
 		HypervisorPath: fmt.Sprintf("%s/%s", testDir, testHypervisor),
 	}
 
-	if err := m.CreateSandbox(ctx, sandbox.config.ID, &sandbox.config.HypervisorConfig, nil); err != nil {
+	if err := m.CreateSandbox(ctx, sandboxID, &validHypervisorConfig, nil); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestMockHypervisorStartSandbox(t *testing.T) {
-	var m *mockHypervisor
+	var m *mock
 
-	if err := m.StartSandbox(vmStartTimeout); err != nil {
+	if err := m.StartSandbox(10); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestMockHypervisorStopSandbox(t *testing.T) {
-	var m *mockHypervisor
+	var m *mock
 
 	if err := m.StopSandbox(); err != nil {
 		t.Fatal(err)
@@ -62,15 +56,15 @@ func TestMockHypervisorStopSandbox(t *testing.T) {
 }
 
 func TestMockHypervisorAddDevice(t *testing.T) {
-	var m *mockHypervisor
+	var m *mock
 
-	if err := m.AddDevice(nil, hypervisor.ImgDev); err != nil {
+	if err := m.AddDevice(nil, ImgDev); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestMockHypervisorGetSandboxConsole(t *testing.T) {
-	var m *mockHypervisor
+	var m *mock
 
 	expected := ""
 
@@ -85,7 +79,7 @@ func TestMockHypervisorGetSandboxConsole(t *testing.T) {
 }
 
 func TestMockHypervisorSaveSandbox(t *testing.T) {
-	var m *mockHypervisor
+	var m *mock
 
 	if err := m.SaveSandbox(); err != nil {
 		t.Fatal(err)
@@ -93,7 +87,7 @@ func TestMockHypervisorSaveSandbox(t *testing.T) {
 }
 
 func TestMockHypervisorDisconnect(t *testing.T) {
-	var m *mockHypervisor
+	var m *mock
 
 	m.Disconnect()
 }

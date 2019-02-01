@@ -660,7 +660,7 @@ func TestAgentConfigure(t *testing.T) {
 	assert.Nil(err)
 
 	k := &kataAgent{}
-	h := &mockHypervisor{}
+	h := hypervisor.NewMock()
 	c := KataAgentConfig{}
 	id := "foobar"
 
@@ -737,7 +737,7 @@ func TestAgentCreateContainer(t *testing.T) {
 				ImagePath:  "bar",
 			},
 		},
-		hypervisor: &mockHypervisor{},
+		hypervisor: hypervisor.NewMock(),
 	}
 
 	vcStore, err := store.NewVCSandboxStore(sandbox.ctx, sandbox.id)
@@ -788,7 +788,7 @@ func TestAgentCreateContainer(t *testing.T) {
 	dir, err := ioutil.TempDir("", "kata-agent-test")
 	assert.Nil(err)
 
-	err = k.configure(&mockHypervisor{}, sandbox.id, dir, true, KataAgentConfig{})
+	err = k.configure(hypervisor.NewMock(), sandbox.id, dir, true, KataAgentConfig{})
 	assert.Nil(err)
 
 	// We'll fail on container metadata file creation, but it helps increasing coverage...

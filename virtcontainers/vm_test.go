@@ -99,7 +99,7 @@ func TestSetupProxy(t *testing.T) {
 		AgentType:      NoopAgentType,
 	}
 
-	hypervisor := &mockHypervisor{}
+	hypervisor := hypervisor.NewMock()
 	agent := &noopAgent{}
 
 	// wrong proxy type

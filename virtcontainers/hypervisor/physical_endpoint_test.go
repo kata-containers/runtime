@@ -23,7 +23,7 @@ func TestPhysicalEndpoint_HotAttach(t *testing.T) {
 		HardAddr:  net.HardwareAddr{0x02, 0x00, 0xca, 0xfe, 0x00, 0x04}.String(),
 	}
 
-	h := &mockHypervisor{}
+	h := &mock{}
 
 	err := v.HotAttach(h)
 	assert.Error(err)
@@ -36,7 +36,7 @@ func TestPhysicalEndpoint_HotDetach(t *testing.T) {
 		HardAddr:  net.HardwareAddr{0x02, 0x00, 0xca, 0xfe, 0x00, 0x04}.String(),
 	}
 
-	h := &mockHypervisor{}
+	h := &mock{}
 
 	err := v.HotDetach(h, true, "")
 	assert.Error(err)

@@ -26,7 +26,7 @@ func TestTemplateFactory(t *testing.T) {
 		ImagePath:  testDir,
 	}
 	vmConfig := vc.VMConfig{
-		HypervisorType:   vc.MockHypervisor,
+		HypervisorType:   hypervisor.Mock,
 		AgentType:        vc.NoopAgentType,
 		ProxyType:        vc.NoopProxyType,
 		HypervisorConfig: hyperConfig,

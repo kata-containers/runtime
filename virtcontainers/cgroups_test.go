@@ -19,6 +19,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 )
 
@@ -127,7 +128,7 @@ func TestSetupCgroups(t *testing.T) {
 
 	s := &Sandbox{
 		id:         "test-sandbox",
-		hypervisor: &mockHypervisor{},
+		hypervisor: hypervisor.NewMock(),
 		config: &SandboxConfig{
 			Containers: []ContainerConfig{
 				{

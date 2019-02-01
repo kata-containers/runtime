@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/hyperstart"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
@@ -187,7 +188,7 @@ func TestHyperConfigure(t *testing.T) {
 	assert.Nil(err)
 
 	h := &hyper{}
-	m := &mockHypervisor{}
+	m := hypervisor.NewMock()
 	c := HyperConfig{}
 	id := "foobar"
 

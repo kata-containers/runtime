@@ -96,7 +96,7 @@ func TestVhostUserEndpointAttach(t *testing.T) {
 		EndpointType: VhostUserEndpointType,
 	}
 
-	h := &mockHypervisor{}
+	h := &mock{}
 
 	err := v.Attach(h)
 	if err != nil {
@@ -112,7 +112,7 @@ func TestVhostUserEndpoint_HotAttach(t *testing.T) {
 		EndpointType: VhostUserEndpointType,
 	}
 
-	h := &mockHypervisor{}
+	h := &mock{}
 
 	err := v.HotAttach(h)
 	assert.Error(err)
@@ -126,7 +126,7 @@ func TestVhostUserEndpoint_HotDetach(t *testing.T) {
 		EndpointType: VhostUserEndpointType,
 	}
 
-	h := &mockHypervisor{}
+	h := &mock{}
 
 	err := v.HotDetach(h, true, "")
 	assert.Error(err)

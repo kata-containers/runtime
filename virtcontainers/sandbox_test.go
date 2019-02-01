@@ -928,7 +928,7 @@ func TestSandboxAttachDevicesVFIO(t *testing.T) {
 	sandbox := Sandbox{
 		id:         "100",
 		containers: containers,
-		hypervisor: &mockHypervisor{},
+		hypervisor: hypervisor.NewMock(),
 		devManager: dm,
 		ctx:        context.Background(),
 	}
@@ -1302,7 +1302,7 @@ func TestContainerProcessIOStream(t *testing.T) {
 }
 
 func TestAttachBlockDevice(t *testing.T) {
-	h := &mockHypervisor{}
+	h := hypervisor.NewMock()
 
 	hConfig := hypervisor.Config{
 		BlockDeviceDriver: config.VirtioBlock,
@@ -1390,7 +1390,7 @@ func TestAttachBlockDevice(t *testing.T) {
 }
 
 func TestPreAddDevice(t *testing.T) {
-	h := &mockHypervisor{}
+	h := hypervisor.NewMock()
 
 	hConfig := hypervisor.Config{
 		BlockDeviceDriver: config.VirtioBlock,

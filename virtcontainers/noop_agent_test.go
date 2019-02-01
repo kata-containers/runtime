@@ -10,6 +10,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kata-containers/runtime/virtcontainers/hypervisor"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -166,7 +167,7 @@ func TestNoopAgentResumeContainer(t *testing.T) {
 
 func TestNoopAgentConfigure(t *testing.T) {
 	n := &noopAgent{}
-	h := &mockHypervisor{}
+	h := hypervisor.NewMock()
 	id := "foobar"
 	sharePath := "foobarDir"
 	err := n.configure(h, id, sharePath, true, nil)
