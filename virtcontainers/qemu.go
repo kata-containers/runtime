@@ -68,6 +68,10 @@ type QemuState struct {
 	UUID                 string
 	HotplugVFIOOnRootBus bool
 	VirtiofsdPid         int
+	// Flag to know if a VFIODev is assigned used by features that are not
+	// compatible with it, e.g. resize the balloon to return memory back is
+	// not recommended.
+	VFIODeviceCounter int
 }
 
 // qemu is an Hypervisor interface implementation for the Linux qemu hypervisor.
@@ -109,6 +113,7 @@ const (
 	rngID                    = "rng0"
 	vsockKernelOption        = "agent.use_vsock"
 	fallbackFileBackedMemDir = "/dev/shm"
+	balloonID                = "balloon0"
 )
 
 var qemuMajorVersion int
@@ -594,6 +599,11 @@ func (q *qemu) createSandbox(ctx context.Context, id string, networkNS NetworkNa
 		Filename: q.config.EntropySource,
 	}
 	qemuConfig.Devices, err = q.arch.appendRNGDevice(qemuConfig.Devices, rngDev)
+	if err != nil {
+		return err
+	}
+
+	qemuConfig.Devices, err = q.arch.appendBalloonDevice(qemuConfig.Devices, balloonID)
 	if err != nil {
 		return err
 	}
@@ -1124,10 +1134,17 @@ func (q *qemu) hotplugVFIODevice(device *config.VFIODev, op operation) (err erro
 	if err != nil {
 		return err
 	}
+	if q.state.VFIODeviceCounter < 0 {
+		return fmt.Errorf("VFIODeviceCounter is < 0 (%d) ", q.state.VFIODeviceCounter)
+	}
 
 	devID := device.ID
 
 	if op == addDevice {
+
+		q.state.VFIODeviceCounter++
+		// When HasVFIODevice is set balloon size is set to maximal memory
+		q.updateMemoryBalloon(0)
 		// In case HotplugVFIOOnRootBus is true, devices are hotplugged on the root bus
 		// for pc machine type instead of bridge. This is useful for devices that require
 		// a large PCI BAR which is a currently a limitation with PCI bridges.
@@ -1171,6 +1188,10 @@ func (q *qemu) hotplugVFIODevice(device *config.VFIODev, op operation) (err erro
 		if err := q.qmpMonitorCh.qmp.ExecuteDeviceDel(q.qmpMonitorCh.ctx, devID); err != nil {
 			return err
 		}
+		if q.state.VFIODeviceCounter <= 0 {
+			return fmt.Errorf("VFIODeviceCounter is <= 0 (%d) ", q.state.VFIODeviceCounter)
+		}
+		q.state.VFIODeviceCounter--
 	}
 
 	return nil
@@ -1693,11 +1714,20 @@ func (q *qemu) disconnect() {
 func (q *qemu) resizeMemory(reqMemMB uint32, memoryBlockSizeMB uint32, probe bool) (uint32, memoryDevice, error) {
 
 	currentMemory := q.config.MemorySize + uint32(q.state.HotpluggedMemory)
+
 	err := q.qmpSetup()
 	if err != nil {
 		return 0, memoryDevice{}, err
 	}
 	var addMemDevice memoryDevice
+
+	// The memory balloon update has to be done in all cases: This is
+	// because currentMemory is the amount hotplugged + initial memory  but
+	// If the balloon size was reduced previously in the guest and now is
+	// increased again, the guest memory will not be updated.
+	if err := q.updateMemoryBalloon(reqMemMB); err != nil {
+		return 0, memoryDevice{}, err
+	}
 	switch {
 	case currentMemory < reqMemMB:
 		//hotplug
@@ -1899,6 +1929,36 @@ func (q *qemu) resizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCPUs uint3
 		newVCPUs -= vCPUsRemoved
 	}
 	return currentVCPUs, newVCPUs, nil
+}
+
+func (q *qemu) updateMemoryBalloon(sizeMB uint32) error {
+
+	if q.state.VFIODeviceCounter > 0 {
+		// When VFIO devices are used we dont want to get pages back to
+		// the host. Lets increase the balloon to a large amount of
+		// memory:
+		// - The guest memmory is not affected
+
+		// TODO: This is not required for qemu +v3.1.0 where "Inhibit
+		// ballooning" is implemented.
+
+		// Reference:
+		// https://www.ibm.com/support/knowledgecenter/en/SSZJY4_3.1.0/liabp/liabpmemoryballooning.htm
+		// https://bugs.launchpad.net/qemu/+bug/1762707
+		hostMB, err := q.hostMemMB()
+		if err != nil {
+			return err
+		}
+		sizeMB = uint32(hostMB)
+		q.Logger().WithField("memory-mb", sizeMB).Warnf("VM uses VFIO, balloon size will be total host memory")
+	}
+
+	if q.qmpMonitorCh.qmp == nil {
+		return fmt.Errorf("qmp channel is nil")
+	}
+
+	q.Logger().WithField("memory-balloon-size-mb", sizeMB).Debugf("Updating memory balloon size")
+	return q.qmpMonitorCh.qmp.ExecuteBalloon(q.qmpMonitorCh.ctx, uint64(sizeMB)<<utils.MibToBytesShift)
 }
 
 func (q *qemu) cleanup() error {

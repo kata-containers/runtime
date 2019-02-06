@@ -567,3 +567,28 @@ func TestQemuGetpids(t *testing.T) {
 	assert.True(pids[0] == 100)
 	assert.True(pids[1] == 200)
 }
+
+func TestQemuUpdateMemoryBalloon(t *testing.T) {
+	type fields struct {
+		qmp *govmmQemu.QMP
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		sizeMB  uint32
+		wantErr bool
+	}{
+		{"qmp nil", fields{}, 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q := &qemu{}
+			q.qmpMonitorCh.qmp = tt.fields.qmp
+			if err := q.updateMemoryBalloon(tt.sizeMB); (err != nil) != tt.wantErr {
+				t.Errorf("error = %v, wanted = %v", err, tt.wantErr)
+			}
+		})
+	}
+}

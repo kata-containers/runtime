@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	govmmQemu "github.com/intel/govmm/qemu"
@@ -561,4 +562,38 @@ func TestQemuArchBaseAppendNetwork(t *testing.T) {
 	devices, err = qemuArchBase.appendNetwork(devices, macvtapEp)
 	assert.NoError(err)
 	assert.Equal(expectedOut, devices)
+}
+
+func TestQemuArchBaseAppendBalloonDevice(t *testing.T) {
+	expectedDevices := []govmmQemu.Device{
+		govmmQemu.BalloonDevice{
+			ID: balloonID,
+		},
+	}
+	type args struct {
+		devices   []govmmQemu.Device
+		balloonID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []govmmQemu.Device
+		wantErr bool
+	}{
+		{"Empty ID", args{[]govmmQemu.Device{}, ""}, []govmmQemu.Device{}, true},
+		{"Use valid ID", args{[]govmmQemu.Device{}, balloonID}, expectedDevices, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q := &qemuArchBase{}
+			got, err := q.appendBalloonDevice(tt.args.devices, tt.args.balloonID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Got  %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

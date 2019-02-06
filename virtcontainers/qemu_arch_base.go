@@ -112,6 +112,9 @@ type qemuArch interface {
 	// addBridge adds a new Bridge to the list of Bridges
 	addBridge(types.Bridge)
 
+	// appendBalloonDevice appens a Balloon device to devices
+	appendBalloonDevice(devices []govmmQemu.Device, balloonID string) ([]govmmQemu.Device, error)
+
 	// handleImagePath handles the Hypervisor Config image path
 	handleImagePath(config HypervisorConfig)
 
@@ -684,4 +687,17 @@ func (q *qemuArchBase) setBridges(bridges []types.Bridge) {
 
 func (q *qemuArchBase) addBridge(b types.Bridge) {
 	q.Bridges = append(q.Bridges, b)
+}
+
+func (q *qemuArchBase) appendBalloonDevice(devices []govmmQemu.Device, balloonID string) ([]govmmQemu.Device, error) {
+	if balloonID == "" {
+		return devices, fmt.Errorf("Balloon ID is empty")
+	}
+	devices = append(devices,
+		govmmQemu.BalloonDevice{
+			ID: balloonID,
+		},
+	)
+
+	return devices, nil
 }
