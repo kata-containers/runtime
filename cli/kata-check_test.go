@@ -138,6 +138,7 @@ func makeCPUInfoFile(path, vendorID, flags string) error {
 	return ioutil.WriteFile(path, contents.Bytes(), testFileMode)
 }
 
+// nolint: unused
 func genericTestGetCPUDetails(t *testing.T, validVendor string, validModel string, validContents string, data []TestData) {
 	tmpdir, err := ioutil.TempDir("", "")
 	if err != nil {

@@ -26,7 +26,7 @@ const defaultQemuMachineType = QemuVirt
 var defaultQemuMachineOptions = "usb=off,accel=kvm,gic-version=" + getGuestGICVersion()
 
 // Not used
-const defaultPCBridgeBus = ""
+const defaultPCBridgeBus = "" // nolint: unused
 
 var qemuPaths = map[string]string{
 	QemuVirt: defaultQemuPath,

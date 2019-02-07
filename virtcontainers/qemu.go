@@ -1406,6 +1406,7 @@ func (q *qemu) resizeMemory(reqMemMB uint32, memoryBlockSizeMB uint32) (uint32, 
 }
 
 // genericAppendBridges appends to devices the given bridges
+// nolint: unused
 func genericAppendBridges(devices []govmmQemu.Device, bridges []types.PCIBridge, machineType string) []govmmQemu.Device {
 	bus := defaultPCBridgeBus
 	switch machineType {
@@ -1437,6 +1438,7 @@ func genericAppendBridges(devices []govmmQemu.Device, bridges []types.PCIBridge,
 	return devices
 }
 
+// nolint: unused
 func genericBridges(number uint32, machineType string) []types.PCIBridge {
 	var bridges []types.PCIBridge
 	var bt types.PCIType
@@ -1469,6 +1471,7 @@ func genericBridges(number uint32, machineType string) []types.PCIBridge {
 	return bridges
 }
 
+// nolint: unused
 func genericMemoryTopology(memoryMb, hostMemoryMb uint64, slots uint8, memoryOffset uint32) govmmQemu.Memory {
 	// image NVDIMM device needs memory space 1024MB
 	// See https://github.com/clearcontainers/runtime/issues/380
