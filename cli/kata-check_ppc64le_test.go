@@ -208,7 +208,7 @@ func TestKvmIsUsable(t *testing.T) {
 	assert.Error(err)
 }
 
-type TestDataa struct {
+type TestData struct {
 	contents       string
 	expectedVendor string
 	expectedModel  string
@@ -230,7 +230,7 @@ foo     : bar
 %s
 `, validVendor, validModel)
 
-	data := []TestDataa{
+	data := []TestData{
 		{"", "", "", true},
 		{"invalid", "", "", true},
 		{archCPUVendorField, "", "", true},
