@@ -126,16 +126,16 @@ func TestKvmIsUsable(t *testing.T) {
 	assert.Error(err)
 }
 
-func TestGetCPUDetails(t *testing.T) {
-	type testData struct {
-		contents                string
-		expectedVendor          string
-		expectedModel           string
-		expectedNormalizeVendor string
-		expectedNormalizeModel  string
-		expectError             bool
-	}
+type TestDataa struct {
+	contents                string
+	expectedVendor          string
+	expectedModel           string
+	expectedNormalizeVendor string
+	expectedNormalizeModel  string
+	expectError             bool
+}
 
+func TestGetCPUDetails(t *testing.T) {
 	const validVendorName = "0x41"
 	const validNormalizeVendorName = "ARM Limited"
 	validVendor := fmt.Sprintf(`%s  : %s`, archCPUVendorField, validVendorName)
@@ -151,7 +151,7 @@ foo     : bar
 %s
 `, validVendor, validModel)
 
-	data := []testData{
+	data := []TestDataa{
 		{"", "", "", "", "", true},
 		{"invalid", "", "", "", "", true},
 		{archCPUVendorField, "", "", "", "", true},
