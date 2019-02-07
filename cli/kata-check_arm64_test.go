@@ -18,13 +18,27 @@ import (
 	"github.com/urfave/cli"
 )
 
-func setupCheckHostIsVMContainerCapable(assert *assert.Assertions, cpuInfoFile string, moduleData []testModuleData) {
-	//For now, Arm64 only deal with module check
+func setupCheckHostIsVMContainerCapable(assert *assert.Assertions, cpuInfoFile string, cpuData []testCPUData, moduleData []testModuleData) {
 	createModules(assert, cpuInfoFile, moduleData)
 
-	err := makeCPUInfoFile(cpuInfoFile, "", "")
-	assert.NoError(err)
+	for _, d := range cpuData {
+		err := makeCPUInfoFile(cpuInfoFile, d.vendorID, d.flags)
+		assert.NoError(err)
 
+		details := vmContainerCapableDetails{
+			cpuInfoFile:           cpuInfoFile,
+			requiredCPUFlags:      archRequiredCPUFlags,
+			requiredCPUAttribs:    archRequiredCPUAttribs,
+			requiredKernelModules: archRequiredKernelModules,
+		}
+
+		err = hostIsVMContainerCapable(details)
+		if d.expectError {
+			assert.Error(err)
+		} else {
+			assert.NoError(err)
+		}
+	}
 }
 
 func TestCCCheckCLIFunction(t *testing.T) {
@@ -55,6 +69,10 @@ func TestCCCheckCLIFunction(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	cpuData := []testCPUData{
+		{"", "", false},
+	}
+
 	moduleData := []testModuleData{
 		{filepath.Join(sysModuleDir, "kvm"), true, ""},
 		{filepath.Join(sysModuleDir, "vhost"), true, ""},
@@ -74,7 +92,7 @@ func TestCCCheckCLIFunction(t *testing.T) {
 		kataLog.Logger.Out = savedLogOutput
 	}()
 
-	setupCheckHostIsVMContainerCapable(assert, cpuInfoFile, moduleData)
+	setupCheckHostIsVMContainerCapable(assert, cpuInfoFile, cpuData, moduleData)
 
 	ctx := createCLIContext(nil)
 	ctx.App.Name = "foo"
