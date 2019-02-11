@@ -18,6 +18,13 @@ import (
 	"github.com/urfave/cli"
 )
 
+type TestDataa struct {
+	contents       string
+	expectedVendor string
+	expectedModel  string
+	expectError    bool
+}
+
 func setupCheckHostIsVMContainerCapable(assert *assert.Assertions, cpuInfoFile string, moduleData []testModuleData) {
 	//For now, Arm64 only deal with module check
 	createModules(assert, cpuInfoFile, moduleData)
