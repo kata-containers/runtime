@@ -307,7 +307,7 @@ func (h *hyper) getSharePath(id string) string {
 
 func (h *hyper) configure(hv hypervisor, id, sharePath string, builtin bool, config interface{}) error {
 	for _, socket := range h.sockets {
-		err := hv.addDevice(socket, types.SerialPortDev)
+		err := hv.addDevice(types.Device{socket, types.SerialPortDev})
 		if err != nil {
 			return err
 		}
@@ -324,7 +324,7 @@ func (h *hyper) configure(hv hypervisor, id, sharePath string, builtin bool, con
 		return err
 	}
 
-	return hv.addDevice(sharedVolume, types.FsDev)
+	return hv.addDevice(types.Device{sharedVolume, types.FsDev})
 }
 
 func (h *hyper) createSandbox(sandbox *Sandbox) (err error) {

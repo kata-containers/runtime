@@ -368,7 +368,7 @@ func (fc *firecracker) startSandbox(timeout int) error {
 	fc.createDiskPool()
 
 	for _, d := range fc.pendingDevices {
-		if err = fc.addDevice(d.Info, d.Type); err != nil {
+		if err = fc.addDevice(d); err != nil {
 			return err
 		}
 	}
@@ -589,7 +589,7 @@ func (fc *firecracker) fcUpdateBlockDrive(drive config.BlockDrive) error {
 
 // addDevice will add extra devices to firecracker.  Limited to configure before the
 // virtual machine starts.  Devices include drivers and network interfaces only.
-func (fc *firecracker) addDevice(devInfo interface{}, devType types.DeviceType) error {
+func (fc *firecracker) addDevice(device types.Device) error {
 	span, _ := fc.trace("addDevice")
 	defer span.Finish()
 
@@ -597,27 +597,23 @@ func (fc *firecracker) addDevice(devInfo interface{}, devType types.DeviceType) 
 	defer fc.state.RUnlock()
 
 	if fc.state.state == notReady {
-		dev := types.Device{
-			Info: devInfo,
-			Type: devType,
-		}
 		fc.Logger().Info("FC not ready, queueing device")
-		fc.pendingDevices = append(fc.pendingDevices, dev)
+		fc.pendingDevices = append(fc.pendingDevices, device)
 		return nil
 	}
 
-	switch v := devInfo.(type) {
+	switch v := device.Info.(type) {
 	case Endpoint:
-		fc.Logger().WithField("device-type-endpoint", devInfo).Info("Adding device")
+		fc.Logger().WithField("device-type-endpoint", device.Info).Info("Adding device")
 		return fc.fcAddNetDevice(v)
 	case config.BlockDrive:
-		fc.Logger().WithField("device-type-blockdrive", devInfo).Info("Adding device")
+		fc.Logger().WithField("device-type-blockdrive", device.Info).Info("Adding device")
 		return fc.fcAddBlockDrive(v)
 	case kataVSOCK:
-		fc.Logger().WithField("device-type-vsock", devInfo).Info("Adding device")
+		fc.Logger().WithField("device-type-vsock", device.Info).Info("Adding device")
 		return fc.fcAddVsock(v)
 	default:
-		fc.Logger().WithField("unknown-device-type", devInfo).Error("Adding device")
+		fc.Logger().WithField("unknown-device-type", device.Info).Error("Adding device")
 		break
 	}
 
@@ -625,24 +621,24 @@ func (fc *firecracker) addDevice(devInfo interface{}, devType types.DeviceType) 
 }
 
 // hotplugAddDevice supported in Firecracker VMM
-func (fc *firecracker) hotplugAddDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error) {
+func (fc *firecracker) hotplugAddDevice(device types.Device) (interface{}, error) {
 	span, _ := fc.trace("hotplugAddDevice")
 	defer span.Finish()
 
-	switch devType {
+	switch device.Type {
 	case types.BlockDev:
 		//The drive placeholder has to exist prior to Update
-		return nil, fc.fcUpdateBlockDrive(*devInfo.(*config.BlockDrive))
+		return nil, fc.fcUpdateBlockDrive(*device.Info.(*config.BlockDrive))
 	default:
-		fc.Logger().WithFields(logrus.Fields{"devInfo": devInfo,
-			"types.DeviceType": devType}).Warn("hotplugAddDevice: unsupported device")
+		fc.Logger().WithFields(logrus.Fields{"devInfo": device.Info,
+			"types.DeviceType": device.Type}).Warn("hotplugAddDevice: unsupported device")
 		return nil, fmt.Errorf("hotplugAddDevice: unsupported device: devInfo:%v, types.DeviceType%v",
-			devInfo, devType)
+			device.Info, device.Type)
 	}
 }
 
 // hotplugRemoveDevice supported in Firecracker VMM, but no-op
-func (fc *firecracker) hotplugRemoveDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error) {
+func (fc *firecracker) hotplugRemoveDevice(types.Device) (interface{}, error) {
 	return nil, nil
 }
 

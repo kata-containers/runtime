@@ -254,7 +254,7 @@ func (v *VM) Stop() error {
 func (v *VM) AddCPUs(num uint32) error {
 	if num > 0 {
 		v.logger().Infof("hot adding %d vCPUs", num)
-		if _, err := v.hypervisor.hotplugAddDevice(num, types.CPUDev); err != nil {
+		if _, err := v.hypervisor.hotplugAddDevice(types.Device{num, types.CPUDev}); err != nil {
 			return err
 		}
 		v.cpuDelta += num
@@ -272,7 +272,7 @@ func (v *VM) AddMemory(numMB uint32) error {
 			Slot:   1,
 			SizeMB: int(numMB),
 		}
-		if _, err := v.hypervisor.hotplugAddDevice(dev, types.MemoryDev); err != nil {
+		if _, err := v.hypervisor.hotplugAddDevice(types.Device{dev, types.MemoryDev}); err != nil {
 			return err
 		}
 	}

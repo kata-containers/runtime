@@ -552,9 +552,9 @@ type hypervisor interface {
 	pauseSandbox() error
 	saveSandbox() error
 	resumeSandbox() error
-	addDevice(devInfo interface{}, devType types.DeviceType) error
-	hotplugAddDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error)
-	hotplugRemoveDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error)
+	addDevice(types.Device) error
+	hotplugAddDevice(types.Device) (interface{}, error)
+	hotplugRemoveDevice(types.Device) (interface{}, error)
 	resizeMemory(memMB uint32, memoryBlockSizeMB uint32) (uint32, error)
 	resizeVCPUs(vcpus uint32) (uint32, uint32, error)
 	getSandboxConsole(sandboxID string) (string, error)

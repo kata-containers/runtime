@@ -89,7 +89,7 @@ func (endpoint *VhostUserEndpoint) Attach(h hypervisor) error {
 		Type:       config.VhostUserNet,
 	}
 
-	return h.addDevice(d, types.VhostuserDev)
+	return h.addDevice(types.Device{d, types.VhostuserDev})
 }
 
 // Detach for vhostuser endpoint

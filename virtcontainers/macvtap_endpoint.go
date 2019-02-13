@@ -72,7 +72,7 @@ func (endpoint *MacvtapEndpoint) Attach(h hypervisor) error {
 		endpoint.VhostFds = vhostFds
 	}
 
-	return h.addDevice(endpoint, types.NetDev)
+	return h.addDevice(types.Device{endpoint, types.NetDev})
 }
 
 // Detach for macvtap endpoint does nothing.

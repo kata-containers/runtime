@@ -84,7 +84,7 @@ func (endpoint *PhysicalEndpoint) Attach(h hypervisor) error {
 		BDF: endpoint.BDF,
 	}
 
-	return h.addDevice(d, types.VFIODev)
+	return h.addDevice(types.Device{d, types.VFIODev})
 }
 
 // Detach for physical endpoint unbinds the physical network interface from vfio-pci

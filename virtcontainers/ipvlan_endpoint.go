@@ -93,7 +93,7 @@ func (endpoint *IPVlanEndpoint) Attach(h hypervisor) error {
 		return err
 	}
 
-	return h.addDevice(endpoint, types.NetDev)
+	return h.addDevice(types.Device{endpoint, types.NetDev})
 }
 
 // Detach for the virtual endpoint tears down the tap and bridge

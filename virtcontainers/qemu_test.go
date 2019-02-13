@@ -217,7 +217,7 @@ func testQemuAddDevice(t *testing.T, devInfo interface{}, devType types.DeviceTy
 		arch: &qemuArchBase{},
 	}
 
-	err := q.addDevice(devInfo, devType)
+	err := q.addDevice(types.Device{devInfo, devType})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,19 +392,9 @@ func TestHotplugUnsupportedDeviceType(t *testing.T) {
 	}
 	q.store = vcStore
 
-	_, err = q.hotplugAddDevice(
-		&types.MemoryDevice{
-			Slot:   0,
-			SizeMB: 128,
-		},
-		types.FsDev)
+	_, err = q.hotplugAddDevice(types.Device{&types.MemoryDevice{0, 128}, types.FsDev})
 	assert.Error(err)
-	_, err = q.hotplugRemoveDevice(
-		&types.MemoryDevice{
-			Slot:   0,
-			SizeMB: 128,
-		},
-		types.FsDev)
+	_, err = q.hotplugRemoveDevice(types.Device{&types.MemoryDevice{0, 128}, types.FsDev})
 	assert.Error(err)
 }
 
