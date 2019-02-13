@@ -236,7 +236,7 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 
 	switch s := k.vmSocket.(type) {
 	case types.Socket:
-		err := h.addDevice(s, serialPortDev)
+		err := h.addDevice(s, types.SerialPortDev)
 		if err != nil {
 			return err
 		}
@@ -247,7 +247,7 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 			return err
 		}
 		s.port = uint32(vSockPort)
-		if err := h.addDevice(s, vSockPCIDev); err != nil {
+		if err := h.addDevice(s, types.VSockPCIDev); err != nil {
 			return err
 		}
 		k.vmSocket = s
@@ -277,7 +277,7 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 		return err
 	}
 
-	return h.addDevice(sharedVolume, fsDev)
+	return h.addDevice(sharedVolume, types.FsDev)
 }
 
 func (k *kataAgent) createSandbox(sandbox *Sandbox) error {

@@ -53,52 +53,6 @@ const (
 // In some architectures the maximum number of vCPUs depends on the number of physical cores.
 var defaultMaxQemuVCPUs = MaxQemuVCPUs()
 
-// deviceType describes a virtualized device type.
-type deviceType int
-
-const (
-	// ImgDev is the image device type.
-	imgDev deviceType = iota
-
-	// FsDev is the filesystem device type.
-	fsDev
-
-	// NetDev is the network device type.
-	netDev
-
-	// SerialDev is the serial device type.
-	serialDev // nolint: varcheck,unused
-
-	// BlockDev is the block device type.
-	blockDev
-
-	// ConsoleDev is the console device type.
-	consoleDev // nolint: varcheck,unused
-
-	// SerialPortDev is the serial port device type.
-	serialPortDev
-
-	// vSockPCIDev is the vhost vsock PCI device type.
-	vSockPCIDev
-
-	// VFIODevice is VFIO device type
-	vfioDev
-
-	// vhostuserDev is a Vhost-user device type
-	vhostuserDev
-
-	// CPUDevice is CPU device type
-	cpuDev
-
-	// memoryDevice is memory device type
-	memoryDev
-)
-
-type memoryDevice struct {
-	slot   int
-	sizeMB int
-}
-
 // Set sets an hypervisor type based on the input string.
 func (hType *HypervisorType) Set(value string) error {
 	switch value {
@@ -598,9 +552,9 @@ type hypervisor interface {
 	pauseSandbox() error
 	saveSandbox() error
 	resumeSandbox() error
-	addDevice(devInfo interface{}, devType deviceType) error
-	hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error)
-	hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error)
+	addDevice(devInfo interface{}, devType types.DeviceType) error
+	hotplugAddDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error)
+	hotplugRemoveDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error)
 	resizeMemory(memMB uint32, memoryBlockSizeMB uint32) (uint32, error)
 	resizeVCPUs(vcpus uint32) (uint32, uint32, error)
 	getSandboxConsole(sandboxID string) (string, error)

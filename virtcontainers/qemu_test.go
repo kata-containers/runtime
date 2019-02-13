@@ -211,7 +211,7 @@ func TestQemuMemoryTopology(t *testing.T) {
 	}
 }
 
-func testQemuAddDevice(t *testing.T, devInfo interface{}, devType deviceType, expected []govmmQemu.Device) {
+func testQemuAddDevice(t *testing.T, devInfo interface{}, devType types.DeviceType, expected []govmmQemu.Device) {
 	q := &qemu{
 		ctx:  context.Background(),
 		arch: &qemuArchBase{},
@@ -247,7 +247,7 @@ func TestQemuAddDeviceFsDev(t *testing.T) {
 		HostPath: hostPath,
 	}
 
-	testQemuAddDevice(t, volume, fsDev, expectedOut)
+	testQemuAddDevice(t, volume, types.FsDev, expectedOut)
 }
 
 func TestQemuAddDeviceSerialPortDev(t *testing.T) {
@@ -274,7 +274,7 @@ func TestQemuAddDeviceSerialPortDev(t *testing.T) {
 		Name:     name,
 	}
 
-	testQemuAddDevice(t, socket, serialPortDev, expectedOut)
+	testQemuAddDevice(t, socket, types.SerialPortDev, expectedOut)
 }
 
 func TestQemuAddDeviceKataVSOCK(t *testing.T) {
@@ -296,7 +296,7 @@ func TestQemuAddDeviceKataVSOCK(t *testing.T) {
 		vhostFd:   vHostFD,
 	}
 
-	testQemuAddDevice(t, vsock, vSockPCIDev, expectedOut)
+	testQemuAddDevice(t, vsock, types.VSockPCIDev, expectedOut)
 }
 
 func TestQemuGetSandboxConsole(t *testing.T) {
@@ -392,9 +392,19 @@ func TestHotplugUnsupportedDeviceType(t *testing.T) {
 	}
 	q.store = vcStore
 
-	_, err = q.hotplugAddDevice(&memoryDevice{0, 128}, fsDev)
+	_, err = q.hotplugAddDevice(
+		&types.MemoryDevice{
+			Slot:   0,
+			SizeMB: 128,
+		},
+		types.FsDev)
 	assert.Error(err)
-	_, err = q.hotplugRemoveDevice(&memoryDevice{0, 128}, fsDev)
+	_, err = q.hotplugRemoveDevice(
+		&types.MemoryDevice{
+			Slot:   0,
+			SizeMB: 128,
+		},
+		types.FsDev)
 	assert.Error(err)
 }
 

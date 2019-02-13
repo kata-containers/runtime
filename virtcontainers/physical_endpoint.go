@@ -14,6 +14,7 @@ import (
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/safchain/ethtool"
 )
 
@@ -83,7 +84,7 @@ func (endpoint *PhysicalEndpoint) Attach(h hypervisor) error {
 		BDF: endpoint.BDF,
 	}
 
-	return h.addDevice(d, vfioDev)
+	return h.addDevice(d, types.VFIODev)
 }
 
 // Detach for physical endpoint unbinds the physical network interface from vfio-pci

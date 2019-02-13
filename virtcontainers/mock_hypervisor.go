@@ -53,26 +53,26 @@ func (m *mockHypervisor) saveSandbox() error {
 	return nil
 }
 
-func (m *mockHypervisor) addDevice(devInfo interface{}, devType deviceType) error {
+func (m *mockHypervisor) addDevice(devInfo interface{}, devType types.DeviceType) error {
 	return nil
 }
 
-func (m *mockHypervisor) hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (m *mockHypervisor) hotplugAddDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error) {
 	switch devType {
-	case cpuDev:
+	case types.CPUDev:
 		return devInfo.(uint32), nil
-	case memoryDev:
-		memdev := devInfo.(*memoryDevice)
-		return memdev.sizeMB, nil
+	case types.MemoryDev:
+		memdev := devInfo.(*types.MemoryDevice)
+		return memdev.SizeMB, nil
 	}
 	return nil, nil
 }
 
-func (m *mockHypervisor) hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (m *mockHypervisor) hotplugRemoveDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error) {
 	switch devType {
-	case cpuDev:
+	case types.CPUDev:
 		return devInfo.(uint32), nil
-	case memoryDev:
+	case types.MemoryDev:
 		return 0, nil
 	}
 	return nil, nil

@@ -8,6 +8,8 @@ package virtcontainers
 import (
 	"fmt"
 	"os"
+
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // MacvtapEndpoint represents a macvtap endpoint
@@ -70,7 +72,7 @@ func (endpoint *MacvtapEndpoint) Attach(h hypervisor) error {
 		endpoint.VhostFds = vhostFds
 	}
 
-	return h.addDevice(endpoint, netDev)
+	return h.addDevice(endpoint, types.NetDev)
 }
 
 // Detach for macvtap endpoint does nothing.

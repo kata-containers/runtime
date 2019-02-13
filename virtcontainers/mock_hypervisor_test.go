@@ -9,6 +9,8 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 func TestMockHypervisorCreateSandbox(t *testing.T) {
@@ -62,7 +64,7 @@ func TestMockHypervisorStopSandbox(t *testing.T) {
 func TestMockHypervisorAddDevice(t *testing.T) {
 	var m *mockHypervisor
 
-	if err := m.addDevice(nil, imgDev); err != nil {
+	if err := m.addDevice(nil, types.ImgDev); err != nil {
 		t.Fatal(err)
 	}
 }

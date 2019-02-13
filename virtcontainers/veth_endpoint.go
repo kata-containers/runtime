@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // VethEndpoint gathers a network pair and its properties.
@@ -93,7 +94,7 @@ func (endpoint *VethEndpoint) Attach(h hypervisor) error {
 		return err
 	}
 
-	return h.addDevice(endpoint, netDev)
+	return h.addDevice(endpoint, types.NetDev)
 }
 
 // Detach for the veth endpoint tears down the tap and bridge
@@ -117,7 +118,7 @@ func (endpoint *VethEndpoint) HotAttach(h hypervisor) error {
 		return err
 	}
 
-	if _, err := h.hotplugAddDevice(endpoint, netDev); err != nil {
+	if _, err := h.hotplugAddDevice(endpoint, types.NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error attach virtual ep")
 		return err
 	}
@@ -136,7 +137,7 @@ func (endpoint *VethEndpoint) HotDetach(h hypervisor, netNsCreated bool, netNsPa
 		networkLogger().WithError(err).Warn("Error un-bridging virtual ep")
 	}
 
-	if _, err := h.hotplugRemoveDevice(endpoint, netDev); err != nil {
+	if _, err := h.hotplugRemoveDevice(endpoint, types.NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error detach virtual ep")
 		return err
 	}

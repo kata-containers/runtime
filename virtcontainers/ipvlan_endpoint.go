@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // IPVlanEndpoint represents a ipvlan endpoint that is bridged to the VM
@@ -92,7 +93,7 @@ func (endpoint *IPVlanEndpoint) Attach(h hypervisor) error {
 		return err
 	}
 
-	return h.addDevice(endpoint, netDev)
+	return h.addDevice(endpoint, types.NetDev)
 }
 
 // Detach for the virtual endpoint tears down the tap and bridge

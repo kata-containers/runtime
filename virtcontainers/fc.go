@@ -101,13 +101,8 @@ type firecracker struct {
 
 	store          *store.VCStore
 	config         HypervisorConfig
-	pendingDevices []firecrackerDevice // Devices to be added when the FC API is ready
+	pendingDevices []types.Device // Devices to be added when the FC API is ready
 	ctx            context.Context
-}
-
-type firecrackerDevice struct {
-	dev     interface{}
-	devType deviceType
 }
 
 // Logger returns a logrus logger appropriate for logging firecracker  messages
@@ -373,7 +368,7 @@ func (fc *firecracker) startSandbox(timeout int) error {
 	fc.createDiskPool()
 
 	for _, d := range fc.pendingDevices {
-		if err = fc.addDevice(d.dev, d.devType); err != nil {
+		if err = fc.addDevice(d.Info, d.Type); err != nil {
 			return err
 		}
 	}
@@ -594,7 +589,7 @@ func (fc *firecracker) fcUpdateBlockDrive(drive config.BlockDrive) error {
 
 // addDevice will add extra devices to firecracker.  Limited to configure before the
 // virtual machine starts.  Devices include drivers and network interfaces only.
-func (fc *firecracker) addDevice(devInfo interface{}, devType deviceType) error {
+func (fc *firecracker) addDevice(devInfo interface{}, devType types.DeviceType) error {
 	span, _ := fc.trace("addDevice")
 	defer span.Finish()
 
@@ -602,9 +597,9 @@ func (fc *firecracker) addDevice(devInfo interface{}, devType deviceType) error 
 	defer fc.state.RUnlock()
 
 	if fc.state.state == notReady {
-		dev := firecrackerDevice{
-			dev:     devInfo,
-			devType: devType,
+		dev := types.Device{
+			Info: devInfo,
+			Type: devType,
 		}
 		fc.Logger().Info("FC not ready, queueing device")
 		fc.pendingDevices = append(fc.pendingDevices, dev)
@@ -630,24 +625,24 @@ func (fc *firecracker) addDevice(devInfo interface{}, devType deviceType) error 
 }
 
 // hotplugAddDevice supported in Firecracker VMM
-func (fc *firecracker) hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (fc *firecracker) hotplugAddDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error) {
 	span, _ := fc.trace("hotplugAddDevice")
 	defer span.Finish()
 
 	switch devType {
-	case blockDev:
+	case types.BlockDev:
 		//The drive placeholder has to exist prior to Update
 		return nil, fc.fcUpdateBlockDrive(*devInfo.(*config.BlockDrive))
 	default:
 		fc.Logger().WithFields(logrus.Fields{"devInfo": devInfo,
-			"deviceType": devType}).Warn("hotplugAddDevice: unsupported device")
-		return nil, fmt.Errorf("hotplugAddDevice: unsupported device: devInfo:%v, deviceType%v",
+			"types.DeviceType": devType}).Warn("hotplugAddDevice: unsupported device")
+		return nil, fmt.Errorf("hotplugAddDevice: unsupported device: devInfo:%v, types.DeviceType%v",
 			devInfo, devType)
 	}
 }
 
 // hotplugRemoveDevice supported in Firecracker VMM, but no-op
-func (fc *firecracker) hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (fc *firecracker) hotplugRemoveDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error) {
 	return nil, nil
 }
 

@@ -1500,7 +1500,7 @@ func (s *Sandbox) HotplugAddDevice(device api.Device, devType config.DeviceType)
 
 		// adding a group of VFIO devices
 		for _, dev := range vfioDevices {
-			if _, err := s.hypervisor.hotplugAddDevice(dev, vfioDev); err != nil {
+			if _, err := s.hypervisor.hotplugAddDevice(dev, types.VFIODev); err != nil {
 				s.Logger().
 					WithFields(logrus.Fields{
 						"sandbox":         s.id,
@@ -1516,7 +1516,7 @@ func (s *Sandbox) HotplugAddDevice(device api.Device, devType config.DeviceType)
 		if !ok {
 			return fmt.Errorf("device type mismatch, expect device type to be %s", devType)
 		}
-		_, err := s.hypervisor.hotplugAddDevice(blockDevice.BlockDrive, blockDev)
+		_, err := s.hypervisor.hotplugAddDevice(blockDevice.BlockDrive, types.BlockDev)
 		return err
 	case config.DeviceGeneric:
 		// TODO: what?
@@ -1537,7 +1537,7 @@ func (s *Sandbox) HotplugRemoveDevice(device api.Device, devType config.DeviceTy
 
 		// remove a group of VFIO devices
 		for _, dev := range vfioDevices {
-			if _, err := s.hypervisor.hotplugRemoveDevice(dev, vfioDev); err != nil {
+			if _, err := s.hypervisor.hotplugRemoveDevice(dev, types.VFIODev); err != nil {
 				s.Logger().WithError(err).
 					WithFields(logrus.Fields{
 						"sandbox":         s.id,
@@ -1553,7 +1553,7 @@ func (s *Sandbox) HotplugRemoveDevice(device api.Device, devType config.DeviceTy
 		if !ok {
 			return fmt.Errorf("device type mismatch, expect device type to be %s", devType)
 		}
-		_, err := s.hypervisor.hotplugRemoveDevice(blockDrive, blockDev)
+		_, err := s.hypervisor.hotplugRemoveDevice(blockDrive, types.BlockDev)
 		return err
 	case config.DeviceGeneric:
 		// TODO: what?
@@ -1580,7 +1580,7 @@ func (s *Sandbox) DecrementSandboxBlockIndex() error {
 func (s *Sandbox) AppendDevice(device api.Device) error {
 	switch device.DeviceType() {
 	case config.VhostUserSCSI, config.VhostUserNet, config.VhostUserBlk:
-		return s.hypervisor.addDevice(device.GetDeviceInfo().(*config.VhostUserDeviceAttrs), vhostuserDev)
+		return s.hypervisor.addDevice(device.GetDeviceInfo().(*config.VhostUserDeviceAttrs), types.VhostuserDev)
 	}
 	return fmt.Errorf("unsupported device type")
 }

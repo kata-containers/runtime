@@ -12,6 +12,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 )
 
 // TapEndpoint represents just a tap endpoint
@@ -87,7 +88,7 @@ func (endpoint *TapEndpoint) HotAttach(h hypervisor) error {
 		return err
 	}
 
-	if _, err := h.hotplugAddDevice(endpoint, netDev); err != nil {
+	if _, err := h.hotplugAddDevice(endpoint, types.NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error attach tap ep")
 		return err
 	}
@@ -103,7 +104,7 @@ func (endpoint *TapEndpoint) HotDetach(h hypervisor, netNsCreated bool, netNsPat
 		networkLogger().WithError(err).Warn("Error un-bridging tap ep")
 	}
 
-	if _, err := h.hotplugRemoveDevice(endpoint, netDev); err != nil {
+	if _, err := h.hotplugRemoveDevice(endpoint, types.NetDev); err != nil {
 		networkLogger().WithError(err).Error("Error detach tap ep")
 		return err
 	}

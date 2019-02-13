@@ -990,21 +990,21 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) error {
 	return nil
 }
 
-func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operation) (interface{}, error) {
+func (q *qemu) hotplugDevice(devInfo interface{}, devType types.DeviceType, op operation) (interface{}, error) {
 	switch devType {
-	case blockDev:
+	case types.BlockDev:
 		drive := devInfo.(*config.BlockDrive)
 		return nil, q.hotplugBlockDevice(drive, op)
-	case cpuDev:
+	case types.CPUDev:
 		vcpus := devInfo.(uint32)
 		return q.hotplugCPUs(vcpus, op)
-	case vfioDev:
+	case types.VFIODev:
 		device := devInfo.(*config.VFIODev)
 		return nil, q.hotplugVFIODevice(device, op)
-	case memoryDev:
-		memdev := devInfo.(*memoryDevice)
+	case types.MemoryDev:
+		memdev := devInfo.(*types.MemoryDevice)
 		return q.hotplugMemory(memdev, op)
-	case netDev:
+	case types.NetDev:
 		device := devInfo.(Endpoint)
 		return nil, q.hotplugNetDevice(device, op)
 	default:
@@ -1012,7 +1012,7 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operati
 	}
 }
 
-func (q *qemu) hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (q *qemu) hotplugAddDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error) {
 	span, _ := q.trace("hotplugAddDevice")
 	defer span.Finish()
 
@@ -1024,7 +1024,7 @@ func (q *qemu) hotplugAddDevice(devInfo interface{}, devType deviceType) (interf
 	return data, q.store.Store(store.Hypervisor, q.state)
 }
 
-func (q *qemu) hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
+func (q *qemu) hotplugRemoveDevice(devInfo interface{}, devType types.DeviceType) (interface{}, error) {
 	span, _ := q.trace("hotplugRemoveDevice")
 	defer span.Finish()
 
@@ -1149,17 +1149,17 @@ func (q *qemu) hotplugRemoveCPUs(amount uint32) (uint32, error) {
 	return amount, q.store.Store(store.Hypervisor, q.state)
 }
 
-func (q *qemu) hotplugMemory(memDev *memoryDevice, op operation) (int, error) {
+func (q *qemu) hotplugMemory(memDev *types.MemoryDevice, op operation) (int, error) {
 
 	if !q.arch.supportGuestMemoryHotplug() {
 		return 0, fmt.Errorf("guest memory hotplug not supported")
 	}
-	if memDev.sizeMB < 0 {
-		return 0, fmt.Errorf("cannot hotplug negative size (%d) memory", memDev.sizeMB)
+	if memDev.SizeMB < 0 {
+		return 0, fmt.Errorf("cannot hotplug negative size (%d) memory", memDev.SizeMB)
 	}
 	memLog := q.Logger().WithField("hotplug", "memory")
 
-	memLog.WithField("hotplug-memory-mb", memDev.sizeMB).Debug("requested memory hotplug")
+	memLog.WithField("hotplug-memory-mb", memDev.SizeMB).Debug("requested memory hotplug")
 	err := q.qmpSetup()
 	if err != nil {
 		return 0, err
@@ -1167,29 +1167,29 @@ func (q *qemu) hotplugMemory(memDev *memoryDevice, op operation) (int, error) {
 
 	currentMemory := int(q.config.MemorySize) + q.state.HotpluggedMemory
 
-	if memDev.sizeMB == 0 {
+	if memDev.SizeMB == 0 {
 		memLog.Debug("hotplug is not required")
 		return 0, nil
 	}
 
 	switch op {
 	case removeDevice:
-		memLog.WithField("operation", "remove").Debugf("Requested to remove memory: %d MB", memDev.sizeMB)
+		memLog.WithField("operation", "remove").Debugf("Requested to remove memory: %d MB", memDev.SizeMB)
 		// Dont fail but warn that this is not supported.
 		memLog.Warn("hot-remove VM memory not supported")
 		return 0, nil
 	case addDevice:
-		memLog.WithField("operation", "add").Debugf("Requested to add memory: %d MB", memDev.sizeMB)
+		memLog.WithField("operation", "add").Debugf("Requested to add memory: %d MB", memDev.SizeMB)
 		maxMem, err := q.hostMemMB()
 		if err != nil {
 			return 0, err
 		}
 
 		// Don't exceed the maximum amount of memory
-		if currentMemory+memDev.sizeMB > int(maxMem) {
+		if currentMemory+memDev.SizeMB > int(maxMem) {
 			// Fixme: return a typed error
 			return 0, fmt.Errorf("Unable to hotplug %d MiB memory, the SB has %d MiB and the maximum amount is %d MiB",
-				memDev.sizeMB, currentMemory, maxMem)
+				memDev.SizeMB, currentMemory, maxMem)
 		}
 		memoryAdded, err := q.hotplugAddMemory(memDev)
 		if err != nil {
@@ -1202,23 +1202,23 @@ func (q *qemu) hotplugMemory(memDev *memoryDevice, op operation) (int, error) {
 
 }
 
-func (q *qemu) hotplugAddMemory(memDev *memoryDevice) (int, error) {
+func (q *qemu) hotplugAddMemory(memDev *types.MemoryDevice) (int, error) {
 	memoryDevices, err := q.qmpMonitorCh.qmp.ExecQueryMemoryDevices(q.qmpMonitorCh.ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to query memory devices: %v", err)
 	}
 
 	if len(memoryDevices) != 0 {
-		memDev.slot = memoryDevices[len(memoryDevices)-1].Data.Slot + 1
+		memDev.Slot = memoryDevices[len(memoryDevices)-1].Data.Slot + 1
 	}
-	err = q.qmpMonitorCh.qmp.ExecHotplugMemory(q.qmpMonitorCh.ctx, "memory-backend-ram", "mem"+strconv.Itoa(memDev.slot), "", memDev.sizeMB)
+	err = q.qmpMonitorCh.qmp.ExecHotplugMemory(q.qmpMonitorCh.ctx, "memory-backend-ram", "mem"+strconv.Itoa(memDev.Slot), "", memDev.SizeMB)
 	if err != nil {
 		q.Logger().WithError(err).Error("hotplug memory")
 		return 0, err
 	}
 
-	q.state.HotpluggedMemory += memDev.sizeMB
-	return memDev.sizeMB, q.store.Store(store.Hypervisor, q.state)
+	q.state.HotpluggedMemory += memDev.SizeMB
+	return memDev.SizeMB, q.store.Store(store.Hypervisor, q.state)
 }
 
 func (q *qemu) pauseSandbox() error {
@@ -1236,7 +1236,7 @@ func (q *qemu) resumeSandbox() error {
 }
 
 // addDevice will add extra devices to Qemu command line.
-func (q *qemu) addDevice(devInfo interface{}, devType deviceType) error {
+func (q *qemu) addDevice(devInfo interface{}, devType types.DeviceType) error {
 	var err error
 	span, _ := q.trace("addDevice")
 	defer span.Finish()
@@ -1362,10 +1362,10 @@ func (q *qemu) resizeMemory(reqMemMB uint32, memoryBlockSizeMB uint32) (uint32, 
 			return currentMemory, err
 		}
 
-		addMemDevice := &memoryDevice{
-			sizeMB: int(memHotplugMB),
+		addMemDevice := &types.MemoryDevice{
+			SizeMB: int(memHotplugMB),
 		}
-		data, err := q.hotplugAddDevice(addMemDevice, memoryDev)
+		data, err := q.hotplugAddDevice(addMemDevice, types.MemoryDev)
 		if err != nil {
 			return currentMemory, err
 		}
@@ -1382,10 +1382,10 @@ func (q *qemu) resizeMemory(reqMemMB uint32, memoryBlockSizeMB uint32) (uint32, 
 			return currentMemory, err
 		}
 
-		addMemDevice := &memoryDevice{
-			sizeMB: int(memHotunplugMB),
+		addMemDevice := &types.MemoryDevice{
+			SizeMB: int(memHotunplugMB),
 		}
-		data, err := q.hotplugRemoveDevice(addMemDevice, memoryDev)
+		data, err := q.hotplugRemoveDevice(addMemDevice, types.MemoryDev)
 		if err != nil {
 			return currentMemory, err
 		}
@@ -1529,7 +1529,7 @@ func (q *qemu) resizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCPUs uint3
 	case currentVCPUs < reqVCPUs:
 		//hotplug
 		addCPUs := reqVCPUs - currentVCPUs
-		data, err := q.hotplugAddDevice(addCPUs, cpuDev)
+		data, err := q.hotplugAddDevice(addCPUs, types.CPUDev)
 		if err != nil {
 			return currentVCPUs, newVCPUs, err
 		}
@@ -1541,7 +1541,7 @@ func (q *qemu) resizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCPUs uint3
 	case currentVCPUs > reqVCPUs:
 		//hotunplug
 		removeCPUs := currentVCPUs - reqVCPUs
-		data, err := q.hotplugRemoveDevice(removeCPUs, cpuDev)
+		data, err := q.hotplugRemoveDevice(removeCPUs, types.CPUDev)
 		if err != nil {
 			return currentVCPUs, newVCPUs, err
 		}

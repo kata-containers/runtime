@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 )
 
@@ -88,7 +89,7 @@ func (endpoint *VhostUserEndpoint) Attach(h hypervisor) error {
 		Type:       config.VhostUserNet,
 	}
 
-	return h.addDevice(d, vhostuserDev)
+	return h.addDevice(d, types.VhostuserDev)
 }
 
 // Detach for vhostuser endpoint
