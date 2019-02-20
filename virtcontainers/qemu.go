@@ -641,6 +641,7 @@ func (q *qemu) stopSandbox() error {
 	span, _ := q.trace("stopSandbox")
 	defer span.Finish()
 
+	defer q.cleanupVM()
 	q.Logger().Info("Stopping Sandbox")
 
 	err := q.qmpSetup()
@@ -653,6 +654,11 @@ func (q *qemu) stopSandbox() error {
 		q.Logger().WithError(err).Error("Fail to execute qmp QUIT")
 		return err
 	}
+
+	return nil
+}
+
+func (q *qemu) cleanupVM() error {
 
 	// cleanup vm path
 	dir := filepath.Join(RunVMStoragePath, q.id)
