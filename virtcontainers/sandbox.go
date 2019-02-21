@@ -970,7 +970,12 @@ func (s *Sandbox) stopVM() error {
 	}
 
 	s.Logger().Info("Stopping VM")
-	return s.hypervisor.stopSandbox()
+	if err := s.hypervisor.stopSandbox(); err != nil {
+		s.store.Delete()
+		return err
+	}
+
+	return nil
 }
 
 func (s *Sandbox) addContainer(c *Container) error {
