@@ -63,7 +63,7 @@ assets:
     firecracker:
       description: "Firecracker micro-Hypervisor"
       url: "https://github.com/firecracker-microvm/firecracker"
-      version: "v0.12.0"
+      version: "v0.14.0"
 
     nemu:
       description: "Modern Hypervisor for the Cloud"
