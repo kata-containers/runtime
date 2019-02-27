@@ -133,7 +133,9 @@ assets:
   kernel:
     description: "Linux kernel optimised for virtual machines"
     url: "https://cdn.kernel.org/pub/linux/kernel/v4.x/"
-    version: "v4.14.102"
+    uscan-url: >-
+      https://mirrors.edge.kernel.org/pub/linux/kernel/v4.x/linux-(4\.19\..+)\.tar\.gz
+    version: "v4.19.28"
 
 components:
   description: "Core system functionality"
