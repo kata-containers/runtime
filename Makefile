@@ -23,21 +23,27 @@ ifeq ($(SKIP_GO_VERSION_CHECK),)
     include golang.mk
 endif
 
+#Get ARCH.
 ifneq ($(GOPATH),)
     GOARCH=$(shell go env GOARCH)
     ifeq ($(ARCH),)
         ARCH = $(GOARCH)
     endif
-
-    ARCH_DIR = arch
-    ARCH_FILE_SUFFIX = -options.mk
-    ARCH_FILE = $(ARCH_DIR)/$(ARCH)$(ARCH_FILE_SUFFIX)
-    ARCH_FILES = $(wildcard arch/*$(ARCH_FILE_SUFFIX))
-    ALL_ARCHES = $(patsubst $(ARCH_DIR)/%$(ARCH_FILE_SUFFIX),%,$(ARCH_FILES))
-
-    # Load architecture-dependent settings
-    include $(ARCH_FILE)
+else
+    ARCH = $(shell uname -m)
+    ifeq ($(ARCH),x86_64)
+        ARCH = amd64
+    endif
 endif
+
+ARCH_DIR = arch
+ARCH_FILE_SUFFIX = -options.mk
+ARCH_FILE = $(ARCH_DIR)/$(ARCH)$(ARCH_FILE_SUFFIX)
+ARCH_FILES = $(wildcard arch/*$(ARCH_FILE_SUFFIX))
+ALL_ARCHES = $(patsubst $(ARCH_DIR)/%$(ARCH_FILE_SUFFIX),%,$(ARCH_FILES))
+
+# Load architecture-dependent settings
+include $(ARCH_FILE)
 
 PROJECT_TYPE = kata
 PROJECT_NAME = Kata Containers
@@ -248,11 +254,11 @@ ifeq (,$(findstring $(DEFAULT_HYPERVISOR),$(KNOWN_HYPERVISORS)))
 endif
 
 ifeq ($(DEFAULT_HYPERVISOR),$(HYPERVISOR_QEMU))
-    DEFAULT_HYPERVISOR_CONFIG_PATH = $(CONFIG_PATH_QEMU)
+    DEFAULT_HYPERVISOR_CONFIG = $(CONFIG_FILE_QEMU)
 endif
 
 ifeq ($(DEFAULT_HYPERVISOR),$(HYPERVISOR_FC))
-    DEFAULT_HYPERVISOR_CONFIG_PATH = $(CONFIG_PATH_FC)
+    DEFAULT_HYPERVISOR_CONFIG = $(CONFIG_FILE_FC)
 endif
 
 CONFDIR := $(DEFAULTSDIR)/$(PROJECT_DIR)
@@ -546,7 +552,7 @@ install-bin-libexec: $(BINLIBEXECLIST)
 
 install-configs: $(CONFIGS)
 	$(QUIET_INST)$(foreach f,$(CONFIGS),$(call INSTALL_CONFIG,$f,$(dir $(CONFIG_PATH))))
-	$(QUIET_INST)ln -sf $(DEFAULT_HYPERVISOR_CONFIG_PATH) $(CONFIG_PATH)
+	$(QUIET_INST)ln -sf $(DEFAULT_HYPERVISOR_CONFIG) $(DESTDIR)/$(CONFIG_PATH)
 
 install-scripts: $(SCRIPTS)
 	$(QUIET_INST)$(foreach f,$(SCRIPTS),$(call INSTALL_EXEC,$f,$(SCRIPTS_DIR)))
