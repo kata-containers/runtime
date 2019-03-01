@@ -938,7 +938,6 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) error {
 		return err
 	}
 	var tap TapInterface
-	devID := "virtio-" + tap.ID
 
 	switch endpoint.Type() {
 	case VethEndpointType:
@@ -950,6 +949,7 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) error {
 	default:
 		return fmt.Errorf("this endpoint is not supported")
 	}
+	devID := "virtio-" + tap.ID
 
 	if op == addDevice {
 
