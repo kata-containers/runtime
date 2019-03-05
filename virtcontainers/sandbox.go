@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 	"syscall"
 
@@ -1638,6 +1639,17 @@ func (s *Sandbox) updateResources() error {
 			return err
 		}
 	}
+
+	// on arm64, need to handle the offline case
+	if runtime.GOARCH == "arm64" {
+		if oldCPUs > newCPUs {
+			vcpusDeleted := oldCPUs - newCPUs
+			if err := s.agent.offlineCPUMem(vcpusDeleted, true); err != nil {
+				return err
+			}
+		}
+	}
+
 	s.Logger().Debugf("Sandbox CPUs: %d", newCPUs)
 
 	// Update Memory
