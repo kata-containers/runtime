@@ -31,6 +31,7 @@ const (
 	NewContainerCode
 	KillContainerCode
 	OnlineCPUMemCode
+	OfflineCPUMemCode
 	SetupInterfaceCode
 	SetupRouteCode
 	RemoveContainerCode

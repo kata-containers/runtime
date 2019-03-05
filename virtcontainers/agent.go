@@ -215,6 +215,7 @@ type agent interface {
 	// cpus specifies the number of CPUs that were added and the agent should online
 	// cpuOnly specifies that we should online cpu or online memory or both
 	onlineCPUMem(cpus uint32, cpuOnly bool) error
+	offlineCPUMem(cpus uint32, cpuOnly bool) error
 
 	// statsContainer will tell the agent to get stats from a container related to a Sandbox
 	statsContainer(sandbox *Sandbox, c Container) (*ContainerStats, error)

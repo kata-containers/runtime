@@ -393,6 +393,17 @@ func (v *VM) OnlineCPUMemory() error {
 	return err
 }
 
+// OfflineCPUMemory puts the hotplugged CPU and memory online.
+func (v *VM) OfflineCPUMemory() error {
+	v.logger().Infof("Offline CPU %d and memory", v.cpuDelta)
+	err := v.agent.offlineCPUMem(v.cpuDelta, false)
+	if err == nil {
+		v.cpuDelta = 0
+	}
+
+	return err
+}
+
 // ReseedRNG adds random entropy to guest random number generator
 // and reseeds it.
 func (v *VM) ReseedRNG() error {

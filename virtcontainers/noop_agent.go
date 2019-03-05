@@ -96,6 +96,10 @@ func (n *noopAgent) onlineCPUMem(cpus uint32, cpuOnly bool) error {
 	return nil
 }
 
+func (n *noopAgent) offlineCPUMem(cpus uint32, cpuOnly bool) error {
+	return nil
+}
+
 // updateInterface is the Noop agent Interface update implementation. It does nothing.
 func (n *noopAgent) updateInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
 	return nil, nil

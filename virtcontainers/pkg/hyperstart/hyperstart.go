@@ -37,6 +37,7 @@ const (
 	NewContainer    = "newcontainer"
 	KillContainer   = "killcontainer"
 	OnlineCPUMem    = "onlinecpumem"
+	OfflineCPUMem   = "offlinecpumem"
 	SetupInterface  = "setupinterface"
 	SetupRoute      = "setuproute"
 	RemoveContainer = "removecontainer"
@@ -61,6 +62,7 @@ var CodeList = map[string]uint32{
 	NewContainer:    NewContainerCode,
 	KillContainer:   KillContainerCode,
 	OnlineCPUMem:    OnlineCPUMemCode,
+	OfflineCPUMem:   OfflineCPUMemCode,
 	SetupInterface:  SetupInterfaceCode,
 	SetupRoute:      SetupRouteCode,
 	RemoveContainer: RemoveContainerCode,

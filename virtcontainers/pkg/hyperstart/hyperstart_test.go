@@ -439,6 +439,10 @@ func TestCodeFromCmdOnlineCPUMem(t *testing.T) {
 	testCodeFromCmd(t, OnlineCPUMem, OnlineCPUMemCode)
 }
 
+func TestCodeFromCmdOfflineCPUMem(t *testing.T) {
+	testCodeFromCmd(t, OfflineCPUMem, OfflineCPUMemCode)
+}
+
 func TestCodeFromCmdSetupInterface(t *testing.T) {
 	testCodeFromCmd(t, SetupInterface, SetupInterfaceCode)
 }
@@ -542,6 +546,7 @@ var cmdList = []string{
 	NewContainer,
 	KillContainer,
 	OnlineCPUMem,
+	OfflineCPUMem,
 	SetupInterface,
 	SetupRoute,
 	RemoveContainer,

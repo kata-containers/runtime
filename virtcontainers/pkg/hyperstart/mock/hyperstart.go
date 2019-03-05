@@ -38,6 +38,7 @@ const (
 	KillContainer   = "killcontainer"
 	RemoveContainer = "removecontainer"
 	OnlineCPUMem    = "onlinecpumem"
+	OfflineCPUMem   = "offlinecpumem"
 	SetupInterface  = "setupinterface"
 	SetupRoute      = "setuproute"
 )

@@ -896,6 +896,10 @@ func (h *hyper) onlineCPUMem(cpus uint32, cpuOnly bool) error {
 	return nil
 }
 
+func (h *hyper) offlineCPUMem(cpus uint32, cpuOnly bool) error {
+	return nil
+}
+
 func (h *hyper) updateInterface(inf *vcTypes.Interface) (*vcTypes.Interface, error) {
 	// hyperstart-agent does not support update interface
 	return nil, nil

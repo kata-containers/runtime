@@ -219,6 +219,10 @@ func (p *gRPCProxy) OnlineCPUMem(ctx context.Context, req *pb.OnlineCPUMemReques
 	return emptyResp, nil
 }
 
+func (p *gRPCProxy) OfflineCPUMem(ctx context.Context, req *pb.OfflineCPUMemRequest) (*gpb.Empty, error) {
+	return emptyResp, nil
+}
+
 func (p *gRPCProxy) StatsContainer(ctx context.Context, req *pb.StatsContainerRequest) (*pb.StatsContainerResponse, error) {
 	return &pb.StatsContainerResponse{}, nil
 }
@@ -335,6 +339,9 @@ func TestKataAgentSendReq(t *testing.T) {
 	assert.Nil(err)
 
 	err = k.onlineCPUMem(1, true)
+	assert.Nil(err)
+
+	err = k.offlineCPUMem(1, true)
 	assert.Nil(err)
 
 	_, err = k.statsContainer(sandbox, Container{})

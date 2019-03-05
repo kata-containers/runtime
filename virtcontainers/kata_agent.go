@@ -1357,6 +1357,17 @@ func (k *kataAgent) onlineCPUMem(cpus uint32, cpuOnly bool) error {
 	return err
 }
 
+func (k *kataAgent) offlineCPUMem(cpus uint32, cpuOnly bool) error {
+	req := &grpc.OfflineCPUMemRequest{
+		Wait:    false,
+		NbCpus:  cpus,
+		CpuOnly: cpuOnly,
+	}
+
+	_, err := k.sendReq(req)
+	return err
+}
+
 func (k *kataAgent) statsContainer(sandbox *Sandbox, c Container) (*ContainerStats, error) {
 	req := &grpc.StatsContainerRequest{
 		ContainerId: c.id,
@@ -1540,6 +1551,9 @@ func (k *kataAgent) installReqFunc(c *kataclient.AgentClient) {
 	}
 	k.reqHandlers["grpc.OnlineCPUMemRequest"] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
 		return k.client.OnlineCPUMem(ctx, req.(*grpc.OnlineCPUMemRequest), opts...)
+	}
+	k.reqHandlers["grpc.OfflineCPUMemRequest"] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
+		return k.client.OfflineCPUMem(ctx, req.(*grpc.OfflineCPUMemRequest), opts...)
 	}
 	k.reqHandlers["grpc.ListProcessesRequest"] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
 		return k.client.ListProcesses(ctx, req.(*grpc.ListProcessesRequest), opts...)
