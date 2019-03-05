@@ -1072,7 +1072,7 @@ func (q *qemu) hotplugCPUs(vcpus uint32, op operation) (uint32, error) {
 
 // try to hot add an amount of vCPUs, returns the number of vCPUs added
 func (q *qemu) hotplugAddCPUs(amount uint32) (uint32, error) {
-	currentVCPUs := q.qemuConfig.SMP.CPUs + uint32(len(q.state.HotpluggedVCPUs))
+	currentVCPUs := q.config.NumVCPUs + uint32(len(q.state.HotpluggedVCPUs))
 
 	// Don't fail if the number of max vCPUs is exceeded, log a warning and hot add the vCPUs needed
 	// to reach out max vCPUs
