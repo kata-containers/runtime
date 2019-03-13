@@ -15,7 +15,6 @@ import (
 
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/factory/base"
-	"github.com/kata-containers/runtime/virtcontainers/factory/direct"
 )
 
 type template struct {
@@ -41,14 +40,13 @@ func Fetch(config vc.VMConfig) (base.FactoryBase, error) {
 }
 
 // New creates a new VM template factory.
-func New(ctx context.Context, config vc.VMConfig) base.FactoryBase {
+func New(ctx context.Context, config vc.VMConfig) (base.FactoryBase, error) {
 	statePath := vc.RunVMStoragePath + "/template"
 	t := &template{statePath, config}
 
 	err := t.prepareTemplateFiles()
 	if err != nil {
-		// fallback to direct factory if template is not supported.
-		return direct.New(ctx, config)
+		return nil, err
 	}
 	defer func() {
 		if err != nil {
@@ -58,11 +56,10 @@ func New(ctx context.Context, config vc.VMConfig) base.FactoryBase {
 
 	err = t.createTemplateVM(ctx)
 	if err != nil {
-		// fallback to direct factory if template is not supported.
-		return direct.New(ctx, config)
+		return nil, err
 	}
 
-	return t
+	return t, nil
 }
 
 // Config returns template factory's configuration.
@@ -115,7 +112,9 @@ func (t *template) createTemplateVM(ctx context.Context) error {
 	config.HypervisorConfig.MemoryPath = t.statePath + "/memory"
 	config.HypervisorConfig.DevicesStatePath = t.statePath + "/state"
 	// template vm uses builtin proxy
-	config.ProxyType = templateProxyType
+	if config.ProxyType != "noopProxy" {
+		config.ProxyType = templateProxyType
+	}
 
 	vm, err := vc.NewVM(ctx, config)
 	if err != nil {

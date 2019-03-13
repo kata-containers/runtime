@@ -63,7 +63,10 @@ func NewFactory(ctx context.Context, config Config, fetchOnly bool) (vc.Factory,
 				return nil, err
 			}
 		} else {
-			b = template.New(ctx, config.VMConfig)
+			b, err = template.New(ctx, config.VMConfig)
+			if err != nil {
+				return nil, err
+			}
 		}
 	} else {
 		b = direct.New(ctx, config.VMConfig)
