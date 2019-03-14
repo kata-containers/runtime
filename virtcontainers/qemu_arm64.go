@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
 	govmmQemu "github.com/intel/govmm/qemu"
@@ -188,4 +189,23 @@ func (q *qemuArm64) appendImage(devices []govmmQemu.Device, path string) ([]govm
 	devices = append(devices, object)
 
 	return devices, nil
+}
+
+func (q *qemuArm64) cpuTopology(vcpus, maxvcpus uint32) govmmQemu.SMP {
+	//On arm64, will pass "-smp $maxvcpus" to govmm, govmmQemu.SMP.MaxCPUs=0 lets govmmQemu
+	//ignore the parameter.
+	smp := govmmQemu.SMP{
+		CPUs:    maxvcpus,
+		Sockets: maxvcpus,
+		Cores:   defaultCores,
+		Threads: defaultThreads,
+		MaxCPUs: 0,
+	}
+
+	return smp
+}
+
+func (q *qemuArm64) appendMaxcpus(config HypervisorConfig) {
+	// On arm64, we only can *hot-plug* the cpu by mannual, so pass maxcpus to guest kernel
+	q.kernelParams = append(q.kernelParams, Param{"maxcpus", strconv.Itoa(int(config.NumVCPUs))})
 }
