@@ -146,7 +146,7 @@ func buildSandboxConfig(context *cli.Context) (vc.SandboxConfig, error) {
 	machineType := context.String("machine-type")
 	vmMemory := context.Uint("vm-memory")
 	agentType, ok := context.Generic("agent").(*vc.AgentType)
-	if ok != true {
+	if !ok {
 		return vc.SandboxConfig{}, fmt.Errorf("Could not convert agent type")
 	}
 
@@ -156,12 +156,12 @@ func buildSandboxConfig(context *cli.Context) (vc.SandboxConfig, error) {
 	}
 
 	proxyType, ok := context.Generic("proxy").(*vc.ProxyType)
-	if ok != true {
+	if !ok {
 		return vc.SandboxConfig{}, fmt.Errorf("Could not convert proxy type")
 	}
 
 	shimType, ok := context.Generic("shim").(*vc.ShimType)
-	if ok != true {
+	if !ok {
 		return vc.SandboxConfig{}, fmt.Errorf("Could not convert shim type")
 	}
 

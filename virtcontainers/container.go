@@ -602,7 +602,7 @@ func newContainer(sandbox *Sandbox, contConfig ContainerConfig) (*Container, err
 	span, _ := sandbox.trace("newContainer")
 	defer span.Finish()
 
-	if contConfig.valid() == false {
+	if !contConfig.valid() {
 		return &Container{}, fmt.Errorf("Invalid container configuration")
 	}
 
@@ -1169,10 +1169,7 @@ func (c *Container) hotplugDrive() error {
 
 // isDriveUsed checks if a drive has been used for container rootfs
 func (c *Container) isDriveUsed() bool {
-	if c.state.Fstype == "" {
-		return false
-	}
-	return true
+	return !(c.state.Fstype == "")
 }
 
 func (c *Container) removeDrive() (err error) {

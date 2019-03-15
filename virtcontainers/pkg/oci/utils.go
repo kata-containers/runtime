@@ -79,7 +79,7 @@ const (
 // Refer to: https://github.com/opencontainers/runtime-spec/commit/37391fb
 type CompatOCIProcess struct {
 	spec.Process
-	Capabilities interface{} `json:"capabilities,omitempty" platform:"linux"`
+	Capabilities interface{} `json:"capabilities,omitempty" platform:"linux"` //nolint:govet
 }
 
 // CompatOCISpec is a structure inheriting from spec.Spec defined
@@ -89,7 +89,7 @@ type CompatOCIProcess struct {
 // Refer to: https://github.com/opencontainers/runtime-spec/commit/37391fb
 type CompatOCISpec struct {
 	spec.Spec
-	Process *CompatOCIProcess `json:"process,omitempty"`
+	Process *CompatOCIProcess `json:"process,omitempty"` //nolint:govet
 }
 
 // FactoryConfig is a structure to set the VM factory configuration.
