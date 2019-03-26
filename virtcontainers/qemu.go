@@ -83,6 +83,8 @@ type qemu struct {
 	ctx context.Context
 
 	nvdimmCount int
+
+	isShutdown bool
 }
 
 const (
@@ -658,6 +660,14 @@ func (q *qemu) stopSandbox() error {
 
 	err = q.qmpMonitorCh.qmp.ExecuteQuit(q.qmpMonitorCh.ctx)
 	if err != nil {
+		for i := 0; i < 100; i++ {
+			if q.isShutdown {
+				q.Logger().Warnf("receive shutdown event but not get quit qmp response")
+				return nil
+			}
+
+			time.Sleep(time.Duration(50) * time.Millisecond)
+		}
 		q.Logger().WithError(err).Error("Fail to execute qmp QUIT")
 		return err
 	}
@@ -729,7 +739,9 @@ func (q *qemu) qmpSetup() error {
 		return nil
 	}
 
-	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
+	events := make(chan govmmQemu.QMPEvent)
+	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger(),
+		EventCh: events}
 
 	// Auto-closed by QMPStart().
 	disconnectCh := make(chan struct{})
@@ -748,8 +760,18 @@ func (q *qemu) qmpSetup() error {
 	}
 	q.qmpMonitorCh.qmp = qmp
 	q.qmpMonitorCh.disconn = disconnectCh
+	go q.loopQMPEvent(events)
 
 	return nil
+}
+
+func (q *qemu) loopQMPEvent(event chan govmmQemu.QMPEvent) {
+	for e := range event {
+		q.Logger().WithField("event", e).Info("receive qemu event")
+		if strings.Contains(e.Name, "SHUTDOWN") {
+			q.isShutdown = true
+		}
+	}
 }
 
 func (q *qemu) qmpShutdown() {
