@@ -187,7 +187,7 @@ func newTestSandboxConfigKataAgent() SandboxConfig {
 }
 
 func TestCreateSandboxNoopAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -220,7 +220,7 @@ func TestCreateSandboxHyperstartAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigHyperstartAgent()
 
@@ -253,7 +253,7 @@ func TestCreateSandboxKataAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigKataAgent()
 
@@ -290,7 +290,7 @@ func TestCreateSandboxKataAgentSuccessful(t *testing.T) {
 }
 
 func TestCreateSandboxFailing(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := SandboxConfig{}
 
@@ -301,7 +301,7 @@ func TestCreateSandboxFailing(t *testing.T) {
 }
 
 func TestDeleteSandboxNoopAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	ctx := context.Background()
 	config := newTestSandboxConfigNoop()
@@ -333,7 +333,7 @@ func TestDeleteSandboxHyperstartAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigHyperstartAgent()
 
@@ -378,7 +378,7 @@ func TestDeleteSandboxKataAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigKataAgent()
 
@@ -426,7 +426,7 @@ func TestDeleteSandboxKataAgentSuccessful(t *testing.T) {
 }
 
 func TestDeleteSandboxFailing(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	sandboxDir := filepath.Join(configStoragePath, testSandboxID)
 	os.Remove(sandboxDir)
@@ -438,7 +438,7 @@ func TestDeleteSandboxFailing(t *testing.T) {
 }
 
 func TestStartSandboxNoopAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -449,7 +449,7 @@ func TestStartSandboxNoopAgentSuccessful(t *testing.T) {
 }
 
 func TestStartSandboxHyperstartAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	if os.Geteuid() != 0 {
 		t.Skip(testDisabledAsNonRoot)
@@ -489,7 +489,7 @@ func TestStartSandboxKataAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigKataAgent()
 
@@ -526,7 +526,7 @@ func TestStartSandboxKataAgentSuccessful(t *testing.T) {
 }
 
 func TestStartSandboxFailing(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	sandboxDir := filepath.Join(configStoragePath, testSandboxID)
 	os.Remove(sandboxDir)
@@ -538,7 +538,7 @@ func TestStartSandboxFailing(t *testing.T) {
 }
 
 func TestStopSandboxNoopAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -555,7 +555,7 @@ func TestStopSandboxNoopAgentSuccessful(t *testing.T) {
 }
 
 func TestPauseThenResumeSandboxNoopAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -620,7 +620,7 @@ func TestStopSandboxHyperstartAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigHyperstartAgent()
 
@@ -656,7 +656,7 @@ func TestStopSandboxKataAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigKataAgent()
 
@@ -693,7 +693,7 @@ func TestStopSandboxKataAgentSuccessful(t *testing.T) {
 }
 
 func TestStopSandboxFailing(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	sandboxDir := filepath.Join(configStoragePath, testSandboxID)
 	os.Remove(sandboxDir)
@@ -705,7 +705,7 @@ func TestStopSandboxFailing(t *testing.T) {
 }
 
 func TestRunSandboxNoopAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -726,7 +726,7 @@ func TestRunSandboxHyperstartAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigHyperstartAgent()
 
@@ -768,7 +768,7 @@ func TestRunSandboxKataAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigKataAgent()
 
@@ -811,7 +811,7 @@ func TestRunSandboxKataAgentSuccessful(t *testing.T) {
 }
 
 func TestRunSandboxFailing(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := SandboxConfig{}
 
@@ -822,7 +822,7 @@ func TestRunSandboxFailing(t *testing.T) {
 }
 
 func TestListSandboxSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	os.RemoveAll(configStoragePath)
 
@@ -841,7 +841,7 @@ func TestListSandboxSuccessful(t *testing.T) {
 }
 
 func TestListSandboxNoSandboxDirectory(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	os.RemoveAll(configStoragePath)
 
@@ -852,7 +852,7 @@ func TestListSandboxNoSandboxDirectory(t *testing.T) {
 }
 
 func TestStatusSandboxSuccessfulStateReady(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 	hypervisorConfig := HypervisorConfig{
@@ -910,7 +910,7 @@ func TestStatusSandboxSuccessfulStateReady(t *testing.T) {
 }
 
 func TestStatusSandboxSuccessfulStateRunning(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 	hypervisorConfig := HypervisorConfig{
@@ -973,7 +973,7 @@ func TestStatusSandboxSuccessfulStateRunning(t *testing.T) {
 }
 
 func TestStatusSandboxFailingFetchSandboxConfig(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -994,7 +994,7 @@ func TestStatusSandboxFailingFetchSandboxConfig(t *testing.T) {
 }
 
 func TestStatusPodSandboxFailingFetchSandboxState(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -1029,7 +1029,7 @@ func newTestContainerConfigNoop(contID string) ContainerConfig {
 }
 
 func TestCreateContainerSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1061,7 +1061,7 @@ func TestCreateContainerSuccessful(t *testing.T) {
 }
 
 func TestCreateContainerFailingNoSandbox(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1092,7 +1092,7 @@ func TestCreateContainerFailingNoSandbox(t *testing.T) {
 }
 
 func TestDeleteContainerSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1134,7 +1134,7 @@ func TestDeleteContainerSuccessful(t *testing.T) {
 }
 
 func TestDeleteContainerFailingNoSandbox(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	sandboxDir := filepath.Join(configStoragePath, testSandboxID)
 	contID := "100"
@@ -1147,7 +1147,7 @@ func TestDeleteContainerFailingNoSandbox(t *testing.T) {
 }
 
 func TestDeleteContainerFailingNoContainer(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1171,7 +1171,7 @@ func TestDeleteContainerFailingNoContainer(t *testing.T) {
 }
 
 func TestStartContainerNoopAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1202,7 +1202,7 @@ func TestStartContainerNoopAgentSuccessful(t *testing.T) {
 }
 
 func TestStartContainerFailingNoSandbox(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	sandboxDir := filepath.Join(configStoragePath, testSandboxID)
 	contID := "100"
@@ -1215,7 +1215,7 @@ func TestStartContainerFailingNoSandbox(t *testing.T) {
 }
 
 func TestStartContainerFailingNoContainer(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1239,7 +1239,7 @@ func TestStartContainerFailingNoContainer(t *testing.T) {
 }
 
 func TestStartContainerFailingSandboxNotStarted(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1276,7 +1276,7 @@ func TestStartContainerFailingSandboxNotStarted(t *testing.T) {
 }
 
 func TestStopContainerNoopAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1317,7 +1317,7 @@ func TestStartStopContainerHyperstartAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigHyperstartAgent()
@@ -1378,7 +1378,7 @@ func TestStartStopSandboxHyperstartAgentSuccessfulWithDefaultNetwork(t *testing.
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigHyperstartAgentDefaultNetwork()
 
@@ -1425,7 +1425,7 @@ func TestStartStopSandboxHyperstartAgentSuccessfulWithDefaultNetwork(t *testing.
 }
 
 func TestStopContainerFailingNoSandbox(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	sandboxDir := filepath.Join(configStoragePath, testSandboxID)
 	contID := "100"
@@ -1438,7 +1438,7 @@ func TestStopContainerFailingNoSandbox(t *testing.T) {
 }
 
 func TestStopContainerFailingNoContainer(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1462,7 +1462,7 @@ func TestStopContainerFailingNoContainer(t *testing.T) {
 }
 
 func testKillContainerFromContReadySuccessful(t *testing.T, signal syscall.Signal) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1504,7 +1504,7 @@ func TestKillContainerFromContReadySuccessful(t *testing.T) {
 }
 
 func TestEnterContainerNoopAgentSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1547,7 +1547,7 @@ func TestEnterContainerHyperstartAgentSuccessful(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigHyperstartAgent()
@@ -1611,7 +1611,7 @@ func TestEnterContainerHyperstartAgentSuccessful(t *testing.T) {
 }
 
 func TestEnterContainerFailingNoSandbox(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	sandboxDir := filepath.Join(configStoragePath, testSandboxID)
 	contID := "100"
@@ -1626,7 +1626,7 @@ func TestEnterContainerFailingNoSandbox(t *testing.T) {
 }
 
 func TestEnterContainerFailingNoContainer(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1652,7 +1652,7 @@ func TestEnterContainerFailingNoContainer(t *testing.T) {
 }
 
 func TestEnterContainerFailingContNotStarted(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1686,7 +1686,7 @@ func TestEnterContainerFailingContNotStarted(t *testing.T) {
 }
 
 func TestStatusContainerSuccessful(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1737,7 +1737,7 @@ func TestStatusContainerSuccessful(t *testing.T) {
 }
 
 func TestStatusContainerStateReady(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	// (homage to a great album! ;)
 	contID := "101"
@@ -1802,7 +1802,7 @@ func TestStatusContainerStateReady(t *testing.T) {
 }
 
 func TestStatusContainerStateRunning(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	// (homage to a great album! ;)
 	contID := "101"
@@ -1877,7 +1877,7 @@ func TestStatusContainerStateRunning(t *testing.T) {
 }
 
 func TestStatusContainerFailing(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1901,7 +1901,7 @@ func TestStatusContainerFailing(t *testing.T) {
 }
 
 func TestStatsContainerFailing(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	contID := "100"
 	config := newTestSandboxConfigNoop()
@@ -1925,7 +1925,7 @@ func TestStatsContainerFailing(t *testing.T) {
 }
 
 func TestStatsContainer(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	assert := assert.New(t)
 	contID := "100"
@@ -1971,7 +1971,7 @@ func TestStatsContainer(t *testing.T) {
 }
 
 func TestProcessListContainer(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	assert := assert.New(t)
 
@@ -2265,7 +2265,7 @@ func BenchmarkStartStop10ContainerQemuHypervisorHyperstartAgentNetworkNoop(b *te
 }
 
 func TestFetchSandbox(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -2282,7 +2282,7 @@ func TestFetchSandbox(t *testing.T) {
 }
 
 func TestFetchStatefulSandbox(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -2301,14 +2301,14 @@ func TestFetchStatefulSandbox(t *testing.T) {
 }
 
 func TestFetchNonExistingSandbox(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	_, err := FetchSandbox(context.Background(), "some-non-existing-sandbox-name")
 	assert.NotNil(t, err, "fetch non-existing sandbox should fail")
 }
 
 func TestReleaseSandbox(t *testing.T) {
-	cleanUp()
+	defer cleanUp()
 
 	config := newTestSandboxConfigNoop()
 
@@ -2325,7 +2325,7 @@ func TestUpdateContainer(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	ctx := context.Background()
 
@@ -2378,7 +2378,7 @@ func TestPauseResumeContainer(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	ctx := context.Background()
 
@@ -2420,7 +2420,7 @@ func TestNetworkOperation(t *testing.T) {
 		t.Skip(testDisabledAsNonRoot)
 	}
 
-	cleanUp()
+	defer cleanUp()
 
 	assert := assert.New(t)
 	inf := &vcTypes.Interface{
