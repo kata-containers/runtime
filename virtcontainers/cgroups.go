@@ -221,31 +221,8 @@ func (s *Sandbox) constrainHypervisor(cgroup cgroups.Cgroup) error {
 		return fmt.Errorf("Could not add hypervisor PID %d to cgroup %v: %v", pid, path, err)
 	}
 
-	// when new container joins, new CPU could be hotplugged, so we
-	// have to query fresh vcpu info from hypervisor for every time.
-	tids, err := s.hypervisor.getThreadIDs()
-	if err != nil {
-		return fmt.Errorf("failed to get thread ids from hypervisor: %v", err)
-	}
-	if tids == nil || len(tids.vcpus) == 0 {
-		// If there's no tid returned from the hypervisor, this is not
-		// a bug. It simply means there is nothing to constrain, hence
-		// let's return without any error from here.
-		return nil
-	}
-
-	// We are about to move just the vcpus (threads) into cgroups with constraints.
-	// Move whole hypervisor process whould be easier but the IO/network performance
-	// whould be impacted.
-	for _, i := range tids.vcpus {
-		// In contrast, AddTask will write thread id to `tasks`
-		// After this, vcpu threads are in "vcpu" sub-cgroup, other threads in
-		// qemu will be left in parent cgroup untouched.
-		if err := cgroup.AddTask(cgroups.Process{
-			Pid: i,
-		}); err != nil {
-			return err
-		}
+	if err := cgroup.Add(cgroups.Process{Pid: pid}); err != nil {
+		return fmt.Errorf("Could not add hypervisor PID %d to cgroup %v: %v", pid, path, err)
 	}
 
 	return nil
