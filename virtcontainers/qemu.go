@@ -122,11 +122,7 @@ func newQMPLogger() qmpLogger {
 }
 
 func (l qmpLogger) V(level int32) bool {
-	if level != 0 {
-		return true
-	}
-
-	return false
+	return level != 0
 }
 
 func (l qmpLogger) Infof(format string, v ...interface{}) {
@@ -615,7 +611,7 @@ func (q *qemu) waitSandbox(timeout int) error {
 			break
 		}
 
-		if int(time.Now().Sub(timeStart).Seconds()) > timeout {
+		if int(time.Since(timeStart).Seconds()) > timeout {
 			return fmt.Errorf("Failed to connect to QEMU instance (timeout %ds): %v", timeout, err)
 		}
 
@@ -1429,7 +1425,7 @@ func (q *qemu) resizeMemory(reqMemMB uint32, memoryBlockSizeMB uint32) (uint32, 
 }
 
 // genericAppendBridges appends to devices the given bridges
-// nolint: unused
+// nolint: unused, deadcode
 func genericAppendBridges(devices []govmmQemu.Device, bridges []types.PCIBridge, machineType string) []govmmQemu.Device {
 	bus := defaultPCBridgeBus
 	switch machineType {
@@ -1461,7 +1457,7 @@ func genericAppendBridges(devices []govmmQemu.Device, bridges []types.PCIBridge,
 	return devices
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func genericBridges(number uint32, machineType string) []types.PCIBridge {
 	var bridges []types.PCIBridge
 	var bt types.PCIType
@@ -1494,7 +1490,7 @@ func genericBridges(number uint32, machineType string) []types.PCIBridge {
 	return bridges
 }
 
-// nolint: unused
+// nolint: unused, deadcode
 func genericMemoryTopology(memoryMb, hostMemoryMb uint64, slots uint8, memoryOffset uint32) govmmQemu.Memory {
 	// image NVDIMM device needs memory space 1024MB
 	// See https://github.com/clearcontainers/runtime/issues/380

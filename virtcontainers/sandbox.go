@@ -195,7 +195,7 @@ func (s *Sandbox) Logger() *logrus.Entry {
 // Annotations returns any annotation that a user could have stored through the sandbox.
 func (s *Sandbox) Annotations(key string) (string, error) {
 	value, exist := s.config.Annotations[key]
-	if exist == false {
+	if !exist {
 		return "", fmt.Errorf("Annotations key %s does not exist", key)
 	}
 
@@ -478,7 +478,7 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 	span, ctx := trace(ctx, "newSandbox")
 	defer span.Finish()
 
-	if sandboxConfig.valid() == false {
+	if !sandboxConfig.valid() {
 		return nil, fmt.Errorf("Invalid sandbox configuration")
 	}
 
@@ -894,7 +894,7 @@ func (s *Sandbox) ListRoutes() ([]*vcTypes.Route, error) {
 }
 
 // startVM starts the VM.
-func (s *Sandbox) startVM() error {
+func (s *Sandbox) startVM() (err error) {
 	span, ctx := s.trace("startVM")
 	defer span.Finish()
 
@@ -924,6 +924,12 @@ func (s *Sandbox) startVM() error {
 	}); err != nil {
 		return err
 	}
+
+	defer func() {
+		if err != nil {
+			s.hypervisor.stopSandbox()
+		}
+	}()
 
 	// In case of vm factory, network interfaces are hotplugged
 	// after vm is started.
@@ -1023,7 +1029,7 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 	s.config.Containers = append(s.config.Containers, contConfig)
 
 	// Sandbox is reponsable to update VM resources needed by Containers
-	s.updateResources()
+	err = s.updateResources()
 	if err != nil {
 		return nil, err
 	}

@@ -52,9 +52,9 @@ const (
 	kernelPropertyCorrect = "Kernel property value correct"
 
 	// these refer to fields in the procCPUINFO file
-	genericCPUFlagsTag    = "flags"      // nolint: varcheck, unused
-	genericCPUVendorField = "vendor_id"  // nolint: varcheck, unused
-	genericCPUModelField  = "model name" // nolint: varcheck, unused
+	genericCPUFlagsTag    = "flags"      // nolint: varcheck, unused, deadcode
+	genericCPUVendorField = "vendor_id"  // nolint: varcheck, unused, deadcode
+	genericCPUModelField  = "model name" // nolint: varcheck, unused, deadcode
 )
 
 // variables rather than consts to allow tests to modify them
@@ -243,6 +243,7 @@ func checkKernelModules(modules map[string]kernelModule, handler kernelParamHand
 
 // genericHostIsVMContainerCapable checks to see if the host is theoretically capable
 // of creating a VM container.
+//nolint: unused,deadcode
 func genericHostIsVMContainerCapable(details vmContainerCapableDetails) error {
 	cpuinfo, err := getCPUInfo(details.cpuInfoFile)
 	if err != nil {
