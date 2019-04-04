@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/kata-containers/runtime.svg?branch=master)](https://travis-ci.org/kata-containers/runtime)
-[![Build Status](http://jenkins.katacontainers.io/job/kata-containers-runtime-ubuntu-16-04-master/badge/icon)](http://jenkins.katacontainers.io/job/kata-containers-runtime-ubuntu-16-04-master/)
+[![Build Status](http://jenkins.katacontainers.io/job/kata-containers-runtime-ubuntu-18-04-master/badge/icon)](http://jenkins.katacontainers.io/job/kata-containers-runtime-ubuntu-18-04-master/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kata-containers/runtime)](https://goreportcard.com/report/github.com/kata-containers/runtime)
 [![GoDoc](https://godoc.org/github.com/kata-containers/runtime?status.svg)](https://godoc.org/github.com/kata-containers/runtime)
 
@@ -86,7 +86,7 @@ See the
 
 ## Architecture overview
 
-See the [architecture overview](https://github.com/kata-containers/documentation/blob/master/architecture.md)
+See the [architecture overview](https://github.com/kata-containers/documentation/blob/master/design/architecture.md)
 for details on the Kata Containers design.
 
 ## Configuration
