@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -1009,7 +1010,10 @@ func (s *Sandbox) addContainer(c *Container) error {
 
 	ann := c.GetAnnotations()
 	if ann[annotations.ContainerTypeKey] == string(PodSandbox) {
-		s.state.CgroupPath = c.state.CgroupPath
+		containerCgroup := filepath.Join("/", c.state.CgroupPath)
+		parent := filepath.Dir(containerCgroup)
+		sandboxCgroupPath := filepath.Join(parent, "/kata-sandbox")
+		s.state.CgroupPath = sandboxCgroupPath
 		return s.store.Store(store.State, s.state)
 	}
 
