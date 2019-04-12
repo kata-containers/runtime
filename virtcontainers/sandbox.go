@@ -16,6 +16,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/containerd/cgroups"
 	"github.com/containernetworking/plugins/pkg/ns"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -1010,10 +1011,12 @@ func (s *Sandbox) addContainer(c *Container) error {
 
 	ann := c.GetAnnotations()
 	if ann[annotations.ContainerTypeKey] == string(PodSandbox) {
-		containerCgroup := filepath.Join("/", c.state.CgroupPath)
-		parent := filepath.Dir(containerCgroup)
+		parent := filepath.Dir(c.state.CgroupPath)
 		sandboxCgroupPath := filepath.Join(parent, "/kata-sandbox")
 		s.state.CgroupPath = sandboxCgroupPath
+		if err := s.newCgroups(); err != nil {
+			return err
+		}
 		return s.store.Store(store.State, s.state)
 	}
 
@@ -1716,4 +1719,30 @@ func (s *Sandbox) calculateSandboxCPUs() uint32 {
 		}
 	}
 	return utils.CalculateVCpusFromMilliCpus(mCPU)
+}
+
+// creates a new cgroup and return the cgroups path
+func (s *Sandbox) newCgroups() error {
+
+	var spec specs.Spec
+
+	// https://github.com/kata-containers/runtime/issues/168
+	resources := specs.LinuxResources{
+		CPU: nil,
+	}
+
+	resources.CPU = s.cpuResources()
+
+	if spec.Linux != nil && spec.Linux.Resources != nil {
+		resources.CPU = validCPUResources(spec.Linux.Resources.CPU)
+	}
+
+	s.state.CgroupPath = utils.ValidCgroupPath(s.state.CgroupPath)
+	_, err := cgroupsNewFunc(cgroups.V1,
+		cgroups.StaticPath(s.state.CgroupPath), &resources)
+	if err != nil {
+		return fmt.Errorf("Could not create cgroup for %v: %v", s.state.CgroupPath, err)
+	}
+
+	return nil
 }

@@ -143,7 +143,7 @@ func (s *Sandbox) updateCgroups() error {
 		s.Logger().Warn("sandbox's cgroup won't be updated: cgroup path is empty")
 		return nil
 	}
-
+	s.Logger().Info("DEBUG loading cgroup:", s.state.CgroupPath)
 	cgroup, err := cgroupsLoadFunc(V1Constraints, cgroups.StaticPath(s.state.CgroupPath))
 	if err != nil {
 		return fmt.Errorf("Could not load cgroup %v: %v", s.state.CgroupPath, err)
