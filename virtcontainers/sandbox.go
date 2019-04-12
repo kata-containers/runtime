@@ -7,7 +7,6 @@ package virtcontainers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -18,7 +17,9 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 
 	"github.com/kata-containers/agent/protocols/grpc"
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
@@ -30,7 +31,6 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
-	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -657,7 +657,7 @@ func (s *Sandbox) findContainer(containerID string) (*Container, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("Could not find the container %q from the sandbox %q containers list",
+	return nil, errors.Wrapf(vcTypes.ErrNoSuchContainer, "Could not find the container %q from the sandbox %q containers list",
 		containerID, s.id)
 }
 
@@ -673,7 +673,7 @@ func (s *Sandbox) removeContainer(containerID string) error {
 	}
 
 	if _, ok := s.containers[containerID]; !ok {
-		return fmt.Errorf("Could not remove the container %q from the sandbox %q containers list",
+		return errors.Wrapf(vcTypes.ErrNoSuchContainer, "Could not remove the container %q from the sandbox %q containers list",
 			containerID, s.id)
 	}
 
