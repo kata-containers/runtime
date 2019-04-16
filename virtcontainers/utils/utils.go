@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 )
 
 // DefaultCgroupPath runtime-determined location in the cgroups hierarchy.
@@ -251,4 +252,22 @@ func ValidCgroupPath(path string) string {
 	// interpret the path relative to a runtime-determined location in the cgroups hierarchy.
 	// clean up path and return a new path relative to defaultCgroupPath
 	return filepath.Join(DefaultCgroupPath, filepath.Clean("/"+path))
+}
+
+// IsProcRunning check if the process is running
+func IsProcRunning(pid int) (bool, error) {
+	if pid <= 0 {
+		return false, nil
+	}
+
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false, err
+	}
+
+	if err := process.Signal(syscall.Signal(0)); err != nil {
+		return false, nil
+	}
+
+	return true, nil
 }

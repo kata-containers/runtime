@@ -52,11 +52,11 @@ func wait(s *service, c *container, execID string) (int32, error) {
 
 		if c.cType.IsSandbox() {
 			if err = s.sandbox.Stop(); err != nil {
-				logrus.WithField("sandbox", s.sandbox.ID()).Error("failed to stop sandbox")
+				logrus.WithError(err).WithField("sandbox", s.sandbox.ID()).Error("failed to stop sandbox")
 			}
 
 			if err = s.sandbox.Delete(); err != nil {
-				logrus.WithField("sandbox", s.sandbox.ID()).Error("failed to delete sandbox")
+				logrus.WithError(err).WithField("sandbox", s.sandbox.ID()).Error("failed to delete sandbox")
 			}
 		} else {
 			if _, err = s.sandbox.StopContainer(c.id); err != nil {

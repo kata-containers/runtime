@@ -989,13 +989,30 @@ func (c *Container) stop() error {
 		return err
 	}
 
+	// if vm has exited, set container state to stopped, and do cleanup
+	if running, _ := utils.IsProcRunning(c.sandbox.hypervisor.pid()); !running {
+		c.Logger().Info("vm has exited, set container state to stopped")
+		if err := c.setContainerState(types.StateStopped); err != nil {
+			return err
+		}
+		// umount host mount and rootfs
+		if err := c.unmountHostMounts(); err != nil {
+			c.Logger().WithError(err).Warning("fails to umount host mounts")
+		}
+
+		if err := bindUnmountContainerRootfs(c.ctx, kataHostSharedDir, c.sandbox.id, c.id); err != nil {
+			c.Logger().WithError(err).Warning("fails to umount rootfs")
+		}
+		return nil
+	}
+
 	defer func() {
 		span, _ := c.trace("stopShim")
 		defer span.Finish()
 
 		// If shim is still running something went wrong
 		// Make sure we stop the shim process
-		if running, _ := isShimRunning(c.process.Pid); running {
+		if running, _ := utils.IsProcRunning(c.process.Pid); running {
 			l := c.Logger()
 			l.Error("Failed to stop container so stopping dangling shim")
 			if err := stopShim(c.process.Pid); err != nil {

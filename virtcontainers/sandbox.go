@@ -1023,9 +1023,15 @@ func (s *Sandbox) startVM() (err error) {
 }
 
 // stopVM: stop the sandbox's VM
-func (s *Sandbox) stopVM() error {
+func (s *Sandbox) stopVM() (err error) {
 	span, _ := s.trace("stopVM")
 	defer span.Finish()
+
+	// if failed to stop sandbox in vm, we should check whether vm still running
+	if running, _ := utils.IsProcRunning(s.hypervisor.pid()); !running {
+		s.Logger().WithField("sandboxid", s.id).Warning("vm has exited")
+		return nil
+	}
 
 	s.Logger().Info("Stopping sandbox in the VM")
 	if err := s.agent.stopSandbox(s); err != nil {
@@ -1040,6 +1046,7 @@ func (s *Sandbox) stopVM() error {
 	}
 
 	s.Logger().Info("Stopping VM")
+
 	return s.hypervisor.stopSandbox()
 }
 

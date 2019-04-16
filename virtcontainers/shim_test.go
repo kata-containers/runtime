@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"syscall"
 	"testing"
+
+	"github.com/kata-containers/runtime/virtcontainers/utils"
 )
 
 const (
@@ -213,7 +215,7 @@ func TestStopShimSuccessfulProcessRunning(t *testing.T) {
 }
 
 func testIsShimRunning(t *testing.T, pid int, expected bool) {
-	running, err := isShimRunning(pid)
+	running, err := utils.IsProcRunning(pid)
 	if err != nil {
 		t.Fatal(err)
 	}

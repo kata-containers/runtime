@@ -14,6 +14,7 @@ import (
 
 	ns "github.com/kata-containers/runtime/virtcontainers/pkg/nsenter"
 	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
 )
@@ -227,23 +228,6 @@ func startShim(args []string, params ShimParams) (int, error) {
 	return cmd.Process.Pid, nil
 }
 
-func isShimRunning(pid int) (bool, error) {
-	if pid <= 0 {
-		return false, nil
-	}
-
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false, err
-	}
-
-	if err := process.Signal(syscall.Signal(0)); err != nil {
-		return false, nil
-	}
-
-	return true, nil
-}
-
 // waitForShim waits for the end of the shim unless it reaches the timeout
 // first, returning an error in that case.
 func waitForShim(pid int) error {
@@ -253,7 +237,7 @@ func waitForShim(pid int) error {
 
 	tInit := time.Now()
 	for {
-		running, err := isShimRunning(pid)
+		running, err := utils.IsProcRunning(pid)
 		if err != nil {
 			return err
 		}

@@ -16,6 +16,7 @@ import (
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
@@ -586,12 +587,7 @@ func statusContainer(sandbox *Sandbox, containerID string) (ContainerStatus, err
 				container.state.State == types.StatePaused) &&
 				container.process.Pid > 0 {
 
-				running, err := isShimRunning(container.process.Pid)
-				if err != nil {
-					return ContainerStatus{}, err
-				}
-
-				if !running {
+				if running, _ := utils.IsProcRunning(container.process.Pid); !running {
 					virtLog.WithFields(logrus.Fields{
 						"state": container.state.State,
 						"pid":   container.process.Pid}).
