@@ -65,11 +65,6 @@ of running a Kata Container:
 $ kata-runtime kata-check
 ```
 
-> **Note:**
->
-> If you run the previous command as the `root` user, further checks will be
-> performed (e.g. it will check if another incompatible hypervisor is running).
-
 ## Download and install
 
 [![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-black.svg)](https://snapcraft.io/kata-containers)
