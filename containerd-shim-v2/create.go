@@ -27,6 +27,7 @@ import (
 	"github.com/sirupsen/logrus"
 	// only register the proto type
 	_ "github.com/containerd/containerd/runtime/linux/runctypes"
+	_ "github.com/containerd/containerd/runtime/v2/runc/options"
 	crioption "github.com/containerd/cri-containerd/pkg/api/runtimeoptions/v1"
 )
 

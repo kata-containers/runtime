@@ -89,7 +89,7 @@
   revision = "0650fd9eeb50bab4fc99dceb9f2e14cf58f36e7f"
 
 [[projects]]
-  digest = "1:b1ddab63ebf3a38cdc2a80fa1f00c45e8dc98e27387968ccc0e5275a43f6cb5e"
+  digest = "1:e45f8591bde0534e8d8256a395bab173141f8db0eeb347ed47a8428d11c8e7ee"
   name = "github.com/containerd/containerd"
   packages = [
     "api/events",
@@ -102,6 +102,7 @@
     "namespaces",
     "runtime",
     "runtime/linux/runctypes",
+    "runtime/v2/runc/options",
     "runtime/v2/shim",
     "runtime/v2/task",
     "sys",
@@ -694,6 +695,7 @@
     "github.com/containerd/containerd/namespaces",
     "github.com/containerd/containerd/runtime",
     "github.com/containerd/containerd/runtime/linux/runctypes",
+    "github.com/containerd/containerd/runtime/v2/runc/options",
     "github.com/containerd/containerd/runtime/v2/shim",
     "github.com/containerd/containerd/runtime/v2/task",
     "github.com/containerd/cri-containerd/pkg/annotations",
