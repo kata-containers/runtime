@@ -41,6 +41,15 @@ func wait(s *service, c *container, execID string) (int32, error) {
 		}).Error("Wait for process failed")
 	}
 
+	if execID == "" {
+		c.mu.Lock()
+		_, err = s.sandbox.StopContainer(c.id)
+		c.mu.Lock()
+		if err != nil {
+			logrus.WithError(err).WithField("container", c.id).Warn("stop container failed")
+		}
+	}
+
 	timeStamp := time.Now()
 	c.mu.Lock()
 	if execID == "" {

@@ -665,6 +665,18 @@ func (s *service) Kill(ctx context.Context, r *taskAPI.KillRequest) (_ *ptypes.E
 		return nil, err
 	}
 
+	// If the container has stopped, return directly when killed with
+	// SIGKILL or SIGTERM signal.
+	if signum == syscall.SIGKILL || signum == syscall.SIGTERM {
+		status, err := s.sandbox.StatusContainer(c.id)
+		if err != nil {
+			return nil, errors.Wrap(err, "kill container")
+		}
+		if status.State.State == types.StateStopped {
+			return empty, nil
+		}
+	}
+
 	processID := c.id
 	if r.ExecID != "" {
 		execs, err := c.getExec(r.ExecID)
