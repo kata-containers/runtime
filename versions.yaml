@@ -83,8 +83,8 @@ assets:
       url: "https://github.com/intel/nemu"
       uscan-url: >-
         https://github.com/intel/nemu/tags
-        .*/release-?(\d\S+)\.tar\.gz
-      version: "release-2019-04-25"
+        .*/(pre-)?release-?(\d\S+)\.tar\.gz
+      version: "pre-release-2019-05-07"
 
     nemu-ovmf:
       description: "OVMF firmware used by nemu hypervisor"
