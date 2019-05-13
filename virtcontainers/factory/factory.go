@@ -25,17 +25,19 @@ var factoryLogger = logrus.FieldLogger(logrus.New())
 
 // Config is a collection of VM factory configurations.
 type Config struct {
-	Template        bool
-	VMCache         bool
-	Cache           uint
-	TemplatePath    string
-	VMCacheEndpoint string
+	DisableConfigCheck bool
+	Template           bool
+	VMCache            bool
+	Cache              uint
+	TemplatePath       string
+	VMCacheEndpoint    string
 
 	VMConfig vc.VMConfig
 }
 
 type factory struct {
-	base base.FactoryBase
+	disableConfigCheck bool
+	base               base.FactoryBase
 }
 
 func trace(parent context.Context, name string) (opentracing.Span, context.Context) {
@@ -89,7 +91,10 @@ func NewFactory(ctx context.Context, config Config, fetchOnly bool) (vc.Factory,
 		}
 	}
 
-	return &factory{b}, nil
+	return &factory{
+		disableConfigCheck: config.DisableConfigCheck,
+		base:               b,
+	}, nil
 }
 
 // SetLogger sets the logger for the factory.
@@ -138,6 +143,10 @@ func checkVMConfig(config1, config2 vc.VMConfig) error {
 }
 
 func (f *factory) checkConfig(config vc.VMConfig) error {
+	if f.disableConfigCheck {
+		return nil
+	}
+
 	baseConfig := f.base.Config()
 
 	return checkVMConfig(config, baseConfig)

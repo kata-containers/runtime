@@ -95,6 +95,9 @@ type CompatOCISpec struct {
 
 // FactoryConfig is a structure to set the VM factory configuration.
 type FactoryConfig struct {
+	// DisableConfigCheck disables VM factory config check.
+	DisableConfigCheck bool
+
 	// Template enables VM templating support in VM factory.
 	Template bool
 

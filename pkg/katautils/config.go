@@ -75,10 +75,11 @@ type tomlConfig struct {
 }
 
 type factory struct {
-	Template        bool   `toml:"enable_template"`
-	TemplatePath    string `toml:"template_path"`
-	VMCacheNumber   uint   `toml:"vm_cache_number"`
-	VMCacheEndpoint string `toml:"vm_cache_endpoint"`
+	DisableConfigCheck bool   `toml:"disable_config_check"`
+	Template           bool   `toml:"enable_template"`
+	TemplatePath       string `toml:"template_path"`
+	VMCacheNumber      uint   `toml:"vm_cache_number"`
+	VMCacheEndpoint    string `toml:"vm_cache_endpoint"`
 }
 
 type hypervisor struct {
@@ -608,10 +609,11 @@ func newFactoryConfig(f factory) (oci.FactoryConfig, error) {
 		f.VMCacheEndpoint = defaultVMCacheEndpoint
 	}
 	return oci.FactoryConfig{
-		Template:        f.Template,
-		TemplatePath:    f.TemplatePath,
-		VMCacheNumber:   f.VMCacheNumber,
-		VMCacheEndpoint: f.VMCacheEndpoint,
+		DisableConfigCheck: f.DisableConfigCheck,
+		Template:           f.Template,
+		TemplatePath:       f.TemplatePath,
+		VMCacheNumber:      f.VMCacheNumber,
+		VMCacheEndpoint:    f.VMCacheEndpoint,
 	}, nil
 }
 

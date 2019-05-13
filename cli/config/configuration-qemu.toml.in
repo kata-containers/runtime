@@ -232,6 +232,15 @@ enable_iothreads = @DEFENABLEIOTHREADS@
 #guest_hook_path = "/usr/share/oci/hooks"
 
 [factory]
+# In default mode, the runtime will check the VM config of VM factory before
+# get VM from it.
+# Disable VM factory config check.  Once enabled, the runtime will not check
+# whether the current VM config is same with the VM config of VM factory.
+# It helps speeding up new container creation.
+#
+# Default false
+#disable_config_check = true
+
 # VM templating support. Once enabled, new VMs are created from template
 # using vm cloning. They will share the same initial kernel, initramfs and
 # agent memory by mapping it readonly. It helps speeding up new container
