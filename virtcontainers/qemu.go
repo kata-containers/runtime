@@ -1070,9 +1070,9 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) error {
 			return err
 		}
 		if machine.Type == QemuCCWVirtio {
-			return q.qmpMonitorCh.qmp.ExecuteNetCCWDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, int(q.config.NumVCPUs))
+			return q.qmpMonitorCh.qmp.ExecuteNetCCWDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, int(q.qemuConfig.SMP.CPUs))
 		}
-		return q.qmpMonitorCh.qmp.ExecuteNetPCIDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, romFile, int(q.config.NumVCPUs), q.arch.runNested())
+		return q.qmpMonitorCh.qmp.ExecuteNetPCIDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, romFile, int(q.qemuConfig.SMP.CPUs), q.arch.runNested())
 	}
 
 	if err := q.removeDeviceFromBridge(tap.ID); err != nil {
@@ -1669,7 +1669,7 @@ func calcHotplugMemMiBSize(mem uint32, memorySectionSizeMB uint32) (uint32, erro
 
 func (q *qemu) resizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCPUs uint32, err error) {
 
-	currentVCPUs = q.config.NumVCPUs + uint32(len(q.state.HotpluggedVCPUs))
+	currentVCPUs = q.qemuConfig.SMP.CPUs + uint32(len(q.state.HotpluggedVCPUs))
 	newVCPUs = currentVCPUs
 	switch {
 	case currentVCPUs < reqVCPUs:
