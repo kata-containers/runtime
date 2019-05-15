@@ -501,6 +501,7 @@ func TestCheckCheckKernelModules(t *testing.T) {
 		"foo": {
 			desc:       "desc",
 			parameters: map[string]string{},
+			required:   true,
 		},
 		"bar": {
 			desc: "desc",
@@ -510,6 +511,7 @@ func TestCheckCheckKernelModules(t *testing.T) {
 				"param3": "a",
 				"param4": ".",
 			},
+			required: true,
 		},
 	}
 
@@ -569,6 +571,7 @@ func TestCheckCheckKernelModulesUnreadableFile(t *testing.T) {
 			parameters: map[string]string{
 				"param1": "wibble",
 			},
+			required: true,
 		},
 	}
 
@@ -616,6 +619,7 @@ func TestCheckCheckKernelModulesInvalidFileContents(t *testing.T) {
 			parameters: map[string]string{
 				"param1": "wibble",
 			},
+			required: true,
 		},
 	}
 
@@ -712,6 +716,7 @@ func TestCheckKernelParamHandler(t *testing.T) {
 		"foo": {
 			desc:       "desc",
 			parameters: map[string]string{},
+			required:   true,
 		},
 		"bar": {
 			desc: "desc",
@@ -719,6 +724,7 @@ func TestCheckKernelParamHandler(t *testing.T) {
 				"param1": "hello",
 				"param2": "world",
 			},
+			required: true,
 		},
 	}
 
@@ -730,6 +736,7 @@ func TestCheckKernelParamHandler(t *testing.T) {
 			parameters: map[string]string{
 				"param1": "moo",
 			},
+			required: true,
 		},
 	}
 
@@ -739,6 +746,7 @@ func TestCheckKernelParamHandler(t *testing.T) {
 			parameters: map[string]string{
 				"param1": "bar",
 			},
+			required: true,
 		},
 	}
 
