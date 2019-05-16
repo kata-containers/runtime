@@ -8,6 +8,15 @@ package annotations
 const (
 	vcAnnotationsPrefix = "com.github.containers.virtcontainers."
 
+	// SandboxMemory is a sandbox annotation for passing a per sandbox memory limit
+	// This detemines the memory size of the virtual machine
+	// Typically an admission controller would set this. This allows hypervisors that do not support
+	// memory hotplug to have a VM that is sized to match the sum of the container resources
+	SandboxMemory = vcAnnotationsPrefix + "SandboxMemory"
+
+	// SandboxCpus is a sandbox annotation for passing a per sandbox CPU limit
+	SandboxCpus = vcAnnotationsPrefix + "SandboxCpus"
+
 	// KernelPath is a sandbox annotation for passing a per container path pointing at the kernel needed to boot the container VM.
 	KernelPath = vcAnnotationsPrefix + "KernelPath"
 
