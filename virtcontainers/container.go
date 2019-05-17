@@ -646,6 +646,14 @@ func filterDevices(c *Container, devices []ContainerDevice) (ret []ContainerDevi
 			continue
 		}
 
+		devType := c.sandbox.devManager.GetDeviceByID(dev.ID).DeviceType()
+		if devType == config.DeviceVFIO {
+			c.Logger().WithFields(logrus.Fields{
+				"device": dev.ContainerPath,
+			}).Info("Not attach device because it is a VFIO")
+			continue
+		}
+
 		ret = append(ret, dev)
 	}
 	return
