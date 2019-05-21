@@ -210,9 +210,14 @@ externals:
     description: "Moby project container manager"
     notes: "Docker Swarm requires an older version of Docker."
     url: "https://github.com/moby/moby"
-    version: "v18.06-ce"
+    version: "v19.03-ce"
     meta:
       swarm-version: "1.12.1"
+      # Latest docker on the ppc64 repos is this one:
+      ppc64le-version: "v18.06-ce"
+      # FC needs to work with block storage devices, which
+      # are not availabe on recent docker versions.
+      firecracker-version: "v18.06-ce"
 
   gometalinter:
     description: "utility to run various golang linters"
