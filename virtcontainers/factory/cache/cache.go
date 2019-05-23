@@ -48,6 +48,7 @@ func New(ctx context.Context, count uint, b base.FactoryBase) base.FactoryBase {
 				case cacheCh <- vm:
 				case <-closed:
 					vm.Stop()
+					vm.Disconnect()
 					c.wg.Done()
 					return
 				}
