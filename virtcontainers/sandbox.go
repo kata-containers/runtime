@@ -505,6 +505,7 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 		shmSize:         sandboxConfig.ShmSize,
 		sharePidNs:      sandboxConfig.SharePidNs,
 		stateful:        sandboxConfig.Stateful,
+		networkNS:       NetworkNamespace{NetNsPath: sandboxConfig.NetworkConfig.NetNSPath},
 		ctx:             ctx,
 	}
 
@@ -784,6 +785,11 @@ func (s *Sandbox) createNetwork() error {
 
 	// Store the network
 	return s.store.Store(store.Network, s.networkNS)
+}
+
+func (s *Sandbox) postCreatedNetwork() error {
+
+	return s.network.PostAdd(s.ctx, &s.networkNS, s.factory != nil)
 }
 
 func (s *Sandbox) removeNetwork() error {

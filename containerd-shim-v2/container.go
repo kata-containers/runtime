@@ -6,7 +6,6 @@
 package containerdshim
 
 import (
-	"sync"
 	"time"
 
 	"github.com/containerd/containerd/api/types/task"
@@ -21,7 +20,7 @@ type container struct {
 	s        *service
 	ttyio    *ttyIO
 	spec     *oci.CompatOCISpec
-	time     time.Time
+	exitTime time.Time
 	execs    map[string]*exec
 	exitIOch chan struct{}
 	exitCh   chan uint32
@@ -31,7 +30,6 @@ type container struct {
 	stderr   string
 	bundle   string
 	cType    vc.ContainerType
-	mu       sync.Mutex
 	exit     uint32
 	status   task.Status
 	terminal bool
@@ -61,7 +59,6 @@ func newContainer(s *service, r *taskAPI.CreateTaskRequest, containerType vc.Con
 		status:   task.StatusCreated,
 		exitIOch: make(chan struct{}),
 		exitCh:   make(chan uint32, 1),
-		time:     time.Now(),
 	}
 	return c, nil
 }

@@ -432,37 +432,20 @@ func (s *service) Delete(ctx context.Context, r *taskAPI.DeleteRequest) (_ *task
 	}
 
 	if r.ExecID == "" {
-		err = deleteContainer(ctx, s, c)
-		if err != nil {
+		if err = deleteContainer(ctx, s, c); err != nil {
 			return nil, err
 		}
 
-		// Take care of the use case where it is a sandbox.
-		// Right after the container representing the sandbox has
-		// been deleted, let's make sure we stop and delete the
-		// sandbox.
-		if c.cType.IsSandbox() {
-			if err = s.sandbox.Stop(); err != nil {
-				logrus.WithField("sandbox", s.sandbox.ID()).Error("failed to stop sandbox")
-				return nil, err
-			}
-
-			if err = s.sandbox.Delete(); err != nil {
-				logrus.WithField("sandbox", s.sandbox.ID()).Error("failed to delete sandbox")
-				return nil, err
-			}
-		}
-
 		s.send(&eventstypes.TaskDelete{
-			ContainerID: s.id,
+			ContainerID: c.id,
 			Pid:         s.pid,
 			ExitStatus:  c.exit,
-			ExitedAt:    c.time,
+			ExitedAt:    c.exitTime,
 		})
 
 		return &taskAPI.DeleteResponse{
 			ExitStatus: c.exit,
-			ExitedAt:   c.time,
+			ExitedAt:   c.exitTime,
 			Pid:        s.pid,
 		}, nil
 	}
@@ -678,6 +661,20 @@ func (s *service) Kill(ctx context.Context, r *taskAPI.KillRequest) (_ *ptypes.E
 		return nil, err
 	}
 
+	// According to CRI specs, kubelet will call StopPodSandbox()
+	// at least once before calling RemovePodSandbox, and this call
+	// is idempotent, and must not return an error if all relevant
+	// resources have already been reclaimed. And in that call it will
+	// send a SIGKILL signal first to try to stop the container, thus
+	// once the container has terminated, here should ignore this signal
+	// and return directly.
+	if signum == syscall.SIGKILL || signum == syscall.SIGTERM {
+		if c.status == task.StatusStopped {
+			logrus.WithField("sandbox", s.sandbox.ID()).WithField("Container", c.id).Debug("Container has already been stopped")
+			return empty, nil
+		}
+	}
+
 	processID := c.id
 	if r.ExecID != "" {
 		execs, err := c.getExec(r.ExecID)
@@ -873,6 +870,7 @@ func (s *service) Wait(ctx context.Context, r *taskAPI.WaitRequest) (_ *taskAPI.
 
 	return &taskAPI.WaitResponse{
 		ExitStatus: ret,
+		ExitedAt:   c.exitTime,
 	}, nil
 }
 
