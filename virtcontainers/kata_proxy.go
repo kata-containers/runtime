@@ -47,9 +47,14 @@ func (p *kataProxy) start(params proxyParams) (int, string, error) {
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
 	if err := cmd.Start(); err != nil {
 		return -1, "", err
 	}
+
+	go cmd.Wait()
 
 	return cmd.Process.Pid, proxyURL, nil
 }

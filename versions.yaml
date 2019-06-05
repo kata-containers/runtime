@@ -84,7 +84,7 @@ assets:
       uscan-url: >-
         https://github.com/intel/nemu/tags
         .*/release-?(\d\S+)\.tar\.gz
-      version: "release-2019-05-07"
+      version: "release-2019-05-21"
 
     nemu-ovmf:
       description: "OVMF firmware used by nemu VMM"
@@ -186,7 +186,7 @@ externals:
     description: |
       OCI-based Kubernetes Container Runtime Interface implementation
     url: "https://github.com/cri-o/cri-o"
-    version: "3ddde3dee35a239712ee26fa542abe5609c4f44f"
+    version: "v1.14.1"
     meta:
       openshift: "6273bea4c9ed788aeb3d051ebf2d030060c05b6c"
 
@@ -264,7 +264,7 @@ languages:
     issue: "https://github.com/golang/go/issues/20676"
     uscan-url: >-
       https://github.com/golang/go/tags .*/go?([\d\.]+)\.tar\.gz
-    version: "1.10.4"
+    version: "1.11.10"
     meta:
       description: |
         'newest-version' is the latest version known to work when
