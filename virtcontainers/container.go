@@ -500,6 +500,8 @@ func (c *Container) shareFiles(m Mount, idx int, hostSharedDir, guestSharedDir s
 		if err := c.sandbox.agent.copyFile(m.Source, guestDest); err != nil {
 			return "", false, err
 		}
+
+		return "", true, nil
 	} else {
 		// These mounts are created in the shared dir
 		mountDest := filepath.Join(hostSharedDir, c.sandbox.id, filename)
@@ -508,9 +510,9 @@ func (c *Container) shareFiles(m Mount, idx int, hostSharedDir, guestSharedDir s
 		}
 		// Save HostPath mount value into the mount list of the container.
 		c.mounts[idx].HostPath = mountDest
-	}
 
-	return guestDest, false, nil
+		return guestDest, false, nil
+	}
 }
 
 // mountSharedDirMounts handles bind-mounts by bindmounting to the host shared
