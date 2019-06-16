@@ -141,10 +141,11 @@ type shim struct {
 }
 
 type agent struct {
-	Debug     bool   `toml:"enable_debug"`
-	Tracing   bool   `toml:"enable_tracing"`
-	TraceMode string `toml:"trace_mode"`
-	TraceType string `toml:"trace_type"`
+	Debug        bool   `toml:"enable_debug"`
+	Tracing      bool   `toml:"enable_tracing"`
+	MountBlkInVM bool   `toml:"enable_blk_mount"`
+	TraceMode    string `toml:"trace_mode"`
+	TraceType    string `toml:"trace_type"`
 }
 
 type netmon struct {
@@ -380,6 +381,10 @@ func (h hypervisor) getInitrdAndImage() (initrd string, image string, err error)
 	}
 
 	return
+}
+
+func (a agent) mountBlkDevInVM() bool {
+	return a.MountBlkInVM
 }
 
 func (p proxy) path() (string, error) {
@@ -707,11 +712,12 @@ func updateRuntimeConfigAgent(configPath string, tomlConf tomlConfig, config *oc
 		case kataAgentTableType:
 			config.AgentType = vc.KataContainersAgent
 			config.AgentConfig = vc.KataAgentConfig{
-				UseVSock:  config.HypervisorConfig.UseVSock,
-				Debug:     agent.debug(),
-				Trace:     agent.trace(),
-				TraceMode: agent.traceMode(),
-				TraceType: agent.traceType(),
+				UseVSock:     config.HypervisorConfig.UseVSock,
+				Debug:        agent.debug(),
+				Trace:        agent.trace(),
+				TraceMode:    agent.traceMode(),
+				TraceType:    agent.traceType(),
+				MountBlkInVM: agent.mountBlkDevInVM(),
 			}
 		default:
 			return fmt.Errorf("%s agent type is not supported", k)

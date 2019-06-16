@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"os/exec"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -87,4 +89,53 @@ func FindContextID() (*os.File, uint64, error) {
 
 	vsockFd.Close()
 	return nil, 0, fmt.Errorf("Could not get a unique context ID for the vsock")
+}
+
+func GetDevFormat(disk string) (string, error) {
+	// refer to https://github.com/kubernetes/kubernetes/blob/v1.12.2/pkg/util/mount/mount_linux.go#L512
+	args := []string{"-p", "-s", "TYPE", "-s", "PTTYPE", "-o", "export", disk}
+	dataOut, err := exec.Command("blkid", args...).Output()
+	output := string(dataOut)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "exit status 2") {
+			// Disk device is unformatted.
+			// For `blkid`, if the specified token (TYPE/PTTYPE, etc) was
+			// not found, or no (specified) devices could be identified, an
+			// exit code of 2 is returned.
+			return "", nil
+		}
+		return "", err
+	}
+
+	var fstype string
+
+	lines := strings.Split(output, "\n")
+	for _, l := range lines {
+		if len(l) <= 0 {
+			// Ignore empty line.
+			continue
+		}
+		// if we use busybox as rootfs,the output of command
+		// `busybox blkid` is different with original`blkid`,
+		// so we should make a compatible parse
+		subLine := strings.Split(l, " ")
+		for _, sl := range subLine {
+			if len(subLine) <= 0 {
+				continue
+			}
+			cs := strings.Split(sl, "=")
+			if len(cs) != 2 {
+				continue
+			}
+			if cs[0] == "TYPE" {
+				fstype = cs[1]
+				if strings.Contains(fstype, `"`) {
+					fstype = strings.Replace(fstype, `"`, "", -1)
+				}
+			}
+		}
+	}
+
+	return fstype, nil
 }

@@ -331,6 +331,12 @@ path = "@SHIMPATH@"
 #trace_mode = "dynamic"
 #trace_type = "isolated"
 
+# If enabled, when we pass a block device to the guest VM
+# through -v, such as `docker run -v /dev/loop100:/foo/bar`,
+# agent will create a directory in guest VM and mount the
+# file system on `/dev/loop100` inside the container
+#enable_blk_mount = true
+
 [netmon]
 # If enabled, the network monitoring process gets started when the
 # sandbox is created. This allows for the detection of some additional

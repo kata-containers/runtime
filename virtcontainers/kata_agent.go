@@ -62,6 +62,7 @@ var (
 	errorMissingOCISpec   = errors.New("Missing OCI specification")
 	kataHostSharedDir     = "/run/kata-containers/shared/sandboxes/"
 	kataGuestSharedDir    = "/run/kata-containers/shared/containers/"
+	kataGuestStorageDir   = "/tmp/storage/containers/"
 	mountGuest9pTag       = "kataShared"
 	kataGuestSandboxDir   = "/run/kata-containers/sandbox/"
 	type9pFs              = "9p"
@@ -103,6 +104,7 @@ type KataAgentConfig struct {
 	UseVSock     bool
 	Debug        bool
 	Trace        bool
+	MountBlkInVM bool
 	TraceMode    string
 	TraceType    string
 }
@@ -902,8 +904,13 @@ func (k *kataAgent) replaceOCIMountsForStorages(spec *specs.Spec, volumeStorages
 
 			// Create a temporary location to mount the Storage. Mounting to the correct location
 			// will be handled by the OCI mount structure.
+			var path string
 			filename := fmt.Sprintf("%s-%s", uuid.Generate().String(), filepath.Base(m.Destination))
-			path := filepath.Join(kataGuestSharedDir, filename)
+			if v.Driver == kataBlkDevType || v.Driver == kataSCSIDevType {
+				path = filepath.Join(kataGuestStorageDir, filename)
+			} else {
+				path = filepath.Join(kataGuestSharedDir, filename)
+			}
 
 			k.Logger().Debugf("Replacing OCI mount source (%s) with %s", m.Source, path)
 			ociMounts[index].Source = path
@@ -1359,8 +1366,19 @@ func (k *kataAgent) handleBlockVolumes(c *Container) []*grpc.Storage {
 		}
 
 		vol.MountPoint = m.Destination
-		vol.Fstype = "bind"
-		vol.Options = []string{"bind"}
+		ac, ok := c.sandbox.config.AgentConfig.(KataAgentConfig)
+		if ok && ac.MountBlkInVM {
+			// Ensure the block device is formatted, for the devices here are specified as volumes
+			fsType, err := utils.GetDevFormat(m.Source)
+			if err != nil || fsType == "" {
+				k.Logger().WithField("device", id).WithError(err).Error("get device format failed")
+				return nil
+			}
+			vol.Fstype = fsType
+		} else {
+			vol.Fstype = "bind"
+			vol.Options = []string{"bind"}
+		}
 
 		volumeStorages = append(volumeStorages, vol)
 	}
