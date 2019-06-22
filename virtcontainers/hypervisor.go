@@ -171,6 +171,9 @@ type HypervisorConfig struct {
 	// DefaultMem specifies default memory size in MiB for the VM.
 	MemorySize uint32
 
+	// OverhaedInQuota specifies whether cpu/memory used by guest is counted in container quota.
+	OverheadInQuota bool
+
 	// DefaultBridges specifies default number of bridges for the VM.
 	// Bridges can be used to hot plug devices
 	DefaultBridges uint32

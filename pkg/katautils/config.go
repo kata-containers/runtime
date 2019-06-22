@@ -99,6 +99,7 @@ type hypervisor struct {
 	BlockDeviceCacheSet     bool   `toml:"block_device_cache_set"`
 	BlockDeviceCacheDirect  bool   `toml:"block_device_cache_direct"`
 	BlockDeviceCacheNoflush bool   `toml:"block_device_cache_noflush"`
+	OverheadInQuota         bool   `toml:"overhead_in_quota"`
 	NumVCPUs                int32  `toml:"default_vcpus"`
 	DefaultMaxVCPUs         uint32 `toml:"default_maxvcpus"`
 	MemorySize              uint32 `toml:"default_memory"`
@@ -487,6 +488,7 @@ func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		NumVCPUs:              h.defaultVCPUs(),
 		DefaultMaxVCPUs:       h.defaultMaxVCPUs(),
 		MemorySize:            h.defaultMemSz(),
+		OverheadInQuota:       h.OverheadInQuota,
 		MemSlots:              h.defaultMemSlots(),
 		EntropySource:         h.GetEntropySource(),
 		DefaultBridges:        h.defaultBridges(),
@@ -574,6 +576,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		NumVCPUs:                h.defaultVCPUs(),
 		DefaultMaxVCPUs:         h.defaultMaxVCPUs(),
 		MemorySize:              h.defaultMemSz(),
+		OverheadInQuota:         h.OverheadInQuota,
 		MemSlots:                h.defaultMemSlots(),
 		MemOffset:               h.defaultMemOffset(),
 		EntropySource:           h.GetEntropySource(),

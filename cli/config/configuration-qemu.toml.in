@@ -89,6 +89,9 @@ default_memory = @DEFMEMSZ@
 # Default 0
 #memory_offset = 0
 
+# Specify whether cpu/memory used by guest is counted in container resource quota.
+#overhead_in_quota = false
+
 # Disable block device from being used for a container's rootfs.
 # In case of a storage driver like devicemapper where a container's 
 # root file system is backed by a block device, the block device is passed

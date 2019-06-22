@@ -1777,12 +1777,25 @@ func (s *Sandbox) updateResources() error {
 		return fmt.Errorf("sandbox config is nil")
 	}
 
+	guestVCPUs := s.hypervisor.hypervisorConfig().NumVCPUs
 	sandboxVCPUs := s.calculateSandboxCPUs()
-	// Add default vcpus for sandbox
-	sandboxVCPUs += s.hypervisor.hypervisorConfig().NumVCPUs
 
-	sandboxMemoryByte := int64(s.hypervisor.hypervisorConfig().MemorySize) << utils.MibToBytesShift
-	sandboxMemoryByte += s.calculateSandboxMemory()
+	guestMemoryByte := int64(s.hypervisor.hypervisorConfig().MemorySize) << utils.MibToBytesShift
+	sandboxMemoryByte := s.calculateSandboxMemory()
+
+	if !s.hypervisor.hypervisorConfig().OverheadInQuota {
+		sandboxVCPUs += guestVCPUs
+		sandboxMemoryByte += guestMemoryByte
+	} else {
+		// Treat vcpu/memory configuration as a minimal requirement of resource.
+		if sandboxVCPUs < guestVCPUs {
+			sandboxVCPUs = guestVCPUs
+		}
+
+		if sandboxMemoryByte < guestMemoryByte {
+			sandboxMemoryByte = guestMemoryByte
+		}
+	}
 
 	// Update VCPUs
 	s.Logger().WithField("cpus-sandbox", sandboxVCPUs).Debugf("Request to hypervisor to update vCPUs")
