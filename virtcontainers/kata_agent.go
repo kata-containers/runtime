@@ -6,11 +6,13 @@
 package virtcontainers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -700,6 +702,31 @@ func (k *kataAgent) setProxyFromGrpc(proxy proxy, pid int, url string) {
 	k.state.URL = url
 }
 
+func (k *kataAgent) setSandboxDns(s *Sandbox) error {
+
+	dest := kataHostSharedDir + s.id
+	var out bytes.Buffer
+	ociSpecJSON := s.config.Annotations[vcAnnotations.ConfigJSONKey]
+	ociSpec := &specs.Spec{}
+
+	if err := json.Unmarshal([]byte(ociSpecJSON), ociSpec); err != nil {
+		return err
+	}
+
+	for _, mnt := range ociSpec.Mounts {
+		if strings.Contains(mnt.Destination, "resolv.conf") {
+			cmd := exec.Command("cp", mnt.Source, dest)
+			cmd.Stdout = &out
+			err := cmd.Run()
+			if err != nil {
+				k.Logger().Debugf("Could not copy %s file file to kataShared", mnt.Destination)
+			}
+
+		}
+	}
+	return nil
+}
+
 func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 	span, _ := k.trace("startSandbox")
 	defer span.Finish()
@@ -789,6 +816,7 @@ func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
 		storages = append(storages, shmStorage)
 	}
 
+	k.setSandboxDns(sandbox)
 	req := &grpc.CreateSandboxRequest{
 		Hostname:      hostname,
 		Storages:      storages,
