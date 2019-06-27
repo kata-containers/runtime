@@ -11,6 +11,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/kata-containers/runtime/pkg/rootless"
 )
 
 const ctrsMappingDirMode = os.FileMode(0750)
@@ -29,6 +31,10 @@ func SetCtrsMapTreePath(path string) {
 func FetchContainerIDMapping(containerID string) (string, error) {
 	if containerID == "" {
 		return "", fmt.Errorf("Missing container ID")
+	}
+
+	if rootless.IsRootless() {
+		SetCtrsMapTreePath(filepath.Join(rootless.GetRootlessDir(), ctrsMapTreePath))
 	}
 
 	dirPath := filepath.Join(ctrsMapTreePath, containerID)
@@ -62,6 +68,9 @@ func AddContainerIDMapping(ctx context.Context, containerID, sandboxID string) e
 		return fmt.Errorf("Missing sandbox ID")
 	}
 
+	if rootless.IsRootless() {
+		SetCtrsMapTreePath(filepath.Join(rootless.GetRootlessDir(), ctrsMapTreePath))
+	}
 	parentPath := filepath.Join(ctrsMapTreePath, containerID)
 
 	if err := os.RemoveAll(parentPath); err != nil {
@@ -86,6 +95,9 @@ func DelContainerIDMapping(ctx context.Context, containerID string) error {
 		return fmt.Errorf("Missing container ID")
 	}
 
+	if rootless.IsRootless() {
+		SetCtrsMapTreePath(filepath.Join(rootless.GetRootlessDir(), ctrsMapTreePath))
+	}
 	path := filepath.Join(ctrsMapTreePath, containerID)
 
 	return os.RemoveAll(path)
