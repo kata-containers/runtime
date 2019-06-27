@@ -18,6 +18,7 @@ import (
 	"syscall"
 
 	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/rootless"
 	"github.com/kata-containers/runtime/pkg/signals"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vf "github.com/kata-containers/runtime/virtcontainers/factory"
@@ -302,6 +303,12 @@ func beforeSubcommands(c *cli.Context) error {
 	if c.NArg() == 1 && c.Args()[0] == envCmd {
 		// simply report the logging setup
 		ignoreLogging = true
+	}
+
+	// Check if running rootlessly, and setup for rootless execution
+	err = rootless.SetRootless()
+	if err != nil {
+		fatal(err)
 	}
 
 	configFile, runtimeConfig, err = katautils.LoadConfiguration(c.GlobalString(configFilePathOption), ignoreLogging, false)
