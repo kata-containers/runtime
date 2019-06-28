@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/kata-containers/runtime/pkg/rootless"
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
@@ -233,13 +234,22 @@ func (s *VCStore) Unlock(token string) error {
 // SandboxConfigurationRoot returns a virtcontainers sandbox configuration root URL.
 // This will hold across host reboot persistent data about a sandbox configuration.
 // It should look like file:///var/lib/vc/sbs/<sandboxID>/
+// Or for rootless: file://<rootlessDir>/var/lib/vc/sbs/<sandboxID>/
 func SandboxConfigurationRoot(id string) string {
-	return filesystemScheme + "://" + filepath.Join(ConfigStoragePath, id)
+	path := filepath.Join(ConfigStoragePath, id)
+	if rootless.IsRootless() {
+		return filesystemScheme + "://" + filepath.Join(rootless.GetRootlessDir(), path)
+	}
+	return filesystemScheme + "://" + path
 }
 
 // SandboxConfigurationRootPath returns a virtcontainers sandbox configuration root path.
 func SandboxConfigurationRootPath(id string) string {
-	return filepath.Join(ConfigStoragePath, id)
+	path := filepath.Join(ConfigStoragePath, id)
+	if rootless.IsRootless() {
+		return filepath.Join(rootless.GetRootlessDir(), path)
+	}
+	return path
 }
 
 // SandboxConfigurationItemPath returns a virtcontainers sandbox configuration item path.
@@ -253,6 +263,9 @@ func SandboxConfigurationItemPath(id string, item Item) (string, error) {
 		return "", err
 	}
 
+	if rootless.IsRootless() {
+		return filepath.Join(rootless.GetRootlessDir(), ConfigStoragePath, id, itemFile), nil
+	}
 	return filepath.Join(ConfigStoragePath, id, itemFile), nil
 }
 
@@ -260,13 +273,23 @@ func SandboxConfigurationItemPath(id string, item Item) (string, error) {
 // This will hold data related to a sandbox run-time state that will not
 // be persistent across host reboots.
 // It should look like file:///run/vc/sbs/<sandboxID>/
+// or if rootless: file://<rootlessDir>/run/vc/sbs/<sandboxID>/
 func SandboxRuntimeRoot(id string) string {
-	return filesystemScheme + "://" + filepath.Join(RunStoragePath, id)
+	path := filepath.Join(RunStoragePath, id)
+	if rootless.IsRootless() {
+		return filesystemScheme + "://" + filepath.Join(rootless.GetRootlessDir(), path)
+	}
+	return filesystemScheme + "://" + path
 }
 
 // SandboxRuntimeRootPath returns a virtcontainers sandbox runtime root path.
 func SandboxRuntimeRootPath(id string) string {
-	return filepath.Join(RunStoragePath, id)
+	path := filepath.Join(RunStoragePath, id)
+	if rootless.IsRootless() {
+		return filepath.Join(rootless.GetRootlessDir(), path)
+	}
+	return path
+
 }
 
 // SandboxRuntimeItemPath returns a virtcontainers sandbox runtime item path.
@@ -286,26 +309,44 @@ func SandboxRuntimeItemPath(id string, item Item) (string, error) {
 // ContainerConfigurationRoot returns a virtcontainers container configuration root URL.
 // This will hold across host reboot persistent data about a container configuration.
 // It should look like file:///var/lib/vc/sbs/<sandboxID>/<containerID>
+// Or if rootless file://<rootlessDir>/var/lib/vc/sbs/<sandboxID>/<containerID>
 func ContainerConfigurationRoot(sandboxID, containerID string) string {
-	return filesystemScheme + "://" + filepath.Join(ConfigStoragePath, sandboxID, containerID)
+	path := filepath.Join(ConfigStoragePath, sandboxID, containerID)
+	if rootless.IsRootless() {
+		return filesystemScheme + "://" + filepath.Join(rootless.GetRootlessDir(), path)
+	}
+	return filesystemScheme + "://" + path
 }
 
 // ContainerConfigurationRootPath returns a virtcontainers container configuration root path.
 func ContainerConfigurationRootPath(sandboxID, containerID string) string {
-	return filepath.Join(ConfigStoragePath, sandboxID, containerID)
+	path := filepath.Join(ConfigStoragePath, sandboxID, containerID)
+	if rootless.IsRootless() {
+		return filepath.Join(rootless.GetRootlessDir(), path)
+	}
+	return path
 }
 
 // ContainerRuntimeRoot returns a virtcontainers container runtime root URL.
 // This will hold data related to a container run-time state that will not
 // be persistent across host reboots.
 // It should look like file:///run/vc/sbs/<sandboxID>/<containerID>/
+// Or for rootless file://<rootlessDir>/run/vc/sbs/<sandboxID>/<containerID>/
 func ContainerRuntimeRoot(sandboxID, containerID string) string {
-	return filesystemScheme + "://" + filepath.Join(RunStoragePath, sandboxID, containerID)
+	path := filepath.Join(RunStoragePath, sandboxID, containerID)
+	if rootless.IsRootless() {
+		return filesystemScheme + "://" + filepath.Join(rootless.GetRootlessDir(), path)
+	}
+	return filesystemScheme + "://" + path
 }
 
 // ContainerRuntimeRootPath returns a virtcontainers container runtime root path.
 func ContainerRuntimeRootPath(sandboxID, containerID string) string {
-	return filepath.Join(RunStoragePath, sandboxID, containerID)
+	path := filepath.Join(RunStoragePath, sandboxID, containerID)
+	if rootless.IsRootless() {
+		return filepath.Join(rootless.GetRootlessDir(), path)
+	}
+	return path
 }
 
 // VCSandboxStoreExists returns true if a sandbox store already exists.
