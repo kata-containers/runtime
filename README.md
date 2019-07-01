@@ -99,7 +99,7 @@ The file contains comments explaining all options.
 > You might need to modify this file if you have specialist needs.
 
 Since the runtime supports a
-[stateless system](https://clearlinux.org/features/stateless),
+[stateless system](https://github.com/clearlinux/clear-linux-documentation/blob/master/source/clear-linux/concepts/stateless.rst),
 it checks for this configuration file in multiple locations, two of which are
 built in to the runtime. The default location is
 `/usr/share/defaults/kata-containers/configuration.toml` for a standard
