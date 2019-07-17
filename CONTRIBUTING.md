@@ -1,4 +1,4 @@
-# Contributing
+ # Contributing
 
 ## This repo is part of [Kata Containers](https://katacontainers.io)
 
