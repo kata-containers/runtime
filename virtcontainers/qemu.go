@@ -40,6 +40,11 @@ import (
 // such as SeaBIOS or OVMF for instance, to handle this directly.
 const romFile = ""
 
+// disable-modern is a option to QEMU that will fall back to using 0.9 version
+// of virtio. Since moving to QEMU4.0, we can start using virtio 1.0 version.
+// Default value is false.
+const defaultDisableModern = false
+
 type qmpChannel struct {
 	ctx     context.Context
 	path    string
@@ -416,8 +421,7 @@ func (q *qemu) setupTemplate(knobs *govmmQemu.Knobs, memory *govmmQemu.Memory) g
 		}
 
 		if q.config.BootFromTemplate {
-			incoming.MigrationType = govmmQemu.MigrationExec
-			incoming.Exec = "cat " + q.config.DevicesStatePath
+			incoming.MigrationType = govmmQemu.MigrationDefer
 		}
 	}
 
@@ -580,6 +584,98 @@ func (q *qemu) vhostFSSocketPath(id string) (string, error) {
 	return utils.BuildSocketPath(store.RunVMStoragePath, id, vhostFSSocket)
 }
 
+func (q *qemu) virtiofsdArgs(sockPath string) []string {
+	// The daemon will terminate when the vhost-user socket
+	// connection with QEMU closes.  Therefore we do not keep track
+	// of this child process after returning from this function.
+	sourcePath := filepath.Join(kataHostSharedDir, q.id)
+	args := []string{
+		"-o", "vhost_user_socket=" + sockPath,
+		"-o", "source=" + sourcePath,
+		"-o", "cache=" + q.config.VirtioFSCache}
+	if q.config.Debug {
+		args = append(args, "-d")
+	} else {
+		args = append(args, "-f")
+	}
+
+	return args
+}
+
+func (q *qemu) setupVirtiofsd(timeout int) (remain int, err error) {
+	sockPath, err := q.vhostFSSocketPath(q.id)
+	if err != nil {
+		return 0, err
+	}
+
+	cmd := exec.Command(q.config.VirtioFSDaemon, q.virtiofsdArgs(sockPath)...)
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return 0, err
+	}
+
+	if err = cmd.Start(); err != nil {
+		return 0, err
+	}
+	defer func() {
+		if err != nil {
+			cmd.Process.Kill()
+		}
+	}()
+
+	// Wait for socket to become available
+	sockReady := make(chan error, 1)
+	timeStart := time.Now()
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		var sent bool
+		for scanner.Scan() {
+			if q.config.Debug {
+				q.Logger().WithField("source", "virtiofsd").Debug(scanner.Text())
+			}
+			if !sent && strings.Contains(scanner.Text(), "Waiting for vhost-user socket connection...") {
+				sockReady <- nil
+				sent = true
+			}
+		}
+		if !sent {
+			if err := scanner.Err(); err != nil {
+				sockReady <- err
+			} else {
+				sockReady <- fmt.Errorf("virtiofsd did not announce socket connection")
+			}
+		}
+		q.Logger().Info("virtiofsd quits")
+		q.stopSandbox()
+	}()
+
+	return q.waitVirtiofsd(timeStart, timeout, sockReady,
+		fmt.Sprintf("virtiofsd (pid=%d) socket %s", cmd.Process.Pid, sockPath))
+}
+
+func (q *qemu) waitVirtiofsd(start time.Time, timeout int, ready chan error, errMsg string) (int, error) {
+	var err error
+
+	timeoutDuration := time.Duration(timeout) * time.Second
+	select {
+	case err = <-ready:
+	case <-time.After(timeoutDuration):
+		err = fmt.Errorf("timed out waiting for %s", errMsg)
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	// Now reduce timeout by the elapsed time
+	elapsed := time.Since(start)
+	if elapsed < timeoutDuration {
+		timeout = timeout - int(elapsed.Seconds())
+	} else {
+		timeout = 0
+	}
+	return timeout, nil
+}
+
 // startSandbox will start the Sandbox's VM.
 func (q *qemu) startSandbox(timeout int) error {
 	span, _ := q.trace("startSandbox")
@@ -620,80 +716,9 @@ func (q *qemu) startSandbox(timeout int) error {
 	}()
 
 	if q.config.SharedFS == config.VirtioFS {
-		sockPath, err := q.vhostFSSocketPath(q.id)
+		timeout, err = q.setupVirtiofsd(timeout)
 		if err != nil {
 			return err
-		}
-
-		// The daemon will terminate when the vhost-user socket
-		// connection with QEMU closes.  Therefore we do not keep track
-		// of this child process after returning from this function.
-		sourcePath := filepath.Join(kataHostSharedDir, q.id)
-		args := []string{
-			"-o", "vhost_user_socket=" + sockPath,
-			"-o", "source=" + sourcePath,
-			"-o", "cache=" + q.config.VirtioFSCache}
-		if q.config.Debug {
-			args = append(args, "-d")
-		} else {
-			args = append(args, "-f")
-		}
-		cmd := exec.Command(q.config.VirtioFSDaemon, args...)
-		stderr, err := cmd.StderrPipe()
-		if err != nil {
-			return err
-		}
-
-		if err = cmd.Start(); err != nil {
-			return err
-		}
-		defer func() {
-			if err != nil {
-				cmd.Process.Kill()
-			}
-		}()
-
-		// Wait for socket to become available
-		sockReady := make(chan error, 1)
-		timeStart := time.Now()
-		go func() {
-			scanner := bufio.NewScanner(stderr)
-			var sent bool
-			for scanner.Scan() {
-				if q.config.Debug {
-					q.Logger().WithField("source", "virtiofsd").Debug(scanner.Text())
-				}
-				if !sent && strings.Contains(scanner.Text(), "Waiting for vhost-user socket connection...") {
-					sockReady <- nil
-					sent = true
-				}
-			}
-			if !sent {
-				if err := scanner.Err(); err != nil {
-					sockReady <- err
-				} else {
-					sockReady <- fmt.Errorf("virtiofsd did not announce socket connection")
-				}
-			}
-			q.Logger().Info("virtiofsd quits")
-			q.stopSandbox()
-		}()
-		timeoutDuration := time.Duration(timeout) * time.Second
-		select {
-		case err = <-sockReady:
-		case <-time.After(timeoutDuration):
-			err = fmt.Errorf("timed out waiting for virtiofsd (pid=%d) socket %s", cmd.Process.Pid, sockPath)
-		}
-		if err != nil {
-			return err
-		}
-
-		// Now reduce timeout by the elapsed time
-		elapsed := time.Since(timeStart)
-		if elapsed < timeoutDuration {
-			timeout = timeout - int(elapsed.Seconds())
-		} else {
-			timeout = 0
 		}
 	}
 
@@ -704,7 +729,37 @@ func (q *qemu) startSandbox(timeout int) error {
 	}
 
 	err = q.waitSandbox(timeout) // the virtiofsd deferred checks err's value
+	if err != nil {
+		return err
+	}
+
+	if q.config.BootFromTemplate {
+		if err = q.bootFromTemplate(); err != nil {
+			return err
+		}
+	}
+
 	return err
+}
+
+func (q *qemu) bootFromTemplate() error {
+	err := q.qmpSetup()
+	if err != nil {
+		return err
+	}
+	defer q.qmpShutdown()
+
+	err = q.arch.setIgnoreSharedMemoryMigrationCaps(q.qmpMonitorCh.ctx, q.qmpMonitorCh.qmp)
+	if err != nil {
+		q.Logger().WithError(err).Error("set migration ignore shared memory")
+		return err
+	}
+	uri := fmt.Sprintf("exec:cat %s", q.config.DevicesStatePath)
+	err = q.qmpMonitorCh.qmp.ExecuteMigrationIncoming(q.qmpMonitorCh.ctx, uri)
+	if err != nil {
+		return err
+	}
+	return q.waitMigration()
 }
 
 // waitSandbox will wait for the Sandbox's VM to be up and running.
@@ -953,7 +1008,7 @@ func (q *qemu) hotplugAddBlockDevice(drive *config.BlockDrive, op operation, dev
 		// PCI address is in the format bridge-addr/device-addr eg. "03/02"
 		drive.PCIAddr = fmt.Sprintf("%02x", bridge.Addr) + "/" + addr
 
-		if err = q.qmpMonitorCh.qmp.ExecutePCIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, addr, bridge.ID, romFile, true, q.arch.runNested()); err != nil {
+		if err = q.qmpMonitorCh.qmp.ExecutePCIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, addr, bridge.ID, romFile, 0, true, defaultDisableModern); err != nil {
 			return err
 		}
 	} else {
@@ -968,7 +1023,7 @@ func (q *qemu) hotplugAddBlockDevice(drive *config.BlockDrive, op operation, dev
 			return err
 		}
 
-		if err = q.qmpMonitorCh.qmp.ExecuteSCSIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, bus, romFile, scsiID, lun, true, q.arch.runNested()); err != nil {
+		if err = q.qmpMonitorCh.qmp.ExecuteSCSIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, bus, romFile, scsiID, lun, true, defaultDisableModern); err != nil {
 			return err
 		}
 	}
@@ -1119,7 +1174,7 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) error {
 		if machine.Type == QemuCCWVirtio {
 			return q.qmpMonitorCh.qmp.ExecuteNetCCWDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, int(q.config.NumVCPUs))
 		}
-		return q.qmpMonitorCh.qmp.ExecuteNetPCIDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, romFile, int(q.config.NumVCPUs), q.arch.runNested())
+		return q.qmpMonitorCh.qmp.ExecuteNetPCIDeviceAdd(q.qmpMonitorCh.ctx, tap.Name, devID, endpoint.HardwareAddr(), addr, bridge.ID, romFile, int(q.config.NumVCPUs), defaultDisableModern)
 	}
 
 	if err := q.removeDeviceFromBridge(tap.ID); err != nil {
@@ -1350,6 +1405,9 @@ func (q *qemu) hotplugMemory(memDev *memoryDevice, op operation) (int, error) {
 
 func (q *qemu) hotplugAddMemory(memDev *memoryDevice) (int, error) {
 	memoryDevices, err := q.qmpMonitorCh.qmp.ExecQueryMemoryDevices(q.qmpMonitorCh.ctx)
+	share := false
+	target := ""
+	memoryBack := "memory-backend-ram"
 	if err != nil {
 		return 0, fmt.Errorf("failed to query memory devices: %v", err)
 	}
@@ -1363,7 +1421,20 @@ func (q *qemu) hotplugAddMemory(memDev *memoryDevice) (int, error) {
 		}
 		memDev.slot = maxSlot + 1
 	}
-	err = q.qmpMonitorCh.qmp.ExecHotplugMemory(q.qmpMonitorCh.ctx, "memory-backend-ram", "mem"+strconv.Itoa(memDev.slot), "", memDev.sizeMB)
+	if q.qemuConfig.Knobs.HugePages {
+		// we are setting all the bits that govmm sets when hugepages are enabled.
+		// https://github.com/intel/govmm/blob/master/qemu/qemu.go#L1677
+		target = "/dev/hugepages"
+		memoryBack = "memory-backend-file"
+		share = true
+	} else if q.config.SharedFS == config.VirtioFS || q.config.FileBackedMemRootDir != "" {
+		target = q.qemuConfig.Memory.Path
+		memoryBack = "memory-backend-file"
+	}
+	if q.qemuConfig.Knobs.FileBackedMemShared {
+		share = true
+	}
+	err = q.qmpMonitorCh.qmp.ExecHotplugMemory(q.qmpMonitorCh.ctx, memoryBack, "mem"+strconv.Itoa(memDev.slot), target, memDev.sizeMB, share)
 	if err != nil {
 		q.Logger().WithError(err).Error("hotplug memory")
 		return 0, err
@@ -1477,9 +1548,9 @@ func (q *qemu) saveSandbox() error {
 	// BootToBeTemplate sets the VM to be a template that other VMs can clone from. We would want to
 	// bypass shared memory when saving the VM to a local file through migration exec.
 	if q.config.BootToBeTemplate {
-		err := q.arch.setBypassSharedMemoryMigrationCaps(q.qmpMonitorCh.ctx, q.qmpMonitorCh.qmp)
+		err := q.arch.setIgnoreSharedMemoryMigrationCaps(q.qmpMonitorCh.ctx, q.qmpMonitorCh.qmp)
 		if err != nil {
-			q.Logger().WithError(err).Error("set migration bypass shared memory")
+			q.Logger().WithError(err).Error("set migration ignore shared memory")
 			return err
 		}
 	}
@@ -1490,6 +1561,10 @@ func (q *qemu) saveSandbox() error {
 		return err
 	}
 
+	return q.waitMigration()
+}
+
+func (q *qemu) waitMigration() error {
 	t := time.NewTimer(qmpMigrationWaitTimeout)
 	defer t.Stop()
 	for {
