@@ -13,6 +13,7 @@ import (
 	"os"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/kata-containers/agent/protocols/grpc"
@@ -39,6 +40,11 @@ const (
 	// vmStartTimeout represents the time in seconds a sandbox can wait before
 	// to consider the VM starting operation failed.
 	vmStartTimeout = 10
+	// waitRetry represents retry times wait for vm exit
+	waitRetry = 50
+	// waitVMExitTime represents times wait for vm exit in one loop
+	// the unit of value is millisecond
+	waitVMExitTime = 200
 )
 
 // SandboxStatus describes a sandbox status.
@@ -1047,7 +1053,7 @@ func (s *Sandbox) startVM() (err error) {
 }
 
 // stopVM: stop the sandbox's VM
-func (s *Sandbox) stopVM() error {
+func (s *Sandbox) stopVM() (err error) {
 	span, _ := s.trace("stopVM")
 	defer span.Finish()
 
@@ -1062,6 +1068,30 @@ func (s *Sandbox) stopVM() error {
 		s.Logger().Info("Not stopping VM")
 		return nil
 	}
+	pid := s.hypervisor.pid()
+
+	defer func() {
+		if running, _ := isProcRunning(pid); !running {
+			err = nil
+			return
+		}
+		if err != nil {
+			networkLogger().WithError(err).WithField("pid", pid).Warn("Fail to stop vm")
+		}
+		syscall.Kill(pid, syscall.SIGKILL)
+		for i := 0; i < waitRetry; i++ {
+			if running, _ := isProcRunning(pid); !running {
+				err = nil
+				return
+			}
+			time.Sleep(waitVMExitTime * time.Millisecond)
+		}
+		waitTime := (waitRetry * waitVMExitTime) / (time.Second / time.Millisecond)
+		networkLogger().WithField("pid", pid).
+			Warnf("NOTE: hypervisor not exited after wait %ds", waitTime)
+
+		err = fmt.Errorf("hypervisor not exited after wait %ds", waitTime)
+	}()
 
 	s.Logger().Info("Stopping VM")
 	return s.hypervisor.stopSandbox()
