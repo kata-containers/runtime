@@ -734,4 +734,4 @@ ifneq (,$(findstring $(HYPERVISOR_ACRN),$(KNOWN_HYPERVISORS)))
 endif
 	@printf "\tassets path (PKGDATADIR) : %s\n" $(abspath $(PKGDATADIR))
 	@printf "\tproxy+shim path (PKGLIBEXECDIR) : %s\n" $(abspath $(PKGLIBEXECDIR))
-	@printf "\n"
+	@printf " \n"
