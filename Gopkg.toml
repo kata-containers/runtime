@@ -1,6 +1,6 @@
 [[constraint]]
   name = "github.com/containernetworking/plugins"
-  revision = "7f98c94613021d8b57acfa1a2f0c8d0f6fd7ae5a"
+  revision = "fe60fcddb897079746ec1523fd1837ab05b1e689"
 
 [[constraint]]
   name = "github.com/go-ini/ini"
@@ -8,7 +8,11 @@
 
 [[constraint]]
   name = "github.com/cri-o/cri-o"
-  revision = "3394b3b2d6af0e41d185bb695c6378be5dd4d61d"
+  revision = "485227d727401fa0472a449b5df3b0537e314ebb"
+
+[[override]]
+  name = "github.com/cri-o/ocicni"
+  revision = "8a4ca077a093fc24475fe296b9eb063ec1a279a5"
 
 [[constraint]]
   name = "github.com/mitchellh/mapstructure"
@@ -16,11 +20,11 @@
 
 [[constraint]]
   name = "github.com/opencontainers/runc"
-  revision = "0351df1c5a66838d0c392b4ac4cf9450de844e2d"
+  revision = "f4982d86f7fde0b6f953cc62ccc4022c519a10a9"
 
-[[constraint]]
+[[override]]
   name = "github.com/opencontainers/runtime-spec"
-  revision = "5806c35637336642129d03657419829569abc5aa"
+  revision = "a1b50f621a48ad13f8f696a162f684a241307db0"
 
 [[constraint]]
   name = "github.com/stretchr/testify"
@@ -40,11 +44,11 @@
 
 [[constraint]]
   name = "golang.org/x/sys"
-  revision = "1d2aa6dbdea45adaaebb9905d0666e4537563829"
+  revision = "04f50cda93cbb67f2afa353c52f342100e80e625"
 
 [[constraint]]
   name = "github.com/sirupsen/logrus"
-  revision = "89742aefa4b206dcf400792f3bd35b542998eb3b"
+  revision = "v1.4.2"
 
 [[constraint]]
   name = "github.com/intel/govmm"
@@ -52,7 +56,7 @@
 
 [[constraint]]
   name = "github.com/kata-containers/agent"
-  revision = "48dd1c031530fce9bf16b0f6a7305979cedd8fc9"
+  revision = "2948e1a3c4b03268e4526dbd8576fc5cb8336533"
 
 [[constraint]]
   name = "github.com/containerd/cri-containerd"
@@ -68,7 +72,7 @@
 
 [[constraint]]
   name = "github.com/gogo/protobuf"
-  revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
+  revision = "4cbf7e384e768b4e01799441fdf2a706a5635ae7"
 
 [[override]]
   branch = "master"
@@ -86,3 +90,19 @@
 [[constraint]]
   branch = "master"
   name = "github.com/prometheus/procfs"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  version = "v12.0.0"
+
+[[constraint]]
+  name = "k8s.io/kubernetes"
+  revision = "e8462b5b5dc2584fdcd18e6bcfe9f1e4d970a529"
+
+[[override]]
+  name = "gopkg.in/fsnotify.v1"
+  source = "https://github.com/fsnotify/fsnotify.git"
+
+[[constraint]]
+  name = "k8s.io/utils"
+  revision = "6999998975a717e7f5fc2a7476497044cb111854"
