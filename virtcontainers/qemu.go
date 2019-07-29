@@ -783,7 +783,13 @@ func (q *qemu) waitSandbox(timeout int) error {
 		return fmt.Errorf("Invalid timeout %ds", timeout)
 	}
 
-	cfg := govmmQemu.QMPConfig{Logger: newQMPLogger()}
+	eventCh := make(chan govmmQemu.QMPEvent)
+	cfg := govmmQemu.QMPConfig{
+		EventCh: eventCh,
+		Logger:  newQMPLogger(),
+		// response of qmp.ExecuteQMPCapabilities bigger than default 64k in bufio.NewScanner()
+		MaxCapacity: 512 * 1024,
+	}
 
 	var qmp *govmmQemu.QMP
 	var disconnectCh chan struct{}
@@ -823,6 +829,41 @@ func (q *qemu) waitSandbox(timeout int) error {
 	if err = q.qmpMonitorCh.qmp.ExecuteQMPCapabilities(q.qmpMonitorCh.ctx); err != nil {
 		q.Logger().WithError(err).Error(qmpCapErrMsg)
 		return err
+	}
+
+	if !q.config.UseVSock {
+		return nil
+	}
+
+	schemaInfo, err := q.qmpMonitorCh.qmp.ExecQueryQmpSchema(q.qmpMonitorCh.ctx)
+	if err != nil {
+		q.Logger().Error(err)
+		return err
+	}
+
+	wait := false
+	for _, schema := range schemaInfo {
+		if schema.MetaType == "event" && schema.Name == "VSOCK_RUNNING" {
+			wait = true
+		}
+	}
+
+	if !wait {
+		return nil
+	}
+
+	q.Logger().Info("waiting event of vsock running")
+Loop:
+	for {
+		select {
+		case ev := <-eventCh:
+			if ev.Name == "VSOCK_RUNNING" && ev.Data["running"] == true {
+				break Loop
+			}
+		case <-time.After(time.Duration(timeout)*time.Second - time.Since(timeStart)):
+			q.Logger().Info("waiting event of vsock running")
+			return fmt.Errorf("wait vsock running timeout")
+		}
 	}
 
 	return nil
