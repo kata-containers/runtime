@@ -626,6 +626,12 @@ install-completions:
 clean:
 	$(QUIET_CLEAN)rm -f $(TARGET) $(SHIMV2) $(NETMON_TARGET) $(CONFIGS) $(GENERATED_FILES) .git-commit .git-commit.tmp
 
+vendor:
+	export GO111MODULE=on \
+	go mod tidy && \
+	go mod vendor && \
+	go mod verify
+
 show-usage: show-header
 	@printf "• Overview:\n"
 	@printf "\n"
