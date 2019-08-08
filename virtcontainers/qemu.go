@@ -838,15 +838,29 @@ func (q *qemu) stopSandbox() error {
 	defer q.cleanupVM()
 	q.Logger().Info("Stopping Sandbox")
 
-	err := q.qmpSetup()
-	if err != nil {
-		return err
-	}
+	pid := q.pid()
 
-	err = q.qmpMonitorCh.qmp.ExecuteQuit(q.qmpMonitorCh.ctx)
-	if err != nil {
-		q.Logger().WithError(err).Error("Fail to execute qmp QUIT")
-		return err
+	signame := "SIGTERM"
+	signum := syscall.SIGTERM
+	for i :=0; i < 75; i++ {
+		if i == 50 {
+			signum = syscall.SIGKILL
+			signame = "SIGKILL"
+		}
+		err := syscall.Kill(pid, signum)
+		if err != nil {
+			if err == syscall.ESRCH {
+				return nil
+			}
+			q.Logger().WithError(err).Error("Fail to terminate process %d with %s", pid, signame)
+			return err
+		}
+
+		if signum == syscall.SIGTERM || signum == syscall.SIGKILL {
+			signum = syscall.Signal(0)
+		}
+
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	return nil
