@@ -227,7 +227,7 @@ func startShim(args []string, params ShimParams) (int, error) {
 	return cmd.Process.Pid, nil
 }
 
-func isShimRunning(pid int) (bool, error) {
+func isProcRunning(pid int) (bool, error) {
 	if pid <= 0 {
 		return false, nil
 	}
@@ -253,7 +253,7 @@ func waitForShim(pid int) error {
 
 	tInit := time.Now()
 	for {
-		running, err := isShimRunning(pid)
+		running, err := isProcRunning(pid)
 		if err != nil {
 			return err
 		}

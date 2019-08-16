@@ -584,7 +584,7 @@ func statusContainer(sandbox *Sandbox, containerID string) (ContainerStatus, err
 				container.state.State == types.StatePaused) &&
 				container.process.Pid > 0 {
 
-				running, err := isShimRunning(container.process.Pid)
+				running, err := isProcRunning(container.process.Pid)
 				if err != nil {
 					return ContainerStatus{}, err
 				}

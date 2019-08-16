@@ -190,7 +190,7 @@ func TestStopShimSuccessfulProcessRunning(t *testing.T) {
 
 func testIsShimRunning(t *testing.T, pid int, expected bool) {
 	assert := assert.New(t)
-	running, err := isShimRunning(pid)
+	running, err := isProcRunning(pid)
 	assert.NoError(err)
 	assert.Equal(running, expected)
 }

@@ -981,7 +981,7 @@ func (c *Container) stop(force bool) error {
 
 		// If shim is still running something went wrong
 		// Make sure we stop the shim process
-		if running, _ := isShimRunning(c.process.Pid); running {
+		if running, _ := isProcRunning(c.process.Pid); running {
 			l := c.Logger()
 			l.Error("Failed to stop container so stopping dangling shim")
 			if err := stopShim(c.process.Pid); err != nil {
