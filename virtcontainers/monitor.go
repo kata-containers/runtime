@@ -14,6 +14,11 @@ import (
 
 const defaultCheckInterval = 1 * time.Second
 
+// By now we have two events to watch: hypervisor exit
+// and agent disconnect. If you want to add another watcher,
+// please increment this eventNum accordingly.
+const eventNum = 2
+
 type monitor struct {
 	sync.Mutex
 
@@ -37,7 +42,10 @@ func (m *monitor) newWatcher() (chan error, error) {
 	m.Lock()
 	defer m.Unlock()
 
-	watcher := make(chan error, 1)
+	// In case more than one events occur, the watcher's channel
+	// should have an enough capacity to write, otherwise it would be
+	// blocked by writing to channel.
+	watcher := make(chan error, eventNum)
 	m.watchers = append(m.watchers, watcher)
 
 	if !m.running {
