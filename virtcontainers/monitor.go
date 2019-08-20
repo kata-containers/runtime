@@ -22,14 +22,14 @@ type monitor struct {
 	watchers      []chan error
 	wg            sync.WaitGroup
 	running       bool
-	stopCh        chan bool
+	stopCh        chan struct{}
 }
 
 func newMonitor(s *Sandbox) *monitor {
 	return &monitor{
 		sandbox:       s,
 		checkInterval: defaultCheckInterval,
-		stopCh:        make(chan bool, 1),
+		stopCh:        make(chan struct{}),
 	}
 }
 
@@ -99,7 +99,7 @@ func (m *monitor) stop() {
 	}
 
 	defer func() {
-		m.stopCh <- true
+		close(m.stopCh)
 		m.watchers = nil
 		m.running = false
 	}()
