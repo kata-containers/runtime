@@ -253,10 +253,16 @@ func (fc *firecracker) newFireClient() *client.Firecracker {
 		DialContext: func(ctx context.Context, network, path string) (net.Conn, error) {
 			addr, err := net.ResolveUnixAddr("unix", fc.socketPath)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("===========socketPath:%+v", fc.socketPath)
 			}
 
-			return net.DialUnix("unix", nil, addr)
+			client, err := net.DialUnix("unix", nil, addr)
+
+			if err != nil {
+				return nil, fmt.Errorf("--------socketPath:%+v", fc.socketPath)
+			}
+
+			return client, nil
 		},
 	}
 
