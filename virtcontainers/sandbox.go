@@ -1092,6 +1092,13 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 	// Update sandbox config.
 	s.config.Containers = append(s.config.Containers, contConfig)
 
+	defer func() {
+		if err != nil && len(s.config.Containers) > 0 {
+			// delete container config
+			s.config.Containers = s.config.Containers[:len(s.config.Containers)-1]
+		}
+	}()
+
 	// Sandbox is reponsable to update VM resources needed by Containers
 	err = s.updateResources()
 	if err != nil {
@@ -1104,7 +1111,7 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 	}
 
 	// Add the container to the containers list in the sandbox.
-	if err := s.addContainer(c); err != nil {
+	if err = s.addContainer(c); err != nil {
 		return nil, err
 	}
 
@@ -1114,7 +1121,7 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 		return nil, err
 	}
 
-	if err := s.updateCgroups(); err != nil {
+	if err = s.updateCgroups(); err != nil {
 		return nil, err
 	}
 
