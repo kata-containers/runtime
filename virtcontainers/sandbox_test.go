@@ -1037,6 +1037,12 @@ func TestCreateContainer(t *testing.T) {
 	contConfig := newTestContainerConfigNoop(contID)
 	_, err = s.CreateContainer(contConfig)
 	assert.Nil(t, err, "Failed to create container %+v in sandbox %+v: %v", contConfig, s, err)
+
+	assert.Equal(t, len(s.config.Containers), 1, "Container config list length from sandbox structure should be 1")
+
+	_, err = s.CreateContainer(contConfig)
+	assert.NotNil(t, err, "Should failed to create a duplicated container")
+	assert.Equal(t, len(s.config.Containers), 1, "Container config list length from sandbox structure should be 1")
 }
 
 func TestDeleteContainer(t *testing.T) {
@@ -1458,6 +1464,9 @@ func TestGetNetNs(t *testing.T) {
 }
 
 func TestStartNetworkMonitor(t *testing.T) {
+	if os.Getuid() != 0 {
+		t.Skip("Test disabled as requires root user")
+	}
 	trueBinPath, err := exec.LookPath("true")
 	assert.Nil(t, err)
 	assert.NotEmpty(t, trueBinPath)
