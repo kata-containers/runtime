@@ -12,10 +12,10 @@ language: go
 os:
 - linux
 - linux-ppc64le
-go_import_path: github.com/kata-containers/runtime
 
 env:
   - target_branch=$TRAVIS_BRANCH
+    GO111MODULE=on
 
 before_install:
   - ".ci/setup.sh"
