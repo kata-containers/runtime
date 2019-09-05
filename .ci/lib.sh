@@ -4,9 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 export tests_repo="${tests_repo:-github.com/kata-containers/tests}"
-export tests_repo_dir="$GOPATH/src/$tests_repo"
 
-clone_tests_repo()
+get_tests_repo()
 {
 	# KATA_CI_NO_NETWORK is (has to be) ignored if there is
 	# no existing clone.
@@ -15,20 +14,20 @@ clone_tests_repo()
 		return
 	fi
 
-	go get -d -u "$tests_repo" || true
-	if [ -n "${TRAVIS_BRANCH:-}" ]; then
-		( cd "${tests_repo_dir}" && git checkout "${TRAVIS_BRANCH}" )
-	fi
+	mkdir -p ../tests
+	#curl -fsSL https://codeload.github.com/kata-containers/tests/tar.gz/${TRAVIS_BRANCH:-master} | tar xzf - -C ../tests --strip-components=1
+	curl -fsSL https://codeload.github.com/kata-containers/tests/tar.gz/master | tar xzf - -C ../tests --strip-components=1
+	export tests_repo_dir="$(pwd)/../tests"
 }
 
 run_static_checks()
 {
-	clone_tests_repo
-	bash "$tests_repo_dir/.ci/static-checks.sh"  "github.com/kata-containers/runtime"
+	get_tests_repo
+	bash "$tests_repo_dir/.ci/static-checks.sh" "github.com/kata-containers/runtime"
 }
 
 run_go_test()
 {
-	clone_tests_repo
+	get_tests_repo
 	bash "$tests_repo_dir/.ci/go-test.sh"
 }
