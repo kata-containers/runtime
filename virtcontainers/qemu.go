@@ -68,10 +68,6 @@ type QemuState struct {
 	UUID                 string
 	HotplugVFIOOnRootBus bool
 	VirtiofsdPid         int
-	// Flag to know if a VFIODev is assigned used by features that are not
-	// compatible with it, e.g. resize the balloon to return memory back is
-	// not recommended.
-	VFIODeviceCounter int
 }
 
 // qemu is an Hypervisor interface implementation for the Linux qemu hypervisor.
@@ -1134,15 +1130,11 @@ func (q *qemu) hotplugVFIODevice(device *config.VFIODev, op operation) (err erro
 	if err != nil {
 		return err
 	}
-	if q.state.VFIODeviceCounter < 0 {
-		return fmt.Errorf("VFIODeviceCounter is < 0 (%d) ", q.state.VFIODeviceCounter)
-	}
 
 	devID := device.ID
 
 	if op == addDevice {
 
-		q.state.VFIODeviceCounter++
 		// When HasVFIODevice is set balloon size is set to maximal memory
 		q.updateMemoryBalloon(0)
 		// In case HotplugVFIOOnRootBus is true, devices are hotplugged on the root bus
@@ -1188,10 +1180,6 @@ func (q *qemu) hotplugVFIODevice(device *config.VFIODev, op operation) (err erro
 		if err := q.qmpMonitorCh.qmp.ExecuteDeviceDel(q.qmpMonitorCh.ctx, devID); err != nil {
 			return err
 		}
-		if q.state.VFIODeviceCounter <= 0 {
-			return fmt.Errorf("VFIODeviceCounter is <= 0 (%d) ", q.state.VFIODeviceCounter)
-		}
-		q.state.VFIODeviceCounter--
 	}
 
 	return nil
@@ -1933,25 +1921,12 @@ func (q *qemu) resizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCPUs uint3
 
 func (q *qemu) updateMemoryBalloon(sizeMB uint32) error {
 
-	if q.state.VFIODeviceCounter > 0 {
-		// When VFIO devices are used we dont want to get pages back to
-		// the host. Lets increase the balloon to a large amount of
-		// memory:
-		// - The guest memmory is not affected
+	// From qemu 3.1 it is safe to use balloon and VFIO devices
+	// where "Inhibit ballooning" is implemented.
 
-		// TODO: This is not required for qemu +v3.1.0 where "Inhibit
-		// ballooning" is implemented.
-
-		// Reference:
-		// https://www.ibm.com/support/knowledgecenter/en/SSZJY4_3.1.0/liabp/liabpmemoryballooning.htm
-		// https://bugs.launchpad.net/qemu/+bug/1762707
-		hostMB, err := q.hostMemMB()
-		if err != nil {
-			return err
-		}
-		sizeMB = uint32(hostMB)
-		q.Logger().WithField("memory-mb", sizeMB).Warnf("VM uses VFIO, balloon size will be total host memory")
-	}
+	// Reference:
+	// https://www.ibm.com/support/knowledgecenter/en/SSZJY4_3.1.0/liabp/liabpmemoryballooning.htm
+	// https://bugs.launchpad.net/qemu/+bug/1762707
 
 	if q.qmpMonitorCh.qmp == nil {
 		return fmt.Errorf("qmp channel is nil")
