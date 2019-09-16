@@ -744,6 +744,14 @@ func (q *qemu) startSandbox(timeout int) error {
 
 	defer func() {
 		if err != nil {
+			if q.config.Debug {
+				b, err := ioutil.ReadFile(q.qemuConfig.LogFile)
+				if err == nil {
+					q.Logger().Infof("Content of qemu logfile: %s", string(b))
+				} else {
+					q.Logger().WithError(err).Error("Failed to read qemu logfile")
+				}
+			}
 			if err := os.RemoveAll(vmPath); err != nil {
 				q.Logger().WithError(err).Error("Fail to clean up vm directory")
 			}
