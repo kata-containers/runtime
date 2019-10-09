@@ -58,6 +58,7 @@ const (
 	//Name of the files within jailer root
 	//Having predefined names helps with cleanup
 	fcKernel             = "vmlinux"
+	fcInitrd             = "initrd"
 	fcRootfs             = "rootfs"
 	fcStopSandboxTimeout = 15
 	// This indicates the number of block devices that can be attached to the
@@ -83,7 +84,7 @@ const (
 // Specify the minimum version of firecracker supported
 var fcMinSupportedVersion = semver.MustParse("0.21.1")
 
-var fcKernelParams = append(commonVirtioblkKernelRootParams, []Param{
+var fcKernelParams = []Param{
 	// The boot source is the first partition of the first block device added
 	{"pci", "off"},
 	{"reboot", "k"},
@@ -95,7 +96,7 @@ var fcKernelParams = append(commonVirtioblkKernelRootParams, []Param{
 	// Firecracker doesn't support ACPI
 	// Fix kernel error "ACPI BIOS Error (bug)"
 	{"acpi", "off"},
-}...)
+}
 
 func (s vmmState) String() string {
 	switch s {
@@ -131,7 +132,7 @@ func (s *firecrackerState) set(state vmmState) {
 
 // firecracker is an Hypervisor interface implementation for the firecracker VMM.
 type firecracker struct {
-	id            string //Unique ID per pod. Normally maps to the sandbox id
+	id            string //Unique ID per pod. Maps to the truncated sandbox id
 	vmPath        string //All jailed VM assets need to be under this
 	chrootBaseDir string //chroot base for the jailer
 	jailerRoot    string
@@ -155,6 +156,8 @@ type firecracker struct {
 
 	fcConfigPath string
 	fcConfig     *types.FcConfig // Parameters configured before VM starts
+
+	hotplugDriveOffset int
 }
 
 type firecrackerDevice struct {
@@ -541,20 +544,31 @@ func (fc *firecracker) fcJailResource(src, dst string) (string, error) {
 	return absPath, nil
 }
 
-func (fc *firecracker) fcSetBootSource(path, params string) error {
+func (fc *firecracker) fcSetBootSource(kernelPath, initrdPath, params string) error {
 	span, _ := fc.trace("fcSetBootSource")
 	defer span.Finish()
-	fc.Logger().WithFields(logrus.Fields{"kernel-path": path,
-		"kernel-params": params}).Debug("fcSetBootSource")
+	fc.Logger().WithFields(logrus.Fields{
+		"kernel-path":   kernelPath,
+		"initrd-path":   initrdPath,
+		"kernel-params": params,
+	}).Debug("fcSetBootSource")
 
-	kernelPath, err := fc.fcJailResource(path, fcKernel)
+	kernelPath, err := fc.fcJailResource(kernelPath, fcKernel)
 	if err != nil {
 		return err
+	}
+
+	if initrdPath != "" {
+		initrdPath, err = fc.fcJailResource(initrdPath, fcInitrd)
+		if err != nil {
+			return err
+		}
 	}
 
 	src := &models.BootSource{
 		KernelImagePath: &kernelPath,
 		BootArgs:        params,
+		InitrdPath:      initrdPath,
 	}
 
 	fc.fcConfig.BootSource = src
@@ -707,28 +721,33 @@ func (fc *firecracker) fcInitConfiguration() error {
 		}...)
 	}
 
-	kernelParams := append(fc.config.KernelParams, fcKernelParams...)
-	strParams := SerializeParams(kernelParams, "=")
-	formattedParams := strings.Join(strParams, " ")
-	if err := fc.fcSetBootSource(kernelPath, formattedParams); err != nil {
-		return err
-	}
-
-	image, err := fc.config.InitrdAssetPath()
+	initrdPath, err := fc.config.InitrdAssetPath()
 	if err != nil {
 		return err
 	}
 
-	if image == "" {
-		image, err = fc.config.ImageAssetPath()
+	kernelParams := append(fc.config.KernelParams, fcKernelParams...)
+	if initrdPath == "" {
+		kernelParams = append(kernelParams, commonVirtioblkKernelRootParams...)
+	}
+	strParams := SerializeParams(kernelParams, "=")
+	formattedParams := strings.Join(strParams, " ")
+	if err := fc.fcSetBootSource(kernelPath, initrdPath, formattedParams); err != nil {
+		return err
+	}
+
+	if initrdPath == "" {
+		image, err := fc.config.ImageAssetPath()
 		if err != nil {
+			return err
+		}
+
+		if err := fc.fcSetVMRootfs(image); err != nil {
 			return err
 		}
 	}
 
-	if err := fc.fcSetVMRootfs(image); err != nil {
-		return err
-	}
+	fc.hotplugDriveOffset = len(fc.fcConfig.Drives)
 
 	if err := fc.createDiskPool(); err != nil {
 		return err
@@ -803,6 +822,8 @@ func fcDriveIndexToID(i int) string {
 	return "drive_" + strconv.Itoa(i)
 }
 
+// Creates a disk pool to attach container virtio-block devices with
+// fcUpdateBlockDrive
 func (fc *firecracker) createDiskPool() error {
 	span, _ := fc.trace("createDiskPool")
 	defer span.Finish()
@@ -846,6 +867,7 @@ func (fc *firecracker) cleanupJail() {
 	defer span.Finish()
 
 	fc.umountResource(fcKernel)
+	fc.umountResource(fcInitrd)
 	fc.umountResource(fcRootfs)
 	fc.umountResource(fcLogFifo)
 	fc.umountResource(fcMetricsFifo)
@@ -1211,4 +1233,8 @@ func (fc *firecracker) watchConsole() (*os.File, error) {
 	}()
 
 	return stdio, nil
+}
+
+func (fc *firecracker) getVirtDriveOffset() int {
+	return fc.hotplugDriveOffset
 }

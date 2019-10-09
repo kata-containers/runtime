@@ -802,4 +802,8 @@ type hypervisor interface {
 
 	// generate the socket to communicate the host and guest
 	generateSocket(id string, useVsock bool) (interface{}, error)
+
+	// virtio-block drive offset for virtio-block hotplugging. The offset takes
+	// into account drives pre-allocated by the hypervisor, e.g. for the rootfs.
+	getVirtDriveOffset() int
 }

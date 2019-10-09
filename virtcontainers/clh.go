@@ -1313,5 +1313,8 @@ func (clh *cloudHypervisor) vmInfo() (chclient.VmInfo, error) {
 		clh.Logger().WithError(openAPIClientError(err)).Warn("VmInfoGet failed")
 	}
 	return info, openAPIClientError(err)
+}
 
+func (clh *cloudHypervisor) getVirtDriveOffset() int {
+	return 0
 }

@@ -813,3 +813,7 @@ func (a *Acrn) loadInfo() error {
 	}
 	return nil
 }
+
+func (a *Acrn) getVirtDriveOffset() int {
+	return 0
+}

@@ -84,22 +84,10 @@ func (device *BlockDevice) Attach(devReceiver api.DeviceReceiver) (err error) {
 
 		drive.SCSIAddr = scsiAddr
 	} else if customOptions["block-driver"] != "nvdimm" {
-		var globalIdx int
-
-		switch customOptions["block-driver"] {
-		case "virtio-blk":
-			globalIdx = index
-		case "virtio-blk-ccw":
-			globalIdx = index
-		case "virtio-mmio":
-			//With firecracker the rootfs for the VM itself
-			//sits at /dev/vda and consumes the first index.
-			//Longer term block based VM rootfs should be added
-			//as a regular block device which eliminates the
-			//offset.
-			//https://github.com/kata-containers/runtime/issues/1061
-			globalIdx = index + 1
-		}
+		// When determine a drive name the block index needs to be incremented by
+		// an offset. The sandbox may have pre-allocated virtio-block drives that
+		// are not part of the sandbox BlockIndexMap.
+		globalIdx := index + devReceiver.GetSandboxBlockOffset()
 
 		driveName, err := utils.GetVirtDriveName(globalIdx)
 		if err != nil {
