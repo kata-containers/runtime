@@ -101,7 +101,7 @@ The file contains comments explaining all options.
 > **Note:**
 >
 > The initial values in the configuration file provide a good default configuration.
-> You might need to modify this file if you have specialist needs.
+> You might need to modify this file if you have special needs.
 
 Since the runtime supports a
 [stateless system](https://clearlinux.org/about),
