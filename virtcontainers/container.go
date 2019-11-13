@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/containerd/cgroups"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/compatoci"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
@@ -252,7 +253,7 @@ type ContainerConfig struct {
 	Resources specs.LinuxResources
 
 	// Raw OCI specification, it won't be saved to disk.
-	Spec *specs.Spec `json:"_"`
+	//Spec *specs.Spec `json:"_"`
 }
 
 // valid checks that the container configuration is valid.
@@ -266,6 +267,15 @@ func (c *ContainerConfig) valid() bool {
 	}
 
 	return true
+}
+
+func (c *ContainerConfig) GetOCISpec() (*specs.Spec, error) {
+	spec, err := compatoci.GetContainerSpec(c.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
+	return &spec, nil
 }
 
 // SystemMountsInfo describes additional information for system mounts that the agent
@@ -408,7 +418,13 @@ func (c *Container) GetAnnotations() map[string]string {
 
 // GetOCISpec returns container's OCI specification
 func (c *Container) GetOCISpec() *specs.Spec {
-	return c.config.Spec
+	spec, err := c.config.GetOCISpec()
+	if err != nil {
+		c.Logger().WithError(err).Warnf("Container without spec")
+		return nil
+	}
+
+	return spec
 }
 
 // storeContainer stores a container config.
@@ -1475,7 +1491,8 @@ func (c *Container) cgroupsCreate() (err error) {
 
 	// https://github.com/kata-containers/runtime/issues/168
 	resources := specs.LinuxResources{
-		CPU: nil,
+		CPU:    nil,
+		Memory: c.config.Resources.Memory,
 	}
 
 	if spec.Linux != nil && spec.Linux.Resources != nil {

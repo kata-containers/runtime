@@ -861,7 +861,7 @@ func ContainerConfig(ocispec specs.Spec, bundlePath, cid, console string, detach
 		Mounts:      containerMounts(ocispec),
 		DeviceInfos: deviceInfos,
 		Resources:   *ocispec.Linux.Resources,
-		Spec:        &ocispec,
+		//Spec:        &ocispec,
 	}
 
 	cType, err := ContainerType(ocispec)
