@@ -35,7 +35,6 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/persist"
 	persistapi "github.com/kata-containers/runtime/virtcontainers/persist/api"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
-	"github.com/kata-containers/runtime/virtcontainers/pkg/compatoci"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
@@ -96,7 +95,7 @@ type SandboxConfig struct {
 	// This list can be empty and populated by adding containers
 	// to the Sandbox a posteriori.
 	//TODO: this should be a map to avoid duplicated containers
-	Containers []ContainerConfig
+	Containers []ContainerConfig `json:"-"`
 
 	// Annotations keys must be unique strings and must be name-spaced
 	// with e.g. reverse domain notation (org.clearlinux.key).
@@ -602,6 +601,10 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 		}
 	}
 
+	if s.state.Containers == nil {
+		s.state.Containers = make(map[string]bool)
+	}
+
 	agentConfig, err := newAgentConfig(sandboxConfig.AgentType, sandboxConfig.AgentConfig)
 	if err != nil {
 		return nil, err
@@ -635,8 +638,7 @@ func (s *Sandbox) storeSandbox() error {
 		}
 
 		for _, container := range s.containers {
-			err = container.store.Store(store.Configuration, *(container.config))
-			if err != nil {
+			if err = container.storeContainer(); err != nil {
 				return err
 			}
 		}
@@ -752,10 +754,8 @@ func (s *Sandbox) findContainer(containerID string) (*Container, error) {
 		return nil, vcTypes.ErrNeedContainerID
 	}
 
-	for id, c := range s.containers {
-		if containerID == id {
-			return c, nil
-		}
+	if c, ok := s.containers[containerID]; ok {
+		return c, nil
 	}
 
 	return nil, errors.Wrapf(vcTypes.ErrNoSuchContainer, "Could not find the container %q from the sandbox %q containers list",
@@ -1117,6 +1117,11 @@ func (s *Sandbox) addContainer(c *Container) error {
 		return fmt.Errorf("Duplicated container: %s", c.id)
 	}
 	s.containers[c.id] = c
+	s.state.Containers[c.id] = true
+
+	if !s.supportNewStore() {
+		return s.store.Store(store.State, s.state)
+	}
 
 	return nil
 }
@@ -1126,16 +1131,22 @@ func (s *Sandbox) addContainer(c *Container) error {
 // in the guest. This should only be used when fetching a
 // sandbox that already exists.
 func (s *Sandbox) fetchContainers() error {
-	for i, contConfig := range s.config.Containers {
-		// Add spec from bundle path
-		spec, err := compatoci.GetContainerSpec(contConfig.Annotations)
+	// FIXME: check
+	for cid := range s.state.Containers {
+		s.Logger().Debugf("#### fetchContainers - cid %v", cid)
+
+		// FIXME: check
+		ctrStore, err := store.NewVCContainerStore(s.ctx, s.ID(), cid)
 		if err != nil {
 			return err
 		}
-		contConfig.Spec = &spec
-		s.config.Containers[i] = contConfig
 
-		c, err := newContainer(s, &s.config.Containers[i])
+		var config ContainerConfig
+		if err := ctrStore.Load(store.Configuration, &config); err != nil {
+			return err
+		}
+
+		c, err := newContainer(s, &config)
 		if err != nil {
 			return err
 		}
@@ -1159,15 +1170,8 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 		return nil, err
 	}
 
-	// Update sandbox config.
-	s.config.Containers = append(s.config.Containers, contConfig)
-
 	defer func() {
 		if err != nil {
-			if len(s.config.Containers) > 0 {
-				// delete container config
-				s.config.Containers = s.config.Containers[:len(s.config.Containers)-1]
-			}
 			if !storeAlreadyExists {
 				if delerr := c.store.Delete(); delerr != nil {
 					c.Logger().WithError(delerr).WithField("cid", c.id).Error("delete store failed")
@@ -1176,12 +1180,6 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 		}
 	}()
 
-	// Sandbox is reponsable to update VM resources needed by Containers
-	err = s.updateResources()
-	if err != nil {
-		return nil, err
-	}
-
 	err = c.create()
 	if err != nil {
 		return nil, err
@@ -1189,6 +1187,20 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 
 	// Add the container to the containers list in the sandbox.
 	if err = s.addContainer(c); err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if err != nil {
+			if _, delerr := s.DeleteContainer(c.id); delerr != nil {
+				s.Logger().WithError(delerr).Error("Failed to rollback and delete container")
+			}
+		}
+	}()
+
+	// Sandbox is reponsable to update VM resources needed by Containers
+	err = s.updateResources()
+	if err != nil {
 		return nil, err
 	}
 
@@ -1202,9 +1214,9 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 		return nil, err
 	}
 
-	if err = s.storeSandbox(); err != nil {
-		return nil, err
-	}
+	// if err = s.storeSandbox(); err != nil {
+	// 	return nil, err
+	// }
 
 	return c, nil
 }
@@ -1223,9 +1235,9 @@ func (s *Sandbox) StartContainer(containerID string) (VCContainer, error) {
 		return nil, err
 	}
 
-	if err = s.storeSandbox(); err != nil {
-		return nil, err
-	}
+	// if err = s.storeSandbox(); err != nil {
+	// 	return nil, err
+	// }
 
 	s.Logger().Info("Container is started")
 	//Fixme Container delete from sandbox, need to update resources
@@ -1246,9 +1258,9 @@ func (s *Sandbox) StopContainer(containerID string, force bool) (VCContainer, er
 		return nil, err
 	}
 
-	if err = s.storeSandbox(); err != nil {
-		return nil, err
-	}
+	// if err = s.storeSandbox(); err != nil {
+	// 	return nil, err
+	// }
 	return c, nil
 }
 
@@ -1291,16 +1303,14 @@ func (s *Sandbox) DeleteContainer(containerID string) (VCContainer, error) {
 	}
 
 	// Update sandbox config
-	for idx, contConfig := range s.config.Containers {
-		if contConfig.ID == containerID {
-			s.config.Containers = append(s.config.Containers[:idx], s.config.Containers[idx+1:]...)
-			break
+	delete(s.state.Containers, containerID)
+
+	if !s.supportNewStore() {
+		if err := s.store.Store(store.State, s.state); err != nil {
+			return nil, err
 		}
 	}
 
-	if err = s.storeSandbox(); err != nil {
-		return nil, err
-	}
 	return c, nil
 }
 
@@ -1382,9 +1392,10 @@ func (s *Sandbox) UpdateContainer(containerID string, resources specs.LinuxResou
 	if err := c.storeContainer(); err != nil {
 		return err
 	}
-	if err = s.storeSandbox(); err != nil {
-		return err
-	}
+
+	// if err = s.storeSandbox(); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
@@ -1456,9 +1467,9 @@ func (s *Sandbox) PauseContainer(containerID string) error {
 		return err
 	}
 
-	if err = s.storeSandbox(); err != nil {
-		return err
-	}
+	// if err = s.storeSandbox(); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
@@ -1475,9 +1486,9 @@ func (s *Sandbox) ResumeContainer(containerID string) error {
 		return err
 	}
 
-	if err = s.storeSandbox(); err != nil {
-		return err
-	}
+	// if err = s.storeSandbox(); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
@@ -1487,16 +1498,13 @@ func (s *Sandbox) createContainers() error {
 	span, _ := s.trace("createContainers")
 	defer span.Finish()
 
-	if err := s.updateResources(); err != nil {
-		return err
-	}
-
 	for _, contConfig := range s.config.Containers {
-
+		s.Logger().Debugf("#### createContainers() - cid: %v", contConfig.ID)
 		c, err := newContainer(s, &contConfig)
 		if err != nil {
 			return err
 		}
+
 		if err := c.create(); err != nil {
 			return err
 		}
@@ -1506,12 +1514,17 @@ func (s *Sandbox) createContainers() error {
 		}
 	}
 
+	if err := s.updateResources(); err != nil {
+		return err
+	}
+
 	if err := s.cgroupsUpdate(); err != nil {
 		return err
 	}
-	if err := s.storeSandbox(); err != nil {
-		return err
-	}
+
+	// if err := s.storeSandbox(); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -1533,9 +1546,9 @@ func (s *Sandbox) Start() error {
 		}
 	}
 
-	if err := s.storeSandbox(); err != nil {
-		return err
-	}
+	// if err := s.storeSandbox(); err != nil {
+	// 	return err
+	// }
 
 	s.Logger().Info("Sandbox is started")
 
@@ -1577,9 +1590,9 @@ func (s *Sandbox) Stop(force bool) error {
 		return err
 	}
 
-	if err := s.storeSandbox(); err != nil {
-		return err
-	}
+	// if err := s.storeSandbox(); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -1602,9 +1615,9 @@ func (s *Sandbox) Pause() error {
 		return err
 	}
 
-	if err := s.storeSandbox(); err != nil {
-		return err
-	}
+	// if err := s.storeSandbox(); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -1619,9 +1632,9 @@ func (s *Sandbox) Resume() error {
 		return err
 	}
 
-	if err := s.storeSandbox(); err != nil {
-		return err
-	}
+	// if err := s.storeSandbox(); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -1942,9 +1955,16 @@ func (s *Sandbox) updateResources() error {
 
 func (s *Sandbox) calculateSandboxMemory() int64 {
 	memorySandbox := int64(0)
-	for _, c := range s.config.Containers {
-		if m := c.Resources.Memory; m != nil && m.Limit != nil {
+	// FIXME: check
+	for _, c := range s.containers {
+		s.Logger().Debugf("#### calculateSandboxMemory - cid %v", c.ID())
+		if c.state.State == types.StateStopped {
+			s.Logger().WithField("container-id", c.ID()).Debug("Do not taking into account resources of not running containers")
+			continue
+		}
+		if m := c.config.Resources.Memory; m != nil && m.Limit != nil {
 			memorySandbox += *m.Limit
+			s.Logger().Debugf("#### calculateSandboxMemory - memorySandbox %v", memorySandbox)
 		}
 	}
 	return memorySandbox
@@ -1952,11 +1972,18 @@ func (s *Sandbox) calculateSandboxMemory() int64 {
 
 func (s *Sandbox) calculateSandboxCPUs() uint32 {
 	mCPU := uint32(0)
+	// FIXME: check
+	for _, c := range s.containers {
+		s.Logger().Debugf("#### calculateSandboxCPUs - cid %v - state: %v", c.ID(), c.state.State)
+		if c.state.State == types.StateStopped {
+			s.Logger().WithField("container-id", c.ID()).Debug("Do not taking into account resources of not running containers")
+			continue
+		}
 
-	for _, c := range s.config.Containers {
-		if cpu := c.Resources.CPU; cpu != nil {
+		if cpu := c.config.Resources.CPU; cpu != nil {
 			if cpu.Period != nil && cpu.Quota != nil {
 				mCPU += utils.CalculateMilliCPUs(*cpu.Quota, *cpu.Period)
+				s.Logger().Debugf("#### calculateSandboxCPUs - mCPU %v", mCPU)
 			}
 
 		}
@@ -2208,7 +2235,7 @@ func (s *Sandbox) cpuResources() *specs.LinuxCPU {
 
 // setupSandboxCgroup creates and joins sandbox cgroups for the sandbox config
 func (s *Sandbox) setupSandboxCgroup() error {
-	spec := s.GetOCISpec()
+	spec := s.GetPatchedOCISpec()
 
 	if spec == nil {
 		return errorMissingOCISpec
@@ -2237,37 +2264,24 @@ func (s *Sandbox) setupSandboxCgroup() error {
 	return nil
 }
 
-func (s *Sandbox) sandboxContConf() *ContainerConfig {
-	var podSandboxConfig *ContainerConfig
-
-	if s.config == nil {
-		return nil
-	}
-
+// GetPatchedOCISpec returns sandbox's OCI specification
+// This OCI specification was patched when the sandbox was created
+// by containerCapabilities(), SetEphemeralStorageType() and others
+// in order to support:
+// * capabilities
+// * Ephemeral storage
+// * k8s empty dir
+// If you need the original (vanilla) OCI spec,
+// use compatoci.GetContainerSpec() instead.
+func (s *Sandbox) GetPatchedOCISpec() *specs.Spec {
 	// get the container associated with the PodSandbox annotation. In Kubernetes, this
 	// represents the pause container. In Docker, this is the container. We derive the
 	// cgroup path from this container.
-	for _, cConfig := range s.config.Containers {
-		if cConfig.Annotations[annotations.ContainerTypeKey] == string(PodSandbox) {
-			podSandboxConfig = &cConfig
-			break
+	for _, c := range s.containers {
+		if c.config.Annotations[annotations.ContainerTypeKey] == string(PodSandbox) {
+			return c.GetPatchedOCISpec()
 		}
 	}
 
-	if podSandboxConfig == nil {
-		return nil
-	}
-
-	return podSandboxConfig
-}
-
-// GetOCISpec returns sandbox's OCI specification
-func (s *Sandbox) GetOCISpec() *specs.Spec {
-	conf := s.sandboxContConf()
-	if conf == nil {
-		return nil
-	}
-
-	// First container is sandbox container as default
-	return conf.Spec
+	return nil
 }

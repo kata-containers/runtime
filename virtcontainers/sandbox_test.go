@@ -111,19 +111,31 @@ func TestCalculateSandboxCPUs(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		containers []ContainerConfig
+		containers map[string]*Container
 		want       uint32
 	}{
-		{"1-unconstrained", []ContainerConfig{unconstrained}, 0},
-		{"2-unconstrained", []ContainerConfig{unconstrained, unconstrained}, 0},
-		{"1-constrained", []ContainerConfig{constrained}, 4},
-		{"2-constrained", []ContainerConfig{constrained, constrained}, 8},
-		{"3-mix-constraints", []ContainerConfig{unconstrained, constrained, constrained}, 8},
-		{"3-constrained", []ContainerConfig{constrained, constrained, constrained}, 12},
+		{"1-unconstrained", map[string]*Container{
+			"a": {config: &unconstrained}}, 0},
+		{"2-unconstrained", map[string]*Container{
+			"a": {config: &unconstrained},
+			"b": {config: &unconstrained}}, 0},
+		{"1-constrained", map[string]*Container{
+			"a": {config: &constrained}}, 4},
+		{"2-constrained", map[string]*Container{
+			"a": {config: &constrained},
+			"b": {config: &constrained}}, 8},
+		{"3-mix-constraints", map[string]*Container{
+			"a": {config: &unconstrained},
+			"b": {config: &constrained},
+			"c": {config: &constrained}}, 8},
+		{"3-constrained", map[string]*Container{
+			"a": {config: &constrained},
+			"b": {config: &constrained},
+			"c": {config: &constrained}}, 12},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sandbox.config.Containers = tt.containers
+			sandbox.containers = tt.containers
 			got := sandbox.calculateSandboxCPUs()
 			assert.Equal(t, got, tt.want)
 		})
@@ -140,19 +152,31 @@ func TestCalculateSandboxMem(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		containers []ContainerConfig
+		containers map[string]*Container
 		want       int64
 	}{
-		{"1-unconstrained", []ContainerConfig{unconstrained}, 0},
-		{"2-unconstrained", []ContainerConfig{unconstrained, unconstrained}, 0},
-		{"1-constrained", []ContainerConfig{constrained}, limit},
-		{"2-constrained", []ContainerConfig{constrained, constrained}, limit * 2},
-		{"3-mix-constraints", []ContainerConfig{unconstrained, constrained, constrained}, limit * 2},
-		{"3-constrained", []ContainerConfig{constrained, constrained, constrained}, limit * 3},
+		{"1-unconstrained", map[string]*Container{
+			"a": {config: &unconstrained}}, 0},
+		{"2-unconstrained", map[string]*Container{
+			"a": {config: &unconstrained},
+			"b": {config: &unconstrained}}, 0},
+		{"1-constrained", map[string]*Container{
+			"a": {config: &constrained}}, limit},
+		{"2-constrained", map[string]*Container{
+			"a": {config: &constrained},
+			"b": {config: &constrained}}, limit * 2},
+		{"3-mix-constraints", map[string]*Container{
+			"a": {config: &unconstrained},
+			"b": {config: &constrained},
+			"c": {config: &constrained}}, limit * 2},
+		{"3-constrained", map[string]*Container{
+			"a": {config: &constrained},
+			"b": {config: &constrained},
+			"c": {config: &constrained}}, limit * 3},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sandbox.config.Containers = tt.containers
+			sandbox.containers = tt.containers
 			got := sandbox.calculateSandboxMemory()
 			assert.Equal(t, got, tt.want)
 		})
@@ -911,11 +935,11 @@ func TestCreateContainer(t *testing.T) {
 	_, err = s.CreateContainer(contConfig)
 	assert.Nil(t, err, "Failed to create container %+v in sandbox %+v: %v", contConfig, s, err)
 
-	assert.Equal(t, len(s.config.Containers), 1, "Container config list length from sandbox structure should be 1")
+	assert.Equal(t, len(s.containers), 1, "Container config list length from sandbox structure should be 1")
 
 	_, err = s.CreateContainer(contConfig)
 	assert.NotNil(t, err, "Should failed to create a duplicated container")
-	assert.Equal(t, len(s.config.Containers), 1, "Container config list length from sandbox structure should be 1")
+	assert.Equal(t, len(s.containers), 1, "Container config list length from sandbox structure should be 1")
 	ret := store.VCContainerStoreExists(s.ctx, testSandboxID, contID)
 	assert.True(t, ret, "Should not delete container store that already existed")
 }
@@ -1571,17 +1595,13 @@ func TestSandbox_SetupSandboxCgroup(t *testing.T) {
 		{
 			"sandbox, empty linux json",
 			&Sandbox{
-				config: &SandboxConfig{Containers: []ContainerConfig{
-					emptyJSONLinux,
-				}}},
+				containers: map[string]*Container{"a": {config: &emptyJSONLinux}}},
 			false,
 		},
 		{
 			"sandbox, successful config",
 			&Sandbox{
-				config: &SandboxConfig{Containers: []ContainerConfig{
-					successfulContainer,
-				}}},
+				containers: map[string]*Container{"a": {config: &successfulContainer}}},
 			false,
 		},
 	}

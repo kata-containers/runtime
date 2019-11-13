@@ -575,7 +575,8 @@ func TestStatusSandboxSuccessfulStateReady(t *testing.T) {
 	expectedStatus := SandboxStatus{
 		ID: testSandboxID,
 		State: types.SandboxState{
-			State: types.StateReady,
+			State:      types.StateReady,
+			Containers: map[string]bool{containerID: true},
 		},
 		Hypervisor:       MockHypervisor,
 		HypervisorConfig: hypervisorConfig,
@@ -634,7 +635,8 @@ func TestStatusSandboxSuccessfulStateRunning(t *testing.T) {
 	expectedStatus := SandboxStatus{
 		ID: testSandboxID,
 		State: types.SandboxState{
-			State: types.StateRunning,
+			State:      types.StateRunning,
+			Containers: map[string]bool{containerID: true},
 		},
 		Hypervisor:       MockHypervisor,
 		HypervisorConfig: hypervisorConfig,

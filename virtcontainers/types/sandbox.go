@@ -56,6 +56,10 @@ type SandboxState struct {
 	// It's also known as ABI version of kata-runtime.
 	// Note: it won't be written to disk
 	PersistVersion uint `json:"-"`
+
+	// Containers contains the list of containers in the sandbox.
+	// Use map to detect duplicates and improve searching.
+	Containers map[string]bool `json:"containers"`
 }
 
 // Valid checks that the sandbox state is valid.

@@ -251,8 +251,8 @@ type ContainerConfig struct {
 	// Resources container resources
 	Resources specs.LinuxResources
 
-	// Raw OCI specification, it won't be saved to disk.
-	Spec *specs.Spec `json:"_"`
+	// Raw OCI specification
+	Spec *specs.Spec `json:"spec"`
 }
 
 // valid checks that the container configuration is valid.
@@ -406,8 +406,16 @@ func (c *Container) GetAnnotations() map[string]string {
 	return c.config.Annotations
 }
 
-// GetOCISpec returns container's OCI specification
-func (c *Container) GetOCISpec() *specs.Spec {
+// GetPatchedOCISpec returns container's OCI specification
+// This OCI specification was patched when the sandbox was created
+// by containerCapabilities(), SetEphemeralStorageType() and others
+// in order to support:
+// * capabilities
+// * Ephemeral storage
+// * k8s empty dir
+// If you need the original (vanilla) OCI spec,
+// use compatoci.GetContainerSpec() instead.
+func (c *Container) GetPatchedOCISpec() *specs.Spec {
 	return c.config.Spec
 }
 
@@ -1469,7 +1477,7 @@ func (c *Container) detachDevices() error {
 
 // cgroupsCreate creates cgroups on the host for the associated container
 func (c *Container) cgroupsCreate() (err error) {
-	spec := c.GetOCISpec()
+	spec := c.GetPatchedOCISpec()
 	if spec == nil {
 		return errorMissingOCISpec
 	}
@@ -1495,7 +1503,7 @@ func (c *Container) cgroupsCreate() (err error) {
 		return fmt.Errorf("Could not create cgroup for %v: %v", c.state.CgroupPath, err)
 	}
 
-	c.config.Resources = resources
+	c.config.Resources.CPU = resources.CPU
 
 	// Add shim into cgroup
 	if c.process.Pid > 0 {
@@ -1572,7 +1580,7 @@ func (c *Container) cgroupsUpdate(resources specs.LinuxResources) error {
 	}
 
 	// store new resources
-	c.config.Resources = r
+	c.config.Resources.CPU = r.CPU
 	if err := c.storeContainer(); err != nil {
 		return err
 	}

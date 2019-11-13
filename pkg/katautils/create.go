@@ -122,6 +122,7 @@ func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec specs.Spec, runtimeCo
 		return nil, vc.Process{}, err
 	}
 
+	kataUtilsLogger.Debugf("##### at CreateSandbox() - %+v", sandboxConfig.Containers)
 	if !rootFs.Mounted && len(sandboxConfig.Containers) == 1 {
 		if rootFs.Source != "" {
 			realPath, err := ResolvePath(rootFs.Source)
