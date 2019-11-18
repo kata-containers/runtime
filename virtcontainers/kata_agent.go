@@ -451,7 +451,7 @@ func cmdToKataProcess(cmd types.Cmd) (process *grpc.Process, err error) {
 	var gid uint32
 	if len(parsedUser) > 1 {
 		i, err = strconv.ParseUint(parsedUser[1], 10, grpcUserBits)
-		if err != nil {
+		if err != nil && if len(cmd.PrimaryGroup) == 0 {
 			return nil, err
 		}
 
