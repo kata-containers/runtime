@@ -1664,7 +1664,7 @@ func (s *Sandbox) setSandboxState(state types.StateString) error {
 func (s *Sandbox) pauseSetStates() error {
 	// XXX: When a sandbox is paused, all its containers are forcibly
 	// paused too.
-	if err := s.setContainersState(types.StatePaused); err != nil {
+	if err := s.setContainersState(types.StatePaused, types.StateRunning); err != nil {
 		return err
 	}
 
@@ -1674,7 +1674,7 @@ func (s *Sandbox) pauseSetStates() error {
 func (s *Sandbox) resumeSetStates() error {
 	// XXX: Resuming a paused sandbox puts all containers back into the
 	// running state.
-	if err := s.setContainersState(types.StateRunning); err != nil {
+	if err := s.setContainersState(types.StateRunning, types.StatePaused); err != nil {
 		return err
 	}
 
@@ -1717,15 +1717,27 @@ func (s *Sandbox) decrementSandboxBlockIndex() error {
 	return nil
 }
 
-func (s *Sandbox) setContainersState(state types.StateString) error {
+func (s *Sandbox) setContainersState(state types.StateString, original types.StateString) error {
 	if state == "" {
 		return vcTypes.ErrNeedState
 	}
 
+	var pastContainers []*Container
+	var err error
+	defer func() {
+		if err != nil {
+			for _, c := range pastContainers {
+				if err1 := c.setContainerState(original); err1 != nil {
+					s.Logger().Warnf("cannot restore container state for %s", c.id)
+				}
+			}
+		}
+	}()
 	for _, c := range s.containers {
-		if err := c.setContainerState(state); err != nil {
+		if err = c.setContainerState(state); err != nil {
 			return err
 		}
+		pastContainers = append(pastContainers, c)
 	}
 
 	return nil
