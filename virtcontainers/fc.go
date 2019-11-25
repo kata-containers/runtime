@@ -613,6 +613,25 @@ func (fc *firecracker) fcSetVMBaseConfig(mem int64, vcpus int64, htEnabled bool)
 	return err
 }
 
+func (fc *firecracker) fcSetLogger(logFifo string) error {
+	span, _ := fc.trace("fcSetLogger")
+	defer span.Finish()
+	fc.Logger().WithFields(logrus.Fields{"LogFifo": logFifo}).Debug("fcSetLogger")
+
+	param := ops.NewPutLoggerParams()
+	metricsFifo := "/dev/null"
+	level := "Debug"
+	cfg := &models.Logger{
+		Level:       &level,
+		LogFifo:     &logFifo,
+		MetricsFifo: &metricsFifo,
+		Options:     []string{},
+	}
+	param.SetBody(cfg)
+	_, err := fc.client().Operations.PutLogger(param)
+	return err
+}
+
 func (fc *firecracker) fcStartVM() error {
 	fc.Logger().Info("start firecracker virtual machine")
 	span, _ := fc.trace("fcStartVM")
@@ -705,6 +724,16 @@ func (fc *firecracker) startSandbox(timeout int) error {
 
 	for _, d := range fc.pendingDevices {
 		if err = fc.addDevice(d.dev, d.devType); err != nil {
+			return err
+		}
+	}
+
+	if fc.config.Debug {
+		logdir := filepath.Join(fc.vmPath, "logs.fifo")
+		if err := syscall.Mkfifo(logdir, 0600); err != nil {
+			return err
+		}
+		if err := fc.fcSetLogger(logdir); err != nil {
 			return err
 		}
 	}
