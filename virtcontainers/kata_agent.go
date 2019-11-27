@@ -60,6 +60,7 @@ var (
 	defaultKataHostSharedDir    = "/run/kata-containers/shared/sandboxes/"
 	defaultKataGuestSharedDir   = "/run/kata-containers/shared/containers/"
 	mountGuestTag               = "kataShared"
+	mountSourceVirtioFS         = "none"
 	defaultKataGuestSandboxDir  = "/run/kata-containers/sandbox/"
 	type9pFs                    = "9p"
 	typeVirtioFS                = "virtio_fs"
@@ -72,7 +73,7 @@ var (
 	kataNvdimmDevType           = "nvdimm"
 	kataVirtioFSDevType         = "virtio-fs"
 	sharedDir9pOptions          = []string{"trans=virtio,version=9p2000.L,cache=mmap", "nodev"}
-	sharedDirVirtioFSOptions    = []string{"default_permissions,allow_other,rootmode=040000,user_id=0,group_id=0", "nodev"}
+	sharedDirVirtioFSOptions    = []string{"tag=" + mountGuestTag + ",default_permissions,allow_other,rootmode=040000,user_id=0,group_id=0", "nodev"}
 	sharedDirVirtioFSDaxOptions = "dax"
 	shmDir                      = "shm"
 	kataEphemeralDevType        = "ephemeral"
@@ -884,7 +885,7 @@ func setupStorages(sandbox *Sandbox) []*grpc.Storage {
 			}
 			sharedVolume := &grpc.Storage{
 				Driver:     kataVirtioFSDevType,
-				Source:     mountGuestTag,
+				Source:     mountSourceVirtioFS,
 				MountPoint: kataGuestSharedDir(),
 				Fstype:     typeVirtioFS,
 				Options:    sharedDirVirtioFSOptions,
