@@ -67,6 +67,7 @@ func FindContextID() (*os.File, uint64, error) {
 		return nil, 0, err
 	}
 
+	defer vsockFd.Close()
 	// Looking for the first available context ID.
 	for cid := contextID; cid <= maxUInt; cid++ {
 		if err = ioctlFunc(vsockFd.Fd(), ioctlVhostVsockSetGuestCid, uintptr(unsafe.Pointer(&cid))); err == nil {
@@ -82,6 +83,5 @@ func FindContextID() (*os.File, uint64, error) {
 		}
 	}
 
-	vsockFd.Close()
 	return nil, 0, fmt.Errorf("Could not get a unique context ID for the vsock : %s", err)
 }

@@ -457,7 +457,6 @@ func TestGenerateVMSocket(t *testing.T) {
 	assert.NoError(err)
 	vsock, ok := s.(types.VSock)
 	assert.True(ok)
-	defer assert.NoError(vsock.VhostFd.Close())
 	assert.NotZero(vsock.VhostFd)
 	assert.NotZero(vsock.ContextID)
 	assert.NotZero(vsock.Port)
