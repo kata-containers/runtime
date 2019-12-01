@@ -999,31 +999,24 @@ func (k *kataAgent) removeIgnoredOCIMount(spec *specs.Spec, ignoredMounts []Moun
 	return nil
 }
 
-func (k *kataAgent) replaceOCIMountsForStorages(spec *specs.Spec, volumeStorages []*grpc.Storage) error {
+func (k *kataAgent) replaceOCIMountsForStorages(spec *specs.Spec, volumeStorages map[string]*grpc.Storage) error {
 	ociMounts := spec.Mounts
 	var index int
 	var m specs.Mount
 
-	for i, v := range volumeStorages {
-		for index, m = range ociMounts {
-			if m.Destination != v.MountPoint {
-				continue
-			}
-
-			// Create a temporary location to mount the Storage. Mounting to the correct location
-			// will be handled by the OCI mount structure.
-			filename := fmt.Sprintf("%s-%s", uuid.Generate().String(), filepath.Base(m.Destination))
-			path := filepath.Join(kataGuestSharedDir(), filename)
-
-			k.Logger().Debugf("Replacing OCI mount source (%s) with %s", m.Source, path)
-			ociMounts[index].Source = path
-			volumeStorages[i].MountPoint = path
-
-			break
+	for index, m = range ociMounts {
+		if _, ok := volumeStorages[m.Destination]; !ok {
+			return fmt.Errorf("OCI mount not found for block volume %s", m.Destination)
 		}
-		if index == len(ociMounts) {
-			return fmt.Errorf("OCI mount not found for block volume %s", v.MountPoint)
-		}
+
+		// Create a temporary location to mount the Storage. Mounting to the correct location
+		// will be handled by the OCI mount structure.
+		filename := fmt.Sprintf("%s-%s", uuid.Generate().String(), filepath.Base(m.Destination))
+		path := filepath.Join(kataGuestSharedDir(), filename)
+
+		k.Logger().Debugf("Replacing OCI mount source (%s) with %s", m.Source, path)
+		ociMounts[index].Source = path
+		volumeStorages[m.Destination].MountPoint = path
 	}
 	return nil
 }
@@ -1322,7 +1315,9 @@ func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process,
 		return nil, err
 	}
 
-	ctrStorages = append(ctrStorages, volumeStorages...)
+	for _, v := range volumeStorages {
+		ctrStorages = append(ctrStorages, v)
+	}
 
 	grpcSpec, err := grpc.OCItoGRPC(ociSpec)
 	if err != nil {
@@ -1436,9 +1431,9 @@ func (k *kataAgent) handleLocalStorage(mounts []specs.Mount, sandboxID string, r
 
 // handleBlockVolumes handles volumes that are block devices files
 // by passing the block devices as Storage to the agent.
-func (k *kataAgent) handleBlockVolumes(c *Container) ([]*grpc.Storage, error) {
+func (k *kataAgent) handleBlockVolumes(c *Container) (map[string]*grpc.Storage, error) {
 
-	var volumeStorages []*grpc.Storage
+	volumeStorages := make(map[string]*grpc.Storage)
 
 	for _, m := range c.mounts {
 		id := m.BlockDeviceID
@@ -1491,7 +1486,7 @@ func (k *kataAgent) handleBlockVolumes(c *Container) ([]*grpc.Storage, error) {
 		vol.Fstype = "bind"
 		vol.Options = []string{"bind"}
 
-		volumeStorages = append(volumeStorages, vol)
+		volumeStorages[vol.MountPoint] = vol
 	}
 
 	return volumeStorages, nil
