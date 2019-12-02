@@ -545,6 +545,15 @@ func (c *Container) shareFiles(m Mount, idx int, hostSharedDir, guestSharedDir s
 func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (map[string]Mount, []Mount, error) {
 	sharedDirMounts := make(map[string]Mount)
 	var ignoredMounts []Mount
+	var err error
+	var devicesToDetach []string
+	defer func() {
+		if err != nil {
+			for _, id := range devicesToDetach {
+				c.sandbox.devManager.DetachDevice(id, c.sandbox)
+			}
+		}
+	}()
 	for idx, m := range c.mounts {
 		// Skip mounting certain system paths from the source on the host side
 		// into the container as it does not make sense to do so.
@@ -571,10 +580,10 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, guestSharedDir string) (
 			if err := c.sandbox.devManager.AttachDevice(m.BlockDeviceID, c.sandbox); err != nil {
 				return nil, nil, err
 			}
+			devicesToDetach = append(devicesToDetach, m.BlockDeviceID)
 
 			if !c.sandbox.supportNewStore() {
-				if err := c.sandbox.storeSandboxDevices(); err != nil {
-					//TODO: roll back?
+				if err = c.sandbox.storeSandboxDevices(); err != nil {
 					return nil, nil, err
 				}
 			}
