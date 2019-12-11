@@ -40,6 +40,7 @@ var kernelParams = []Param{
 	{"console", "hvc0"},
 	{"console", "hvc1"},
 	{"iommu.passthrough", "0"},
+	{"printk.time", "1"},
 }
 
 // For now, AArch64 doesn't support DAX, so we couldn't use
