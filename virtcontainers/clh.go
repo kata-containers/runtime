@@ -257,13 +257,13 @@ func (clh *cloudHypervisor) createSandbox(ctx context.Context, id string, networ
 
 	// set the serial console to the cloud hypervisor
 	if clh.config.Debug {
-		serialPath, err := clh.serialPath(clh.id)
+		//serialPath, err := clh.serialPath(clh.id)
 		if err != nil {
 			return err
 		}
 		clh.vmconfig.Serial = chclient.ConsoleConfig{
 			Mode: cctFILE,
-			File: serialPath,
+			File: "/tmp/serial-ch",
 		}
 
 	} else {

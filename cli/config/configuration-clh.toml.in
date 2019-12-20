@@ -73,21 +73,21 @@ virtio_fs_cache = "always"
 # to the proxy logs, but only when proxy debug is also enabled.
 #
 # Default false
-#enable_debug = true
+enable_debug = true
 
 [proxy.@PROJECT_TYPE@]
 path = "@PROXYPATH@"
 
 # If enabled, proxy messages will be sent to the system log
 # (default: disabled)
-#enable_debug = true
+enable_debug = true
 
 [shim.@PROJECT_TYPE@]
 path = "@SHIMPATH@"
 
 # If enabled, shim messages will be sent to the system log
 # (default: disabled)
-#enable_debug = true
+enable_debug = true
 
 # If enabled, the shim will create opentracing.io traces and spans.
 # (See https://www.jaegertracing.io/docs/getting-started).
@@ -104,7 +104,7 @@ path = "@SHIMPATH@"
 [agent.@PROJECT_TYPE@]
 # If enabled, make the agent display debug-level messages.
 # (default: disabled)
-#enable_debug = true
+enable_debug = true
 
 # Enable agent tracing.
 #
@@ -141,14 +141,14 @@ path = "@NETMONPATH@"
 
 # If enabled, netmon messages will be sent to the system log
 # (default: disabled)
-#enable_debug = true
+enable_debug = true
 
 
 [runtime]
 # If enabled, the runtime will log additional debug messages to the
 # system log
 # (default: disabled)
-#enable_debug = true
+enable_debug = true
 #
 # Internetworking model
 # Determines how the VM should be connected to the
