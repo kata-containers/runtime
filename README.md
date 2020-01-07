@@ -6,7 +6,7 @@
 # Runtime
 
 This repository contains the runtime for the
-[Kata Containers](https://github.com/kata-containers) project.
+[Kata Containers](https://github.com/kata-containers) project
 
 For details of the other Kata Containers repositories, see the
 [repository summary](https://github.com/kata-containers/kata-containers).

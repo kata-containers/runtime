@@ -22,7 +22,6 @@ func TestFCGenerateSocket(t *testing.T) {
 
 	i, err = fc.generateSocket("a", true)
 	assert.NoError(err)
-	assert.NotNil(i)
 
 	hvsock, ok := i.(types.HybridVSock)
 	assert.True(ok)
