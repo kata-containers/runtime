@@ -452,21 +452,21 @@ func makeVersionString() string {
 		versionStr = unknown
 	}
 
-	v = append(v, name+"  : "+versionStr)
+	v = append(v, name+" version "+versionStr)
 
 	commitStr := commit
 	if commitStr == "" {
 		commitStr = unknown
 	}
 
-	v = append(v, "   commit   : "+commitStr)
+	v = append(v, "commit: "+commitStr)
 
 	specVersionStr := specs.Version
 	if specVersionStr == "" {
 		specVersionStr = unknown
 	}
 
-	v = append(v, "   OCI specs: "+specVersionStr)
+	v = append(v, "OCI specs: "+specVersionStr)
 
 	return strings.Join(v, "\n")
 }
