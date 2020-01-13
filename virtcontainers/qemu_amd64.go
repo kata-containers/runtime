@@ -131,9 +131,9 @@ func (q *qemuAmd64) cpuModel() string {
 		cpuModel += ",pmu=off"
 	}
 
-	// VMX is not migratable yet.
-	// issue: https://github.com/kata-containers/runtime/issues/1750
-	if q.vmFactory {
+	if q.nestedRun {
+		// VMX is not migratable yet.
+		// issue: https://github.com/kata-containers/runtime/issues/1750
 		virtLog.WithField("subsystem", "qemuAmd64").Warn("VMX is not migratable yet: turning it off")
 		cpuModel += ",vmx=off"
 	}
