@@ -509,7 +509,7 @@ func (q *qemu) createSandbox(ctx context.Context, id string, networkNS NetworkNa
 	// subsequent ones with shared=off. virtio-fs always requires shared=on for
 	// memory.
 	if q.config.SharedFS == config.VirtioFS || q.config.FileBackedMemRootDir != "" {
-		if !(q.config.BootToBeTemplate || q.config.BootFromTemplate) {
+		if (!q.config.BootToBeTemplate && !q.config.BootFromTemplate) {
 			q.setupFileBackedMem(&knobs, &memory)
 		} else {
 			return errors.New("VM templating has been enabled with either virtio-fs or file backed memory and this configuration will not work")
