@@ -419,7 +419,8 @@
   revision = "ee21903287393441c7bb53a0b0d39b8fa4075221"
 
 [[projects]]
-  digest = "1:903bfb87f41dc18a533d327b5b03fd2f562f34deafcbd0db93d4be3fa8d6099c"
+  branch = "fix_ch"
+  digest = "1:469572daffe3feb05e530295689d6b8613c73aefff407f4296641554c6a181c8"
   name = "github.com/kata-containers/agent"
   packages = [
     "pkg/types",
@@ -427,7 +428,8 @@
     "protocols/grpc",
   ]
   pruneopts = "NUT"
-  revision = "686708d9a8be625f9350c925ae3f038c1530a423"
+  revision = "8c0b8c520f5636ffc9a8c280b30671ee3a747a1f"
+  source = "github.com/sboeuf/agent"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -795,6 +797,7 @@
     "github.com/opencontainers/runc/libcontainer/cgroups/systemd",
     "github.com/opencontainers/runc/libcontainer/configs",
     "github.com/opencontainers/runc/libcontainer/specconv",
+    "github.com/opencontainers/runc/libcontainer/system",
     "github.com/opencontainers/runc/libcontainer/utils",
     "github.com/opencontainers/runtime-spec/specs-go",
     "github.com/opentracing/opentracing-go",
