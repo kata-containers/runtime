@@ -125,11 +125,11 @@ assets:
       s390x:
         name: "ubuntu"
         version: "latest"
-      x86_64:
-        name: &default-image-name "clearlinux"
+      x86_64: &default-image
+        name: "clearlinux"
         version: "latest"
     meta:
-      image-type: *default-image-name
+      image-type: *default-image
 
   initrd:
     description: |
@@ -137,18 +137,12 @@ assets:
       machine.
     url: "https://github.com/kata-containers/osbuilder"
     architecture:
-      aarch64:
-        name: &default-initrd-name "alpine"
-        version: &default-initrd-version "3.7"
-      ppc64le:
-        name: *default-initrd-name
-        version: *default-initrd-version
-      s390x:
-        name: *default-initrd-name
-        version: *default-initrd-version
-      x86_64:
-        name: *default-initrd-name
-        version: *default-initrd-version
+      aarch64: &default-initrd
+        name: "alpine"
+        version: "3.7"
+      ppc64le: *default-initrd
+      s390x: *default-initrd
+      x86_64: *default-initrd
 
   kernel:
     description: "Linux kernel optimised for virtual machines"
