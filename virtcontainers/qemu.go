@@ -625,13 +625,12 @@ func (q *qemu) virtiofsdArgs(fd uintptr) []string {
 	return args
 }
 
-func (q *qemu) setupVirtiofsd() (err error) {
+func (q *qemu) setupVirtiofsdSock() (fd *os.File, err error) {
 	var listener *net.UnixListener
-	var fd *os.File
 
 	sockPath, err := q.vhostFSSocketPath(q.id)
 	if err != nil {
-		return err
+		return fd, err
 	}
 
 	listener, err = net.ListenUnix("unix", &net.UnixAddr{
@@ -639,16 +638,17 @@ func (q *qemu) setupVirtiofsd() (err error) {
 		Net:  "unix",
 	})
 	if err != nil {
-		return err
+		return fd, err
 	}
 	listener.SetUnlinkOnClose(false)
 
 	fd, err = listener.File()
 	listener.Close() // no longer needed since fd is a dup
 	listener = nil
-	if err != nil {
-		return err
-	}
+	return fd, err
+}
+
+func (q *qemu) setupVirtiofsd(fd *os.File) (err error) {
 
 	const sockFd = 3 // Cmd.ExtraFiles[] fds are numbered starting from 3
 	cmd := exec.Command(q.config.VirtioFSDaemon, q.virtiofsdArgs(sockFd)...)
@@ -772,16 +772,48 @@ func (q *qemu) startSandbox(timeout int) error {
 		}
 	}()
 
+	var strErr string
+	var serr, qerr error
 	if q.config.SharedFS == config.VirtioFS {
-		err = q.setupVirtiofsd()
+		var sockFd *os.File
+		sch := make(chan bool)
+		qch := make(chan bool)
+		ch := make(chan bool, 2)
+		go func() {
+			<-ch
+			serr = q.setupVirtiofsd(sockFd)
+			sch <- true
+		}()
+		go func() {
+			<-ch
+			strErr, qerr = govmmQemu.LaunchQemu(q.qemuConfig, newQMPLogger())
+			qch <- true
+		}()
+		sockFd, err = q.setupVirtiofsdSock()
 		if err != nil {
+			close(sch)
+			close(qch)
+			close(ch)
+			q.Logger().WithError(err).Error("fail to setup socket for virtiofsd")
 			return err
 		}
+		ch <- true
+		ch <- true
+		<-sch
+		close(sch)
+		if serr != nil {
+			close(qch)
+			close(ch)
+			q.Logger().WithError(err).Error("fail to setup virtiofsd")
+			return serr
+		}
+		<-qch
+		close(qch)
+		close(ch)
+	} else {
+		strErr, qerr = govmmQemu.LaunchQemu(q.qemuConfig, newQMPLogger())
 	}
-
-	var strErr string
-	strErr, err = govmmQemu.LaunchQemu(q.qemuConfig, newQMPLogger())
-	if err != nil {
+	if qerr != nil {
 		if q.config.Debug && q.qemuConfig.LogFile != "" {
 			b, err := ioutil.ReadFile(q.qemuConfig.LogFile)
 			if err == nil {
