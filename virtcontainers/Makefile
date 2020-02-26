@@ -29,7 +29,7 @@ QUIET_GOBUILD = $(Q:@=@echo    '     GOBUILD  '$@;)
 all: build binaries
 
 build:
-	$(QUIET_GOBUILD)go build $(go list ./... | grep -v /vendor/)
+	$(QUIET_GOBUILD)go build $(go list ./...)
 
 hook:
 	$(QUIET_GOBUILD)go build -o $(HOOK_DIR)/$@ $(HOOK_DIR)/*.go
