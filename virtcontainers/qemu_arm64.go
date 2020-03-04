@@ -105,3 +105,7 @@ func (q *qemuArm64) setIgnoreSharedMemoryMigrationCaps(_ context.Context, _ *gov
 	// x-ignore-shared not support in arm64 for now
 	return nil
 }
+
+func (q *qemuArm64) appendIOMMU(devices []govmmQemu.Device) ([]govmmQemu.Device, error) {
+	return devices, fmt.Errorf("Arm64 architecture does not support vIOMMU")
+}
