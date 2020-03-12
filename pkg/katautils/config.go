@@ -120,6 +120,7 @@ type hypervisor struct {
 	MemPrealloc             bool     `toml:"enable_mem_prealloc"`
 	HugePages               bool     `toml:"enable_hugepages"`
 	VirtioMem               bool     `toml:"enable_virtio_mem"`
+	IOMMU                   bool     `toml:"enable_iommu"`
 	FileBackedMemRootDir    string   `toml:"file_mem_backend"`
 	Swap                    bool     `toml:"enable_swap"`
 	Debug                   bool     `toml:"enable_debug"`
@@ -668,6 +669,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		VirtioFSExtraArgs:       h.VirtioFSExtraArgs,
 		MemPrealloc:             h.MemPrealloc,
 		HugePages:               h.HugePages,
+		IOMMU:                   h.IOMMU,
 		FileBackedMemRootDir:    h.FileBackedMemRootDir,
 		Mlock:                   !h.Swap,
 		Debug:                   h.Debug,
@@ -1110,6 +1112,7 @@ func GetDefaultHypervisorConfig() vc.HypervisorConfig {
 		DefaultBridges:          defaultBridgesCount,
 		MemPrealloc:             defaultEnableMemPrealloc,
 		HugePages:               defaultEnableHugePages,
+		IOMMU:                   defaultEnableIOMMU,
 		FileBackedMemRootDir:    defaultFileBackedMemRootDir,
 		Mlock:                   !defaultEnableSwap,
 		Debug:                   defaultEnableDebug,
