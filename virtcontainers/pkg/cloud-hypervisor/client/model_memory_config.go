@@ -8,9 +8,10 @@
  */
 
 package openapi
+
 // MemoryConfig struct for MemoryConfig
 type MemoryConfig struct {
-	Size int64 `json:"size"`
-	File string `json:"file,omitempty"`
-	Mergeable bool `json:"mergeable,omitempty"`
+	Size      int64  `json:"size"`
+	File      string `json:"file,omitempty"`
+	Mergeable bool   `json:"mergeable,omitempty"`
 }

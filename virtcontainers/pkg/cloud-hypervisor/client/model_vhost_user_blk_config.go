@@ -8,10 +8,11 @@
  */
 
 package openapi
+
 // VhostUserBlkConfig struct for VhostUserBlkConfig
 type VhostUserBlkConfig struct {
-	Sock string `json:"sock"`
-	NumQueues int32 `json:"num_queues,omitempty"`
-	QueueSize int32 `json:"queue_size,omitempty"`
-	Wce bool `json:"wce,omitempty"`
+	Sock      string `json:"sock"`
+	NumQueues int32  `json:"num_queues,omitempty"`
+	QueueSize int32  `json:"queue_size,omitempty"`
+	Wce       bool   `json:"wce,omitempty"`
 }

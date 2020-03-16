@@ -8,8 +8,9 @@
  */
 
 package openapi
+
 // VmInfo Virtual Machine information
 type VmInfo struct {
 	Config VmConfig `json:"config"`
-	State string `json:"state"`
+	State  string   `json:"state"`
 }

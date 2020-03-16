@@ -8,8 +8,9 @@
  */
 
 package openapi
+
 // DeviceConfig struct for DeviceConfig
 type DeviceConfig struct {
-	Path string `json:"path"`
-	Iommu bool `json:"iommu,omitempty"`
+	Path  string `json:"path"`
+	Iommu bool   `json:"iommu,omitempty"`
 }
