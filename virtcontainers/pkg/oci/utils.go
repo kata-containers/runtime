@@ -643,6 +643,15 @@ func addHypervisorBlockOverrides(ocispec specs.Spec, sbConfig *vc.SandboxConfig)
 		sbConfig.HypervisorConfig.BlockDeviceCacheNoflush = blockDeviceCacheNoflush
 	}
 
+	if value, ok := ocispec.Annotations[vcAnnotations.ForciblyDisablePmu]; ok {
+		forciblyDisablePmu, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("Error parsing annotation for forcibly_disable_pmu: Please specify boolean value 'true|false'")
+		}
+
+		sbConfig.HypervisorConfig.ForciblyDisablePmu = forciblyDisablePmu
+	}
+
 	return nil
 }
 

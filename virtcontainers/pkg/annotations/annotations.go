@@ -197,6 +197,9 @@ const (
 	// BlockDeviceCacheNoflush is a sandbox annotation that specifies cache-related options for block devices.
 	// Denotes whether flush requests for the device are ignored.
 	BlockDeviceCacheNoflush = kataAnnotHypervisorPrefix + "block_device_cache_noflush"
+
+	// Forcibly disable pmu
+	ForciblyDisablePmu = kataAnnotHypervisorPrefix + "forcibly_disable_pmu"
 )
 
 // Agent related annotations

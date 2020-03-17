@@ -777,6 +777,7 @@ func TestAddHypervisorAnnotations(t *testing.T) {
 	ocispec.Annotations[vcAnnotations.BlockDeviceCacheSet] = "true"
 	ocispec.Annotations[vcAnnotations.BlockDeviceCacheDirect] = "true"
 	ocispec.Annotations[vcAnnotations.BlockDeviceCacheNoflush] = "true"
+	ocispec.Annotations[vcAnnotations.ForciblyDisablePmu] = "false"
 	ocispec.Annotations[vcAnnotations.SharedFS] = "virtio-fs"
 	ocispec.Annotations[vcAnnotations.VirtioFSDaemon] = "/home/virtiofsd"
 	ocispec.Annotations[vcAnnotations.VirtioFSCache] = "/home/cache"
@@ -808,6 +809,7 @@ func TestAddHypervisorAnnotations(t *testing.T) {
 	assert.Equal(config.HypervisorConfig.BlockDeviceCacheSet, true)
 	assert.Equal(config.HypervisorConfig.BlockDeviceCacheDirect, true)
 	assert.Equal(config.HypervisorConfig.BlockDeviceCacheNoflush, true)
+	assert.Equal(config.HypervisorConfig.ForciblyDisablePmu, false)
 	assert.Equal(config.HypervisorConfig.SharedFS, "virtio-fs")
 	assert.Equal(config.HypervisorConfig.VirtioFSDaemon, "/home/virtiofsd")
 	assert.Equal(config.HypervisorConfig.VirtioFSCache, "/home/cache")
