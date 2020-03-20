@@ -155,14 +155,14 @@ func loadRuntimeConfig(s *service, r *taskAPI.CreateTaskRequest, anno map[string
 	configPath := oci.GetSandboxConfigPath(anno)
 	if configPath == "" && r.Options != nil {
 		v, err := typeurl.UnmarshalAny(r.Options)
-		if err != nil {
-			return nil, err
-		}
-		option, ok := v.(*crioption.Options)
-		// cri default runtime handler will pass a linux runc options,
-		// and we'll ignore it.
-		if ok {
-			configPath = option.ConfigPath
+		// Ignore error as cri daemon might send v1 options that make no sense to us
+		if err == nil {
+			option, ok := v.(*crioption.Options)
+			// cri default runtime handler will pass a linux runc options,
+			// and we'll ignore it.
+			if ok {
+				configPath = option.ConfigPath
+			}
 		}
 	}
 
