@@ -129,6 +129,7 @@ func (q *qemuAmd64) bridges(number uint32) {
 
 func (q *qemuAmd64) cpuModel() string {
 	cpuModel := defaultCPUModel
+	cpuModel += ",kvm=off"
 	if q.nestedRun {
 		cpuModel += ",pmu=off"
 	}
