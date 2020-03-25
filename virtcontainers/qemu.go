@@ -551,6 +551,9 @@ func (q *qemu) createSandbox(ctx context.Context, id string, networkNS NetworkNa
 	}
 
 	cpuModel := q.arch.cpuModel()
+	if q.config.ForciblyDisablePmu && !strings.Contains(cpuModel, ",pmu=off") {
+		cpuModel += ",pmu=off"
+	}
 
 	firmwarePath, err := q.config.FirmwareAssetPath()
 	if err != nil {

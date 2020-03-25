@@ -104,6 +104,7 @@ type hypervisor struct {
 	BlockDeviceCacheSet     bool     `toml:"block_device_cache_set"`
 	BlockDeviceCacheDirect  bool     `toml:"block_device_cache_direct"`
 	BlockDeviceCacheNoflush bool     `toml:"block_device_cache_noflush"`
+	ForciblyDisablePmu      bool     `toml:"forcibly_disable_pmu"`
 	EnableVhostUserStore    bool     `toml:"enable_vhost_user_store"`
 	VhostUserStorePath      string   `toml:"vhost_user_store_path"`
 	NumVCPUs                int32    `toml:"default_vcpus"`
@@ -653,6 +654,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		BlockDeviceCacheSet:     h.BlockDeviceCacheSet,
 		BlockDeviceCacheDirect:  h.BlockDeviceCacheDirect,
 		BlockDeviceCacheNoflush: h.BlockDeviceCacheNoflush,
+		ForciblyDisablePmu:      h.ForciblyDisablePmu,
 		EnableIOThreads:         h.EnableIOThreads,
 		Msize9p:                 h.msize9p(),
 		UseVSock:                useVSock,
@@ -1084,6 +1086,7 @@ func GetDefaultHypervisorConfig() vc.HypervisorConfig {
 		BlockDeviceCacheSet:     defaultBlockDeviceCacheSet,
 		BlockDeviceCacheDirect:  defaultBlockDeviceCacheDirect,
 		BlockDeviceCacheNoflush: defaultBlockDeviceCacheNoflush,
+		ForciblyDisablePmu:      defaultForciblyDisablePmu,
 		EnableIOThreads:         defaultEnableIOThreads,
 		Msize9p:                 defaultMsize9p,
 		HotplugVFIOOnRootBus:    defaultHotplugVFIOOnRootBus,

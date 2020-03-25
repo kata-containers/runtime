@@ -35,6 +35,7 @@ const defaultBlockDeviceDriver = "virtio-scsi"
 const defaultBlockDeviceCacheSet bool = false
 const defaultBlockDeviceCacheDirect bool = false
 const defaultBlockDeviceCacheNoflush bool = false
+const defaultForciblyDisablePmu bool = false
 const defaultEnableIOThreads bool = false
 const defaultEnableMemPrealloc bool = false
 const defaultEnableHugePages bool = false

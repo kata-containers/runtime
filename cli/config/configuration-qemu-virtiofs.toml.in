@@ -149,6 +149,11 @@ block_device_driver = "@DEFBLOCKSTORAGEDRIVER_QEMU@"
 # Default false
 #block_device_cache_noflush = true
 
+# Specifies pmu options for hvpervisor.
+# Denotes whether add pmu=off for guest
+# Default false, not adding pmu=off
+#forcibly_disable_pmu = false
+
 # Enable iothreads (data-plane) to be used. This causes IO to be
 # handled in a separate IO thread. This is currently only implemented
 # for SCSI.
