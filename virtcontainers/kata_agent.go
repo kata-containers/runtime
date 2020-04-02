@@ -1780,17 +1780,10 @@ func (k *kataAgent) connect() error {
 	if k.dead {
 		return errors.New("Dead agent")
 	}
-	// lockless quick pass
-	if k.client != nil {
-		return nil
-	}
 
 	span, _ := k.trace("connect")
 	defer span.Finish()
 
-	// This is for the first connection only, to prevent race
-	k.Lock()
-	defer k.Unlock()
 	if k.client != nil {
 		return nil
 	}
@@ -1818,9 +1811,6 @@ func (k *kataAgent) connect() error {
 func (k *kataAgent) disconnect() error {
 	span, _ := k.trace("disconnect")
 	defer span.Finish()
-
-	k.Lock()
-	defer k.Unlock()
 
 	if k.client == nil {
 		return nil
@@ -2005,6 +1995,9 @@ func (k *kataAgent) sendReq(request interface{}) (interface{}, error) {
 	span, _ := k.trace("sendReq")
 	span.SetTag("request", request)
 	defer span.Finish()
+
+	k.Lock()
+	defer k.Unlock()
 
 	if err := k.connect(); err != nil {
 		return nil, err
