@@ -7,7 +7,6 @@ package virtcontainers
 
 import (
 	"context"
-	"runtime"
 	"time"
 
 	govmmQemu "github.com/intel/govmm/qemu"
@@ -25,6 +24,8 @@ const defaultQemuMachineType = QemuVirt
 const qmpMigrationWaitTimeout = 10 * time.Second
 
 const defaultQemuMachineOptions = "usb=off,accel=kvm,gic-version=host"
+
+var defaultGICVersion = uint32(3)
 
 var qemuPaths = map[string]string{
 	QemuVirt: defaultQemuPath,
@@ -56,7 +57,7 @@ var gicList = map[uint32]uint32{
 
 // MaxQemuVCPUs returns the maximum number of vCPUs supported
 func MaxQemuVCPUs() uint32 {
-	return uint32(runtime.NumCPU())
+	return gicList[defaultGICVersion]
 }
 
 func newQemuArch(config HypervisorConfig) qemuArch {
