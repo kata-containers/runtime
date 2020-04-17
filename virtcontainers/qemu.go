@@ -1450,8 +1450,8 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operati
 		vcpus := devInfo.(uint32)
 		return q.hotplugCPUs(vcpus, op)
 	case vfioDev:
-		device := devInfo.(*config.VFIODev)
-		return nil, q.hotplugVFIODevice(device, op)
+		//device := devInfo.(*config.VFIODev)
+		return nil, nil //q.hotplugVFIODevice(device, op)
 	case memoryDev:
 		memdev := devInfo.(*memoryDevice)
 		return q.hotplugMemory(memdev, op)
