@@ -93,6 +93,7 @@ type hypervisor struct {
 	Image                   string   `toml:"image"`
 	Firmware                string   `toml:"firmware"`
 	MachineAccelerators     string   `toml:"machine_accelerators"`
+	CPUFeatures             string   `toml:"cpu_features"`
 	KernelParams            string   `toml:"kernel_params"`
 	MachineType             string   `toml:"machine_type"`
 	BlockDeviceDriver       string   `toml:"block_device_driver"`
@@ -241,17 +242,28 @@ func (h hypervisor) firmware() (string, error) {
 
 func (h hypervisor) machineAccelerators() string {
 	var machineAccelerators string
-	accelerators := strings.Split(h.MachineAccelerators, ",")
-	acceleratorsLen := len(accelerators)
-	for i := 0; i < acceleratorsLen; i++ {
-		if accelerators[i] != "" {
-			machineAccelerators += strings.Trim(accelerators[i], "\r\t\n ") + ","
+	for _, accelerator := range strings.Split(h.MachineAccelerators, ",") {
+		if accelerator != "" {
+			machineAccelerators += strings.TrimSpace(accelerator) + ","
 		}
 	}
 
 	machineAccelerators = strings.Trim(machineAccelerators, ",")
 
 	return machineAccelerators
+}
+
+func (h hypervisor) cpuFeatures() string {
+	var cpuFeatures string
+	for _, feature := range strings.Split(h.CPUFeatures, ",") {
+		if feature != "" {
+			cpuFeatures += strings.TrimSpace(feature) + ","
+		}
+	}
+
+	cpuFeatures = strings.Trim(cpuFeatures, ",")
+
+	return cpuFeatures
 }
 
 func (h hypervisor) kernelParams() string {
@@ -593,6 +605,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 	}
 
 	machineAccelerators := h.machineAccelerators()
+	cpuFeatures := h.cpuFeatures()
 	kernelParams := h.kernelParams()
 	machineType := h.machineType()
 
@@ -636,6 +649,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		ImagePath:               image,
 		FirmwarePath:            firmware,
 		MachineAccelerators:     machineAccelerators,
+		CPUFeatures:             cpuFeatures,
 		KernelParams:            vc.DeserializeParams(strings.Fields(kernelParams)),
 		HypervisorMachineType:   machineType,
 		NumVCPUs:                h.defaultVCPUs(),
@@ -1085,6 +1099,7 @@ func GetDefaultHypervisorConfig() vc.HypervisorConfig {
 		InitrdPath:              defaultInitrdPath,
 		FirmwarePath:            defaultFirmwarePath,
 		MachineAccelerators:     defaultMachineAccelerators,
+		CPUFeatures:             defaultCPUFeatures,
 		HypervisorMachineType:   defaultMachineType,
 		NumVCPUs:                defaultVCPUCount,
 		DefaultMaxVCPUs:         defaultMaxVCPUCount,
