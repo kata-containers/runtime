@@ -891,6 +891,7 @@ func (dev SerialDevice) QemuParams(config *Config) []string {
 	deviceParams = append(deviceParams, fmt.Sprintf(",id=%s", dev.ID))
 	if dev.Transport.isVirtioPCI(config) {
 		deviceParams = append(deviceParams, fmt.Sprintf(",romfile=%s", dev.ROMFile))
+		deviceParams = append(deviceParams, fmt.Sprintf(",max_ports=2"))
 	}
 
 	if dev.Transport.isVirtioCCW(config) {
