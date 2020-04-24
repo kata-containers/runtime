@@ -52,6 +52,7 @@ func SetLogger(ctx context.Context, logger *logrus.Entry) {
 	deviceApi.SetLogger(virtLog)
 	store.SetLogger(virtLog)
 	compatoci.SetLogger(virtLog)
+	store.SetLogger(virtLog)
 }
 
 // CreateSandbox is the virtcontainers sandbox creation entry point.
