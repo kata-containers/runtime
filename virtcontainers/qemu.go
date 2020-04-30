@@ -36,6 +36,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
+	"github.com/mdlayher/vsock"
 )
 
 // romFile is the file name of the ROM that can be used for virtio-pci devices.
@@ -99,6 +100,9 @@ type qemu struct {
 	stopped bool
 
 	store persistapi.PersistDriver
+
+	vsockHostPort uint32
+	vsockConnect  chan bool
 }
 
 const (
@@ -109,10 +113,12 @@ const (
 	qmpCapErrMsg  = "Failed to negoatiate QMP capabilities"
 	qmpExecCatCmd = "exec:cat"
 
-	scsiControllerID         = "scsi0"
-	rngID                    = "rng0"
-	vsockKernelOption        = "agent.use_vsock"
-	fallbackFileBackedMemDir = "/dev/shm"
+	scsiControllerID          = "scsi0"
+	rngID                     = "rng0"
+	vsockKernelOption         = "agent.use_vsock"
+	vsockHostPortKernelOption = "agent.vsock_host_port"
+	vsockReadyTimeOut         = 2 * time.Second
+	fallbackFileBackedMemDir  = "/dev/shm"
 )
 
 var qemuMajorVersion int
@@ -168,6 +174,11 @@ func (q *qemu) kernelParameters() string {
 	// This will be consumed by the agent to determine if it needs to listen on
 	// a serial or vsock channel
 	params = append(params, Param{vsockKernelOption, strconv.FormatBool(q.config.UseVSock)})
+	// Set the vsock host port if vsock is being used.
+	// This will be consumed by the agent to do a quick handshake.
+	if q.config.UseVSock {
+		params = append(params, Param{vsockHostPortKernelOption, fmt.Sprintf("%d", q.vsockHostPort)})
+	}
 
 	// add the params specified by the provided config. As the kernel
 	// honours the last parameter value set and since the config-provided
@@ -499,6 +510,12 @@ func (q *qemu) createSandbox(ctx context.Context, id string, networkNS NetworkNa
 		return err
 	}
 
+	if q.config.UseVSock {
+		if err := q.setVSockHostPort(); err != nil {
+			return err
+		}
+	}
+
 	kernel := govmmQemu.Kernel{
 		Path:       kernelPath,
 		InitrdPath: initrdPath,
@@ -606,6 +623,35 @@ func (q *qemu) createSandbox(ctx context.Context, id string, networkNS NetworkNa
 
 	q.qemuConfig = qemuConfig
 
+	return nil
+}
+
+func (q *qemu) setVSockHostPort() error {
+	socket, err := unix.Socket(unix.AF_VSOCK, unix.SOCK_STREAM, 0)
+	if err != nil {
+		return err
+	}
+	defer syscall.Close(socket)
+
+	// Let the kernel assign a unique port to avoid confliction when
+	// running parallel.
+	sockAddrAny := &unix.SockaddrVM{
+		CID:  unix.VMADDR_CID_ANY,
+		Port: unix.VMADDR_PORT_ANY,
+	}
+
+	if err := unix.Bind(socket, sockAddrAny); err != nil {
+		return err
+	}
+
+	// Acquire the host port info
+	sockAddr, err := unix.Getsockname(socket)
+	if err != nil {
+		return err
+	}
+
+	q.vsockHostPort = sockAddr.(*unix.SockaddrVM).Port
+	q.Logger().WithField("vosk-host-port", q.vsockHostPort).Debug("Assign a unique vsock host port")
 	return nil
 }
 
@@ -815,6 +861,24 @@ func (q *qemu) startSandbox(timeout int) error {
 		}
 	}
 
+	if q.config.UseVSock {
+		q.vsockConnect = make(chan bool)
+		// Launch a goroutine to listen to a comming connection from agent.
+		// It just does a quick handshake to confirm the vsock transport in guest part is ready.
+		go func() {
+			l, err := vsock.Listen(q.vsockHostPort)
+			if err != nil {
+				q.Logger().WithError(err).Errorf("Fail to listen to vsock host port %d", q.vsockHostPort)
+			}
+
+			_, err = l.Accept()
+			if err == nil {
+				q.Logger().Debug("Accept a comming connection from agent, vsock tranport is ready!")
+				q.vsockConnect <- true
+			}
+		}()
+	}
+
 	var strErr string
 	strErr, err = govmmQemu.LaunchQemu(q.qemuConfig, newQMPLogger())
 	if err != nil {
@@ -827,6 +891,12 @@ func (q *qemu) startSandbox(timeout int) error {
 
 		q.Logger().WithError(err).Errorf("failed to launch qemu: %s", strErr)
 		return fmt.Errorf("failed to launch qemu: %s, error messages from qemu log: %s", err, strErr)
+	}
+
+	if q.config.UseVSock {
+		if err := q.waitVSockReady(); err != nil {
+			return err
+		}
 	}
 
 	err = q.waitSandbox(timeout)
@@ -865,6 +935,17 @@ func (q *qemu) bootFromTemplate() error {
 		return err
 	}
 	return q.waitMigration()
+}
+
+func (q *qemu) waitVSockReady() error {
+	select {
+	case <-q.vsockConnect:
+		// receive a connection from agent, that is,
+		// vsock device in guest is ready.
+		return nil
+	case <-time.After(vsockReadyTimeOut):
+		return fmt.Errorf("time out to wait vsock device in guest ready")
+	}
 }
 
 // waitSandbox will wait for the Sandbox's VM to be up and running.
