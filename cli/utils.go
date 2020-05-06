@@ -160,7 +160,7 @@ func constructVersionInfo(version string) VersionInfo {
 	if err != nil {
 		return unknownVersionInfo
 	}
-
+	fmt.Println("VERSION:", version)
 	pres := strings.Split(sv.Pre[0].VersionStr, "-")
 
 	// version contains Commit info.
