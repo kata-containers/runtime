@@ -45,6 +45,7 @@ func TestStartStartSandboxSuccess(t *testing.T) {
 		id:         testSandboxID,
 		sandbox:    sandbox,
 		containers: make(map[string]*container),
+		ctx:        context.Background(),
 	}
 
 	reqCreate := &taskAPI.CreateTaskRequest{
@@ -93,6 +94,7 @@ func TestStartMissingAnnotation(t *testing.T) {
 		id:         testSandboxID,
 		sandbox:    sandbox,
 		containers: make(map[string]*container),
+		ctx:        context.Background(),
 	}
 
 	reqCreate := &taskAPI.CreateTaskRequest{
@@ -159,6 +161,7 @@ func TestStartStartContainerSucess(t *testing.T) {
 		id:         testSandboxID,
 		sandbox:    sandbox,
 		containers: make(map[string]*container),
+		ctx:        context.Background(),
 	}
 
 	reqCreate := &taskAPI.CreateTaskRequest{

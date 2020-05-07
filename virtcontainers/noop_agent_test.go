@@ -244,3 +244,12 @@ func TestNoopCopyFile(t *testing.T) {
 	err := n.copyFile("", "")
 	assert.Nil(err)
 }
+
+func TestNoopGetOOMEvent(t *testing.T) {
+	assert := assert.New(t)
+	n := &noopAgent{}
+
+	containerID, err := n.getOOMEvent()
+	assert.Nil(err)
+	assert.Empty(containerID)
+}

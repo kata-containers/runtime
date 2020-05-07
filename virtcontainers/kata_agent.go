@@ -127,6 +127,7 @@ const (
 	grpcSetGuestDateTimeRequest  = "grpc.SetGuestDateTimeRequest"
 	grpcStartTracingRequest      = "grpc.StartTracingRequest"
 	grpcStopTracingRequest       = "grpc.StopTracingRequest"
+	grpcGetOOMEventRequest       = "grpc.GetOOMEventRequest"
 )
 
 // The function is declared this way for mocking in unit tests
@@ -1999,6 +2000,9 @@ func (k *kataAgent) installReqFunc(c *kataclient.AgentClient) {
 	k.reqHandlers[grpcStopTracingRequest] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
 		return k.client.StopTracing(ctx, req.(*grpc.StopTracingRequest), opts...)
 	}
+	k.reqHandlers[grpcGetOOMEventRequest] = func(ctx context.Context, req interface{}, opts ...golangGrpc.CallOption) (interface{}, error) {
+		return k.client.GetOOMEvent(ctx, req.(*grpc.GetOOMEventRequest), opts...)
+	}
 }
 
 func (k *kataAgent) getReqContext(reqName string) (ctx context.Context, cancel context.CancelFunc) {
@@ -2320,4 +2324,16 @@ func (k *kataAgent) save() persistapi.AgentState {
 func (k *kataAgent) load(s persistapi.AgentState) {
 	k.state.ProxyPid = s.ProxyPid
 	k.state.URL = s.URL
+}
+
+func (k *kataAgent) getOOMEvent() (string, error) {
+	req := &grpc.GetOOMEventRequest{}
+	result, err := k.sendReq(req)
+	if err != nil {
+		return "", err
+	}
+	if oomEvent, ok := result.(*grpc.OOMEvent); ok {
+		return oomEvent.ContainerId, nil
+	}
+	return "", err
 }

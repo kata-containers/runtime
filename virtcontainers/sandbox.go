@@ -2207,3 +2207,7 @@ func (s *Sandbox) GetPatchedOCISpec() *specs.Spec {
 
 	return nil
 }
+
+func (s *Sandbox) GetOOMEvent() (string, error) {
+	return s.agent.getOOMEvent()
+}
