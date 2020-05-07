@@ -8,6 +8,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	runtim "runtime"
 	"strings"
@@ -444,19 +445,23 @@ func getEnvInfo(configFile string, config oci.RuntimeConfig) (env EnvInfo, err e
 
 func handleSettings(file *os.File, c *cli.Context) error {
 	if file == nil {
+		fmt.Println("kata-env error invalid output file")
 		return errors.New("Invalid output file specified")
 	}
 
 	configFile, ok := c.App.Metadata["configFile"].(string)
 	if !ok {
+		fmt.Println("kata-env error cannot determine config file")
 		return errors.New("cannot determine config file")
 	}
 
 	runtimeConfig, ok := c.App.Metadata["runtimeConfig"].(oci.RuntimeConfig)
 	if !ok {
+		fmt.Println("kata-env error cannot determine config file")
 		return errors.New("cannot determine runtime config")
 	}
 
+	fmt.Println("get env info")
 	env, err := getEnvInfo(configFile, runtimeConfig)
 	if err != nil {
 		return err
@@ -466,6 +471,7 @@ func handleSettings(file *os.File, c *cli.Context) error {
 		return writeJSONSettings(env, file)
 	}
 
+	fmt.Println("write toml")
 	return writeTOMLSettings(env, file)
 }
 
@@ -504,11 +510,13 @@ var kataEnvCLICommand = cli.Command{
 		},
 	},
 	Action: func(context *cli.Context) error {
+		fmt.Println("kata-env is running")
 		ctx, err := cliContextToContext(context)
 		if err != nil {
 			return err
 		}
 
+		fmt.Println("kata-env trace")
 		span, _ := katautils.Trace(ctx, "kata-env")
 		defer span.Finish()
 
