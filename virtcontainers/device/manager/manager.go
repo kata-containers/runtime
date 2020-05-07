@@ -78,8 +78,6 @@ func NewDeviceManager(blockDriver string, vhostUserStoreEnabled bool, vhostUserS
 		dm.blockDriver = VirtioSCSI
 	}
 
-	drivers.AllPCIeDevs = make(map[string]bool)
-
 	for _, dev := range devices {
 		dm.devices[dev.DeviceID()] = dev
 	}
