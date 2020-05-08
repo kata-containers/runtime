@@ -31,9 +31,10 @@ const (
 )
 
 var qemuPaths = map[string]string{
-	QemuPCLite: "/usr/bin/qemu-lite-system-x86_64",
-	QemuPC:     defaultQemuPath,
-	QemuQ35:    defaultQemuPath,
+	QemuPCLite:  "/usr/bin/qemu-lite-system-x86_64",
+	QemuPC:      defaultQemuPath,
+	QemuQ35:     defaultQemuPath,
+	QemuMicrovm: defaultQemuPath,
 }
 
 var kernelParams = []Param{
@@ -69,6 +70,10 @@ var supportedQemuMachines = []govmmQemu.Machine{
 	},
 	{
 		Type:    QemuVirt,
+		Options: defaultQemuMachineOptions,
+	},
+	{
+		Type:    QemuMicrovm,
 		Options: defaultQemuMachineOptions,
 	},
 }
@@ -146,6 +151,12 @@ func (q *qemuAmd64) cpuModel() string {
 
 func (q *qemuAmd64) memoryTopology(memoryMb, hostMemoryMb uint64, slots uint8) govmmQemu.Memory {
 	return genericMemoryTopology(memoryMb, hostMemoryMb, slots, q.memoryOffset)
+}
+
+// Is Memory Hotplug supported by this architecture/machine type combination?
+func (q *qemuAmd64) supportGuestMemoryHotplug() bool {
+	// true for all amd64 machine types except for microvm.
+	return q.machineType != govmmQemu.MachineTypeMicrovm
 }
 
 func (q *qemuAmd64) appendImage(devices []govmmQemu.Device, path string) ([]govmmQemu.Device, error) {
