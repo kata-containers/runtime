@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+# This is a test
 distro := $(shell \
 for file in /etc/os-release /usr/lib/os-release; do \
     if [ -e $$file ]; then \
