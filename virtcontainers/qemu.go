@@ -663,6 +663,7 @@ func (q *qemu) setupVirtiofsd() (err error) {
 	if err != nil {
 		return err
 	}
+	defer fd.Close()
 
 	const sockFd = 3 // Cmd.ExtraFiles[] fds are numbered starting from 3
 	cmd := exec.Command(q.config.VirtioFSDaemon, q.virtiofsdArgs(sockFd)...)
