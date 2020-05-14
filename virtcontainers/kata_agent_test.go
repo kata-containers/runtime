@@ -193,6 +193,10 @@ func (p *gRPCProxy) ListRoutes(ctx context.Context, req *pb.ListRoutesRequest) (
 	return &pb.Routes{}, nil
 }
 
+func (p *gRPCProxy) AddARPNeighbors(ctx context.Context, req *pb.AddARPNeighborsRequest) (*gpb.Empty, error) {
+	return emptyResp, nil
+}
+
 func (p *gRPCProxy) OnlineCPUMem(ctx context.Context, req *pb.OnlineCPUMemRequest) (*gpb.Empty, error) {
 	return emptyResp, nil
 }
@@ -967,6 +971,9 @@ func TestAgentNetworkOperation(t *testing.T) {
 	assert.Nil(err)
 
 	_, err = k.listRoutes()
+	assert.Nil(err)
+
+	err = k.addARPNeighbors(nil)
 	assert.Nil(err)
 }
 
