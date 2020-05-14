@@ -86,7 +86,7 @@ type factory struct {
 
 type hypervisor struct {
 	Path                    string   `toml:"path"`
-	PathList                []string `toml:"path_list"`
+	HypervisorPathList      []string `toml:"path_list"`
 	JailerPath              string   `toml:"jailer_path"`
 	JailerPathList          []string `toml:"jailer_path_list"`
 	Kernel                  string   `toml:"kernel"`
@@ -566,6 +566,7 @@ func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 
 	return vc.HypervisorConfig{
 		HypervisorPath:        hypervisor,
+		HypervisorPathList:    h.HypervisorPathList,
 		JailerPath:            jailer,
 		KernelPath:            kernel,
 		InitrdPath:            initrd,
@@ -662,6 +663,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 
 	return vc.HypervisorConfig{
 		HypervisorPath:          hypervisor,
+		HypervisorPathList:      h.HypervisorPathList,
 		KernelPath:              kernel,
 		InitrdPath:              initrd,
 		ImagePath:               image,
@@ -750,6 +752,7 @@ func newAcrnHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 
 	return vc.HypervisorConfig{
 		HypervisorPath:       hypervisor,
+		HypervisorPathList:   h.HypervisorPathList,
 		KernelPath:           kernel,
 		ImagePath:            image,
 		HypervisorCtlPath:    hypervisorctl,
@@ -820,6 +823,7 @@ func newClhHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 
 	return vc.HypervisorConfig{
 		HypervisorPath:          hypervisor,
+		HypervisorPathList:      h.HypervisorPathList,
 		KernelPath:              kernel,
 		InitrdPath:              initrd,
 		ImagePath:               image,
@@ -838,6 +842,7 @@ func newClhHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		DisableBlockDeviceUse:   h.DisableBlockDeviceUse,
 		SharedFS:                sharedFS,
 		VirtioFSDaemon:          h.VirtioFSDaemon,
+		VirtioFSDaemonList:      h.VirtioFSDaemonList,
 		VirtioFSCacheSize:       h.VirtioFSCacheSize,
 		VirtioFSCache:           h.VirtioFSCache,
 		MemPrealloc:             h.MemPrealloc,
