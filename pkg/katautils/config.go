@@ -130,6 +130,8 @@ type hypervisor struct {
 	HotplugVFIOOnRootBus    bool     `toml:"hotplug_vfio_on_root_bus"`
 	DisableVhostNet         bool     `toml:"disable_vhost_net"`
 	GuestHookPath           string   `toml:"guest_hook_path"`
+	RxRateLimiter           int64    `toml:"rx_rate_limiter"`
+	TxRateLimiter           int64    `toml:"tx_rate_limiter"`
 }
 
 type proxy struct {
@@ -419,6 +421,20 @@ func (h hypervisor) guestHookPath() string {
 	return h.GuestHookPath
 }
 
+func (h hypervisor) rxRateLimiter() (int64, error) {
+	if h.RxRateLimiter < 0 {
+		return 0, fmt.Errorf("Invalid Firecracker Rx Rate Limiter value %v", h.RxRateLimiter)
+	}
+	return h.RxRateLimiter, nil
+}
+
+func (h hypervisor) txRateLimiter() (int64, error) {
+	if h.TxRateLimiter < 0 {
+		return 0, fmt.Errorf("Invalid Firecracker Tx Rate Limiter value %v", h.TxRateLimiter)
+	}
+	return h.TxRateLimiter, nil
+}
+
 func (h hypervisor) vhostUserStorePath() string {
 	if h.VhostUserStorePath == "" {
 		return defaultVhostUserStorePath
@@ -546,6 +562,16 @@ func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		return vc.HypervisorConfig{}, errors.New("No vsock support, firecracker cannot be used")
 	}
 
+	rxRateLimiter, err := h.rxRateLimiter()
+	if err != nil {
+		return vc.HypervisorConfig{}, err
+	}
+
+	txRateLimiter, err := h.txRateLimiter()
+	if err != nil {
+		return vc.HypervisorConfig{}, err
+	}
+
 	return vc.HypervisorConfig{
 		HypervisorPath:        hypervisor,
 		JailerPath:            jailer,
@@ -570,6 +596,8 @@ func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		DisableVhostNet:       true, // vhost-net backend is not supported in Firecracker
 		UseVSock:              true,
 		GuestHookPath:         h.guestHookPath(),
+		RxRateLimiter:         rxRateLimiter,
+		TxRateLimiter:         txRateLimiter,
 	}, nil
 }
 
@@ -1126,6 +1154,8 @@ func GetDefaultHypervisorConfig() vc.HypervisorConfig {
 		VhostUserStorePath:      defaultVhostUserStorePath,
 		VirtioFSCache:           defaultVirtioFSCacheMode,
 		DisableImageNvdimm:      defaultDisableImageNvdimm,
+		RxRateLimiter:           defaultRxRateLimiter,
+		TxRateLimiter:           defaultTxRateLimiter,
 	}
 }
 

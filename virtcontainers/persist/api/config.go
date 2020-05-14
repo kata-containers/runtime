@@ -182,6 +182,14 @@ type HypervisorConfig struct {
 	// VMid is the id of the VM that create the hypervisor if the VM is created by the factory.
 	// VMid is "" if the hypervisor is not created by the factory.
 	VMid string
+
+	// RxRateLimiter specifies the inbound bandwidth(maximum number of bytes to receive per pod per second).
+	// The default 0-sized means unlimited bandwidth.
+	RxRateLimiter int64
+
+	// TxRateLimiter specifies the outbound bandwidth(maximum number of bytes to send per pod per second).
+	// The default 0-sized means unlimited bandwidth..
+	TxRateLimiter int64
 }
 
 // KataAgentConfig is a structure storing information needed

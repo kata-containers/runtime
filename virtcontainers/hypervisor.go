@@ -412,6 +412,14 @@ type HypervisorConfig struct {
 
 	// SELinux label for the VM
 	SELinuxProcessLabel string
+
+	// RxRateLimiter specifies the inbound bandwidth(maximum number of bytes to receive per pod per second).
+	// The default 0-sized means unlimited bandwidth.
+	RxRateLimiter int64
+
+	// TxRateLimiter specifies the outbound bandwidth(maximum number of bytes to send per pod per second).
+	// The default 0-sized means unlimited bandwidth..
+	TxRateLimiter int64
 }
 
 // vcpu mapping from vcpu number to thread number

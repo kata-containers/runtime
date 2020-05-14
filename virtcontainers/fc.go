@@ -908,11 +908,42 @@ func (fc *firecracker) fcAddNetDevice(endpoint Endpoint) {
 	defer span.Finish()
 
 	ifaceID := endpoint.Name()
+
+	// The implementation of rate limiter is based on TBF.
+	// Rate Limiter defines a token bucket with a maximum capacity (size) to store tokens, and an interval for refilling purposes (refill_time).
+	// The refill-rate is derived from size and refill_time, and it is the constant rate at which the tokens replenish.
+	refillTime := int64(1000)
+	var rxRateLimiter models.RateLimiter
+	rxSize := fc.config.RxRateLimiter
+	if rxSize != int64(0) {
+		rxTokenBucket := models.TokenBucket{
+			RefillTime: &refillTime,
+			Size:       &rxSize,
+		}
+		rxRateLimiter = models.RateLimiter{
+			Bandwidth: &rxTokenBucket,
+		}
+	}
+
+	var txRateLimiter models.RateLimiter
+	txSize := fc.config.TxRateLimiter
+	if txSize != int64(0) {
+		txTokenBucket := models.TokenBucket{
+			RefillTime: &refillTime,
+			Size:       &txSize,
+		}
+		txRateLimiter = models.RateLimiter{
+			Bandwidth: &txTokenBucket,
+		}
+	}
+
 	ifaceCfg := &models.NetworkInterface{
 		AllowMmdsRequests: false,
 		GuestMac:          endpoint.HardwareAddr(),
 		IfaceID:           &ifaceID,
 		HostDevName:       &endpoint.NetworkPair().TapInterface.TAPIface.Name,
+		RxRateLimiter:     &rxRateLimiter,
+		TxRateLimiter:     &txRateLimiter,
 	}
 
 	fc.fcConfig.NetworkInterfaces = append(fc.fcConfig.NetworkInterfaces, ifaceCfg)

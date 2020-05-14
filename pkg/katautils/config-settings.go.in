@@ -65,3 +65,6 @@ var defaultSysConfRuntimeConfiguration = "@SYSCONFIG@"
 var name = "kata"
 var defaultProxyPath = "/usr/libexec/kata-containers/kata-proxy"
 var defaultNetmonPath = "/usr/libexec/kata-containers/kata-netmon"
+
+var defaultRxRateLimiter = int64(0)
+var defaultTxRateLimiter = int64(0)

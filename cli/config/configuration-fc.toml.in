@@ -192,6 +192,16 @@ use_vsock = true
 # but it will not abort container execution.
 #guest_hook_path = "/usr/share/oci/hooks"
 
+# Firecracker provides a rate limiter, which is useful for I/O operations that need to be throttled.
+# This option determines maximun number of bytes to receive per second per pod.
+# (default: 0, which means unlimited bandwidth)
+#rx_rate_limiter = 0
+#
+# Firecracker provides a rate limiter, which is useful for I/O operations that need to be throttled.
+# This option determines maximun number of bytes to send per second per pod.
+# (default: 0, which means unlimited bandwidth)
+#tx_rate_limiter = 0
+
 [factory]
 # VM templating support. Once enabled, new VMs are created from template
 # using vm cloning. They will share the same initial kernel, initramfs and
