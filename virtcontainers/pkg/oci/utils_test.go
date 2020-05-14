@@ -695,7 +695,15 @@ func TestAddAssetAnnotations(t *testing.T) {
 		Annotations: expectedAnnotations,
 	}
 
-	addAnnotations(ocispec, &config)
+	runtimeConfig := RuntimeConfig{
+		HypervisorType: vc.QemuHypervisor,
+		AgentType:      vc.KataContainersAgent,
+		ProxyType:      vc.KataProxyType,
+		ShimType:       vc.KataShimType,
+		Console:        consolePath,
+	}
+
+	addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Exactly(expectedAnnotations, config.Annotations)
 }
 
@@ -719,9 +727,17 @@ func TestAddAgentAnnotations(t *testing.T) {
 		ContainerPipeSize: 1024,
 	}
 
+	runtimeConfig := RuntimeConfig{
+		HypervisorType: vc.QemuHypervisor,
+		AgentType:      vc.KataContainersAgent,
+		ProxyType:      vc.KataProxyType,
+		ShimType:       vc.KataShimType,
+		Console:        consolePath,
+	}
+
 	ocispec.Annotations[vcAnnotations.KernelModules] = strings.Join(expectedAgentConfig.KernelModules, KernelModulesSeparator)
 	ocispec.Annotations[vcAnnotations.AgentContainerPipeSize] = "1024"
-	addAnnotations(ocispec, &config)
+	addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Exactly(expectedAgentConfig, config.AgentConfig)
 }
 
@@ -741,8 +757,16 @@ func TestContainerPipeSizeAnnotation(t *testing.T) {
 		ContainerPipeSize: 0,
 	}
 
+	runtimeConfig := RuntimeConfig{
+		HypervisorType: vc.QemuHypervisor,
+		AgentType:      vc.KataContainersAgent,
+		ProxyType:      vc.KataProxyType,
+		ShimType:       vc.KataShimType,
+		Console:        consolePath,
+	}
+
 	ocispec.Annotations[vcAnnotations.AgentContainerPipeSize] = "foo"
-	err := addAnnotations(ocispec, &config)
+	err := addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Error(err)
 	assert.Exactly(expectedAgentConfig, config.AgentConfig)
 }
@@ -771,8 +795,16 @@ func TestAddHypervisorAnnotations(t *testing.T) {
 		},
 	}
 
+	runtimeConfig := RuntimeConfig{
+		HypervisorType: vc.QemuHypervisor,
+		AgentType:      vc.KataContainersAgent,
+		ProxyType:      vc.KataProxyType,
+		ShimType:       vc.KataShimType,
+		Console:        consolePath,
+	}
+
 	ocispec.Annotations[vcAnnotations.KernelParams] = "vsyscall=emulate iommu=on"
-	addHypervisorConfigOverrides(ocispec, &config)
+	addHypervisorConfigOverrides(ocispec, &config, runtimeConfig)
 	assert.Exactly(expectedHyperConfig, config.HypervisorConfig)
 
 	ocispec.Annotations[vcAnnotations.DefaultVCPUs] = "1"
@@ -805,7 +837,7 @@ func TestAddHypervisorAnnotations(t *testing.T) {
 	ocispec.Annotations[vcAnnotations.PCIeRootPort] = "2"
 	ocispec.Annotations[vcAnnotations.EntropySource] = "/dev/urandom"
 
-	addAnnotations(ocispec, &config)
+	addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Equal(config.HypervisorConfig.NumVCPUs, uint32(1))
 	assert.Equal(config.HypervisorConfig.DefaultMaxVCPUs, uint32(1))
 	assert.Equal(config.HypervisorConfig.MemorySize, uint32(1024))
@@ -838,16 +870,16 @@ func TestAddHypervisorAnnotations(t *testing.T) {
 
 	// In case an absurd large value is provided, the config value if not over-ridden
 	ocispec.Annotations[vcAnnotations.DefaultVCPUs] = "655536"
-	err := addAnnotations(ocispec, &config)
+	err := addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Error(err)
 
 	ocispec.Annotations[vcAnnotations.DefaultVCPUs] = "-1"
-	err = addAnnotations(ocispec, &config)
+	err = addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Error(err)
 
 	ocispec.Annotations[vcAnnotations.DefaultVCPUs] = "1"
 	ocispec.Annotations[vcAnnotations.DefaultMaxVCPUs] = "-1"
-	err = addAnnotations(ocispec, &config)
+	err = addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Error(err)
 
 	ocispec.Annotations[vcAnnotations.DefaultMaxVCPUs] = "1"
@@ -865,12 +897,20 @@ func TestAddRuntimeAnnotations(t *testing.T) {
 		Annotations: make(map[string]string),
 	}
 
+	runtimeConfig := RuntimeConfig{
+		HypervisorType: vc.QemuHypervisor,
+		AgentType:      vc.KataContainersAgent,
+		ProxyType:      vc.KataProxyType,
+		ShimType:       vc.KataShimType,
+		Console:        consolePath,
+	}
+
 	ocispec.Annotations[vcAnnotations.DisableGuestSeccomp] = "true"
 	ocispec.Annotations[vcAnnotations.SandboxCgroupOnly] = "true"
 	ocispec.Annotations[vcAnnotations.DisableNewNetNs] = "true"
 	ocispec.Annotations[vcAnnotations.InterNetworkModel] = "macvtap"
 
-	addAnnotations(ocispec, &config)
+	addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Equal(config.DisableGuestSeccomp, true)
 	assert.Equal(config.SandboxCgroupOnly, true)
 	assert.Equal(config.NetworkConfig.DisableNewNetNs, true)

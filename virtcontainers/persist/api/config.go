@@ -57,6 +57,9 @@ type HypervisorConfig struct {
 	// HypervisorPath is the hypervisor executable host path.
 	HypervisorPath string
 
+	// HypervisorPathList is the list of hypervisor paths names allowed in annotations
+	HypervisorPathList []string
+
 	// HypervisorCtlPath is the hypervisor ctl executable host path.
 	HypervisorCtlPath string
 
@@ -90,6 +93,9 @@ type HypervisorConfig struct {
 
 	// VirtioFSDaemon is the virtio-fs vhost-user daemon path
 	VirtioFSDaemon string
+
+	// VirtioFSDaemonList is the list of valid virtiofs names for annotations
+	VirtioFSDaemonList []string
 
 	// VirtioFSCache cache mode for fs version cache or "none"
 	VirtioFSCache string
