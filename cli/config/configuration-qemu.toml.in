@@ -12,6 +12,9 @@
 
 [hypervisor.qemu]
 path = "@QEMUPATH@"
+# List of valid annotations values for the hypervisor (default: empty)
+# Each member of the list can be a regular expression
+# path_list = [ "@QEMUPATH@.*" ]
 kernel = "@KERNELPATH@"
 initrd = "@INITRDPATH@"
 image = "@IMAGEPATH@"
