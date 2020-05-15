@@ -132,7 +132,7 @@ const (
 
 func isDimmSupported(config *Config) bool {
 	switch runtime.GOARCH {
-	case "amd64", "386":
+	case "amd64", "386", "ppc64le":
 		if config != nil && config.Machine.Type == MachineTypeMicrovm {
 			// microvm does not support NUMA
 			return false
@@ -880,6 +880,9 @@ type SerialDevice struct {
 
 	// Transport is the virtio transport for this device.
 	Transport VirtioTransport
+
+	// MaxPorts is the maximum number of ports for this device.
+	MaxPorts uint
 }
 
 // Valid returns true if the SerialDevice structure is valid and complete.
@@ -903,6 +906,9 @@ func (dev SerialDevice) QemuParams(config *Config) []string {
 	deviceParams = append(deviceParams, fmt.Sprintf(",id=%s", dev.ID))
 	if dev.Transport.isVirtioPCI(config) {
 		deviceParams = append(deviceParams, fmt.Sprintf(",romfile=%s", dev.ROMFile))
+		if dev.Driver == VirtioSerial && dev.MaxPorts != 0 {
+			deviceParams = append(deviceParams, fmt.Sprintf(",max_ports=%d", dev.MaxPorts))
+		}
 	}
 
 	if dev.Transport.isVirtioCCW(config) {
@@ -1876,6 +1882,9 @@ const (
 	// Host is for using the host clock as a reference.
 	Host RTCClock = "host"
 
+	// RT is for using the host monotonic clock as a reference.
+	RT RTCClock = "rt"
+
 	// VM is for using the guest clock as a reference
 	VM RTCClock = "vm"
 )
@@ -1902,7 +1911,7 @@ type RTC struct {
 
 // Valid returns true if the RTC structure is valid and complete.
 func (rtc RTC) Valid() bool {
-	if rtc.Clock != Host && rtc.Clock != VM {
+	if rtc.Clock != Host && rtc.Clock != RT && rtc.Clock != VM {
 		return false
 	}
 
