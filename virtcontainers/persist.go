@@ -260,6 +260,7 @@ func (s *Sandbox) dumpConfig(ss *persistapi.SandboxState) {
 		DisableVhostNet:         sconfig.HypervisorConfig.DisableVhostNet,
 		EnableVhostUserStore:    sconfig.HypervisorConfig.EnableVhostUserStore,
 		VhostUserStorePath:      sconfig.HypervisorConfig.VhostUserStorePath,
+		VhostUserStorePathList:  sconfig.HypervisorConfig.VhostUserStorePathList,
 		GuestHookPath:           sconfig.HypervisorConfig.GuestHookPath,
 		VMid:                    sconfig.HypervisorConfig.VMid,
 	}
@@ -555,6 +556,7 @@ func loadSandboxConfig(id string) (*SandboxConfig, error) {
 		DisableVhostNet:         hconf.DisableVhostNet,
 		EnableVhostUserStore:    hconf.EnableVhostUserStore,
 		VhostUserStorePath:      hconf.VhostUserStorePath,
+		VhostUserStorePathList:  hconf.VhostUserStorePathList,
 		GuestHookPath:           hconf.GuestHookPath,
 		VMid:                    hconf.VMid,
 	}
