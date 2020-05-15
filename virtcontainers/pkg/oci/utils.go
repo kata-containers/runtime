@@ -405,6 +405,12 @@ func addHypervisorConfigOverrides(ocispec specs.Spec, config *vc.SandboxConfig) 
 		}
 	}
 
+	if value, ok := ocispec.Annotations[vcAnnotations.CPUFeatures]; ok {
+		if value != "" {
+			config.HypervisorConfig.CPUFeatures = value
+		}
+	}
+
 	if value, ok := ocispec.Annotations[vcAnnotations.DisableVhostNet]; ok {
 		disableVhostNet, err := strconv.ParseBool(value)
 		if err != nil {

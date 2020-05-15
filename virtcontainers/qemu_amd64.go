@@ -135,9 +135,6 @@ func (q *qemuAmd64) bridges(number uint32) {
 
 func (q *qemuAmd64) cpuModel() string {
 	cpuModel := defaultCPUModel
-	if q.nestedRun {
-		cpuModel += ",pmu=off"
-	}
 
 	// VMX is not migratable yet.
 	// issue: https://github.com/kata-containers/runtime/issues/1750

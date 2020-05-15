@@ -106,9 +106,7 @@ func (q *qemuPPC64le) bridges(number uint32) {
 
 func (q *qemuPPC64le) cpuModel() string {
 	cpuModel := defaultCPUModel
-	if q.nestedRun {
-		cpuModel += ",pmu=off"
-	}
+
 	return cpuModel
 }
 
