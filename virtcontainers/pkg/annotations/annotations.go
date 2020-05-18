@@ -200,6 +200,12 @@ const (
 	// BlockDeviceCacheNoflush is a sandbox annotation that specifies cache-related options for block devices.
 	// Denotes whether flush requests for the device are ignored.
 	BlockDeviceCacheNoflush = kataAnnotHypervisorPrefix + "block_device_cache_noflush"
+
+	// RxRateLimiter is a sandbox annotation that specifies limitation on network I/O inbound bandwidth.
+	RxRateLimiter = kataAnnotHypervisorPrefix + "rx_rate_limiter"
+
+	// TxRateLimiter is a sandbox annotation that specifies limitation on network I/O outbound bandwidth
+	TxRateLimiter = kataAnnotHypervisorPrefix + "tx_rate_limiter"
 )
 
 // Agent related annotations

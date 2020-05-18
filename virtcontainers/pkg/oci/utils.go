@@ -382,6 +382,10 @@ func addHypervisorConfigOverrides(ocispec specs.Spec, config *vc.SandboxConfig) 
 		return err
 	}
 
+	if err := addHypervisporNetworkOverrides(ocispec, config); err != nil {
+		return err
+	}
+
 	if value, ok := ocispec.Annotations[vcAnnotations.KernelParams]; ok {
 		if value != "" {
 			params := vc.DeserializeParams(strings.Fields(value))
@@ -409,15 +413,6 @@ func addHypervisorConfigOverrides(ocispec specs.Spec, config *vc.SandboxConfig) 
 		if value != "" {
 			config.HypervisorConfig.CPUFeatures = value
 		}
-	}
-
-	if value, ok := ocispec.Annotations[vcAnnotations.DisableVhostNet]; ok {
-		disableVhostNet, err := strconv.ParseBool(value)
-		if err != nil {
-			return fmt.Errorf("Error parsing annotation for disable_vhost_net: Please specify boolean value 'true|false'")
-		}
-
-		config.HypervisorConfig.DisableVhostNet = disableVhostNet
 	}
 
 	if value, ok := ocispec.Annotations[vcAnnotations.GuestHookPath]; ok {
@@ -696,6 +691,35 @@ func addHypervisporVirtioFsOverrides(ocispec specs.Spec, sbConfig *vc.SandboxCon
 		}
 
 		sbConfig.HypervisorConfig.Msize9p = uint32(msize9p)
+	}
+
+	return nil
+}
+
+func addHypervisporNetworkOverrides(ocispec specs.Spec, sbConfig *vc.SandboxConfig) error {
+	if value, ok := ocispec.Annotations[vcAnnotations.DisableVhostNet]; ok {
+		disableVhostNet, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("Error parsing annotation for disable_vhost_net: Please specify boolean value 'true|false'")
+		}
+
+		sbConfig.HypervisorConfig.DisableVhostNet = disableVhostNet
+	}
+
+	if value, ok := ocispec.Annotations[vcAnnotations.RxRateLimiter]; ok {
+		rxRateLimiter, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || rxRateLimiter < 0 {
+			return fmt.Errorf("Error parsing annotation for rx_rate_limiter: %v, Please specify an integer greater than or equal to 0", err)
+		}
+		sbConfig.HypervisorConfig.RxRateLimiter = rxRateLimiter
+	}
+
+	if value, ok := ocispec.Annotations[vcAnnotations.TxRateLimiter]; ok {
+		txRateLimiter, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || txRateLimiter < 0 {
+			return fmt.Errorf("Error parsing annotation for tx_rate_limiter: %v, Please specify an integer greater than or equal to 0", err)
+		}
+		sbConfig.HypervisorConfig.TxRateLimiter = txRateLimiter
 	}
 
 	return nil
