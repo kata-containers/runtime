@@ -424,6 +424,9 @@ type HypervisorConfig struct {
 
 	// SELinux label for the VM
 	SELinuxProcessLabel string
+
+	// Enable annotations by name
+	EnableAnnotations []string
 }
 
 // vcpu mapping from vcpu number to thread number

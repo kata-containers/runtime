@@ -262,6 +262,7 @@ func (s *Sandbox) dumpConfig(ss *persistapi.SandboxState) {
 		VhostUserStorePathList:  sconfig.HypervisorConfig.VhostUserStorePathList,
 		GuestHookPath:           sconfig.HypervisorConfig.GuestHookPath,
 		VMid:                    sconfig.HypervisorConfig.VMid,
+		EnableAnnotations:       sconfig.HypervisorConfig.EnableAnnotations,
 	}
 
 	if sconfig.AgentType == "kata" {
@@ -557,6 +558,7 @@ func loadSandboxConfig(id string) (*SandboxConfig, error) {
 		VhostUserStorePathList:  hconf.VhostUserStorePathList,
 		GuestHookPath:           hconf.GuestHookPath,
 		VMid:                    hconf.VMid,
+		EnableAnnotations:       hconf.EnableAnnotations,
 	}
 
 	if savedConf.AgentType == "kata" {

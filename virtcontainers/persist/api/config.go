@@ -198,6 +198,9 @@ type HypervisorConfig struct {
 	// VMid is the id of the VM that create the hypervisor if the VM is created by the factory.
 	// VMid is "" if the hypervisor is not created by the factory.
 	VMid string
+
+	// Enable annotations by name
+	EnableAnnotations []string
 }
 
 // KataAgentConfig is a structure storing information needed
