@@ -138,6 +138,7 @@ type hypervisor struct {
 	HotplugVFIOOnRootBus    bool     `toml:"hotplug_vfio_on_root_bus"`
 	DisableVhostNet         bool     `toml:"disable_vhost_net"`
 	GuestHookPath           string   `toml:"guest_hook_path"`
+	EnableAnnotations       []string `toml:"enable_annotations"`
 }
 
 type proxy struct {
@@ -590,6 +591,7 @@ func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		DisableVhostNet:       true, // vhost-net backend is not supported in Firecracker
 		UseVSock:              true,
 		GuestHookPath:         h.guestHookPath(),
+		EnableAnnotations:     h.EnableAnnotations,
 	}, nil
 }
 
@@ -712,6 +714,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		VhostUserStorePath:      h.vhostUserStorePath(),
 		VhostUserStorePathList:  h.VhostUserStorePathList,
 		GuestHookPath:           h.guestHookPath(),
+		EnableAnnotations:       h.EnableAnnotations,
 	}, nil
 }
 
@@ -775,6 +778,7 @@ func newAcrnHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		BlockDeviceDriver:     blockDriver,
 		DisableVhostNet:       h.DisableVhostNet,
 		GuestHookPath:         h.guestHookPath(),
+		EnableAnnotations:     h.EnableAnnotations,
 	}, nil
 }
 
@@ -867,6 +871,7 @@ func newClhHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		DisableVhostNet:         true,
 		UseVSock:                true,
 		VirtioFSExtraArgs:       h.VirtioFSExtraArgs,
+		EnableAnnotations:       h.EnableAnnotations,
 	}, nil
 }
 
