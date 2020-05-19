@@ -208,7 +208,7 @@ const (
 	BlockDeviceCacheNoflush = kataAnnotHypervisorPrefix + "block_device_cache_noflush"
 )
 
-// Agent related annotations
+// Runtime related annotations
 const (
 	kataAnnotRuntimePrefix = kataConfAnnotationsPrefix + "runtime."
 
@@ -229,6 +229,7 @@ const (
 	DisableNewNetNs = kataAnnotRuntimePrefix + "disable_new_netns"
 )
 
+// Agent related annotations
 const (
 	kataAnnotAgentPrefix = kataConfAnnotationsPrefix + "agent."
 
