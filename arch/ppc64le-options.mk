@@ -8,7 +8,7 @@
 MACHINETYPE := pseries
 KERNELPARAMS :=
 MACHINEACCELERATORS :=
-CPUFEATURES := pmu=off
+CPUFEATURES :=
 
 KERNELTYPE := uncompressed #This architecture must use an uncompressed kernel.
 QEMUCMD := qemu-system-ppc64le
