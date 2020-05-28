@@ -9,6 +9,6 @@ cidir=$(dirname "$0")
 source "${cidir}/lib.sh"
 export CI_JOB="${CI_JOB:-default}"
 
-if [ "${CI_JOB}" != "PODMAN" ]; then
+if [ "${CI_JOB}" != "PODMAN" ] && [ "${CI_JOB}" != "CLOUD-HYPERVISOR-PODMAN" ]; then
 	run_go_test
 fi

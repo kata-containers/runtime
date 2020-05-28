@@ -16,7 +16,7 @@ pushd "${tests_repo_dir}"
 .ci/setup.sh
 popd
 
-if [ "${CI_JOB}" != "PODMAN" ]; then
+if [ "${CI_JOB}" != "PODMAN" ] && [ "${CI_JOB}" != "CLOUD-HYPERVISOR-PODMAN" ]; then
 	echo "Setup virtcontainers environment"
 	chronic sudo -E PATH=$PATH bash -c "${cidir}/../virtcontainers/utils/virtcontainers-setup.sh"
 
