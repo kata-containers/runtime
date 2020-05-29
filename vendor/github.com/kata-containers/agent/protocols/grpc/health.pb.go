@@ -8,8 +8,10 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 
-import context "golang.org/x/net/context"
-import grpc1 "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc1 "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -108,7 +110,10 @@ func init() {
 }
 func (this *CheckRequest) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*CheckRequest)
@@ -121,7 +126,10 @@ func (this *CheckRequest) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -132,7 +140,10 @@ func (this *CheckRequest) Equal(that interface{}) bool {
 }
 func (this *HealthCheckResponse) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*HealthCheckResponse)
@@ -145,7 +156,10 @@ func (this *HealthCheckResponse) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -156,7 +170,10 @@ func (this *HealthCheckResponse) Equal(that interface{}) bool {
 }
 func (this *VersionCheckResponse) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*VersionCheckResponse)
@@ -169,7 +186,10 @@ func (this *VersionCheckResponse) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
