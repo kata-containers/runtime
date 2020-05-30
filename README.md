@@ -6,10 +6,13 @@
 # Runtime
 
 This repository contains the runtime for the
-[Kata Containers](https://github.com/kata-containers) project.
+[Kata Containers](https://github.com/kata-containers) project for the 1.x
+releases.
 
-For details of the other Kata Containers repositories, see the
-[repository summary](https://github.com/kata-containers/kata-containers).
+Right now Kata Containers 1.x releases are in feature freeze mode and
+this repository only accpets bugfixes. We have consolidated all code
+repositories to the github.com/kata-containers/kata-containers repository
+and new feature development happens there as well.
 
 * [Introduction](#introduction)
 * [License](#license)
