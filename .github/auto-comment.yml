@@ -1,0 +1,11 @@
+pullRequestOpened: >
+  Thank you for raising your pull request. Please note that the main development of Kata Containers
+  has moved to the [2.0-dev](https://github.com/kata-containers/kata-containers/tree/2.0-dev) branch
+  of https://github.com/kata-containers/kata-containers repository. The kata-containers/runtime
+  repository is kept for 1.x release maintenance. Please check twice if your change should go to
+  the 2.0-dev branch directly.
+
+
+  If it is strongly required for adding the change to Kata Containers 1.x releases, please ping
+  @kata-containers/runtime to assign a dedicated developer to be responsible for porting the change
+  to 2.0-dev branch. Thanks!
