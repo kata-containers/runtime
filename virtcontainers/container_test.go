@@ -343,8 +343,6 @@ func TestContainerAddDriveDir(t *testing.T) {
 
 	err = container.hotplugDrive()
 	assert.NoError(err)
-
-	assert.NotEmpty(container.state.Fstype)
 }
 
 func TestContainerRootfsPath(t *testing.T) {
@@ -381,7 +379,6 @@ func TestContainerRootfsPath(t *testing.T) {
 	}
 
 	container.hotplugDrive()
-	assert.Empty(t, container.rootfsSuffix)
 
 	// Reset the value to test the other case
 	container.rootFs = RootFs{Target: fakeRootfs + "/rootfs", Mounted: true}

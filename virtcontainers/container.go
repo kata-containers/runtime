@@ -1308,14 +1308,14 @@ func (c *Container) hotplugDrive() error {
 	var dev device
 	var err error
 
-	// container rootfs is blockdevice backed and isn't mounted
-	if !c.rootFs.Mounted {
-		dev, err = getDeviceForPath(c.rootFs.Source)
-		// there is no "rootfs" dir on block device backed rootfs
-		c.rootfsSuffix = ""
-	} else {
-		dev, err = getDeviceForPath(c.rootFs.Target)
+	if c.rootFs.Mounted {
+		return nil
 	}
+
+	// container rootfs is blockdevice backed and isn't mounted
+	dev, err = getDeviceForPath(c.rootFs.Source)
+	// there is no "rootfs" dir on block device backed rootfs
+	c.rootfsSuffix = ""
 
 	if err == errMountPointNotFound {
 		return nil
