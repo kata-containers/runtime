@@ -402,6 +402,6 @@ func TestBindUnmountContainerRootfsENOENTNotError(t *testing.T) {
 		assert.NoError(os.Remove(testPath))
 	}
 
-	err := bindUnmountContainerRootfs(context.Background(), testMnt, sID, cID)
+	err := bindUnmountContainerRootfs(context.Background(), filepath.Join(testMnt, sID), cID)
 	assert.NoError(err)
 }

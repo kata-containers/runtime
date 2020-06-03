@@ -319,7 +319,7 @@ func TestStartSandboxKataAgentSuccessful(t *testing.T) {
 
 	// TODO: defaultSharedDir is a hyper var = /run/hyper/shared/sandboxes
 	// do we need to unmount sandboxes and containers?
-	err = bindUnmountAllRootfs(ctx, testDir, pImpl)
+	err = bindUnmountAllRootfs(ctx, filepath.Join(testDir, p.ID()), pImpl)
 	assert.NoError(err)
 }
 
@@ -457,7 +457,7 @@ func TestRunSandboxKataAgentSuccessful(t *testing.T) {
 	pImpl, ok := p.(*Sandbox)
 	assert.True(ok)
 
-	err = bindUnmountAllRootfs(ctx, testDir, pImpl)
+	err = bindUnmountAllRootfs(ctx, filepath.Join(testDir, p.ID()), pImpl)
 	assert.NoError(err)
 }
 
