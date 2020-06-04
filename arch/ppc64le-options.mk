@@ -11,4 +11,4 @@ MACHINEACCELERATORS := "cap-cfpc=broken,cap-sbbc=broken,cap-ibs=broken,cap-large
 CPUFEATURES :=
 
 KERNELTYPE := uncompressed #This architecture must use an uncompressed kernel.
-QEMUCMD := qemu-system-ppc64le
+QEMUCMD := qemu-system-ppc64
