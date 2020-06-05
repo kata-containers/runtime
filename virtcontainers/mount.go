@@ -24,9 +24,19 @@ import (
 // IPC is used.
 const DefaultShmSize = 65536 * 1024
 
+// Sadly golang/sys doesn't have UmountNoFollow although it's there since Linux 2.6.34
+const UmountNoFollow = 0x8
+
 var rootfsDir = "rootfs"
 
 var systemMountPrefixes = []string{"/proc", "/sys"}
+
+var propagationTypes = map[string]uintptr{
+	"shared":  syscall.MS_SHARED,
+	"private": syscall.MS_PRIVATE,
+	"slave":   syscall.MS_SLAVE,
+	"ubind":   syscall.MS_UNBINDABLE,
+}
 
 func isSystemMount(m string) bool {
 	for _, p := range systemMountPrefixes {
@@ -257,7 +267,8 @@ const mountPerm = os.FileMode(0755)
 // * evaluate all symlinks
 // * ensure the source exists
 // * recursively create the destination
-func bindMount(ctx context.Context, source, destination string, readonly bool) error {
+// pgtypes stands for propagation types, which are shared, private, slave, and ubind.
+func bindMount(ctx context.Context, source, destination string, readonly bool, pgtypes string) error {
 	span, _ := trace(ctx, "bindMount")
 	defer span.Finish()
 
@@ -281,8 +292,12 @@ func bindMount(ctx context.Context, source, destination string, readonly bool) e
 		return fmt.Errorf("Could not bind mount %v to %v: %v", absSource, destination, err)
 	}
 
-	if err := syscall.Mount("none", destination, "", syscall.MS_PRIVATE, ""); err != nil {
-		return fmt.Errorf("Could not make mount point %v private: %v", destination, err)
+	if pgtype, exist := propagationTypes[pgtypes]; exist {
+		if err := syscall.Mount("none", destination, "", pgtype, ""); err != nil {
+			return fmt.Errorf("Could not make mount point %v %s: %v", destination, pgtypes, err)
+		}
+	} else {
+		return fmt.Errorf("Wrong propagation type %s", pgtypes)
 	}
 
 	// For readonly bind mounts, we need to remount with the readonly flag.
@@ -302,7 +317,7 @@ func bindMountContainerRootfs(ctx context.Context, sharedDir, sandboxID, cID, cR
 
 	rootfsDest := filepath.Join(sharedDir, sandboxID, cID, rootfsDir)
 
-	return bindMount(ctx, cRootFs, rootfsDest, readonly)
+	return bindMount(ctx, cRootFs, rootfsDest, readonly, "private")
 }
 
 // Mount describes a container mount.
@@ -328,12 +343,25 @@ type Mount struct {
 	BlockDeviceID string
 }
 
+func isSymlink(path string) bool {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return stat.Mode()&os.ModeSymlink != 0
+}
+
 func bindUnmountContainerRootfs(ctx context.Context, sharedDir, sandboxID, cID string) error {
 	span, _ := trace(ctx, "bindUnmountContainerRootfs")
 	defer span.Finish()
 
 	rootfsDest := filepath.Join(sharedDir, sandboxID, cID, rootfsDir)
-	err := syscall.Unmount(rootfsDest, syscall.MNT_DETACH)
+	if isSymlink(filepath.Join(sharedDir, sandboxID, cID)) || isSymlink(rootfsDest) {
+		logrus.Warnf("container dir %s is a symlink, malicious guest?", cID)
+		return nil
+	}
+
+	err := syscall.Unmount(rootfsDest, syscall.MNT_DETACH|UmountNoFollow)
 	if err == syscall.ENOENT {
 		logrus.Warnf("%s: %s", err, rootfsDest)
 		return nil
@@ -347,6 +375,10 @@ func bindUnmountAllRootfs(ctx context.Context, sharedDir string, sandbox *Sandbo
 
 	var errors *merr.Error
 	for _, c := range sandbox.containers {
+		if isSymlink(filepath.Join(sharedDir, sandbox.id, c.id)) {
+			logrus.Warnf("container dir %s is a symlink, malicious guest?", c.id)
+			continue
+		}
 		c.unmountHostMounts()
 		if c.state.Fstype == "" {
 			// even if error found, don't break out of loop until all mounts attempted

@@ -527,7 +527,7 @@ func (c *Container) shareFiles(m Mount, idx int, hostSharedDir, guestSharedDir s
 	} else {
 		// These mounts are created in the shared dir
 		mountDest := filepath.Join(hostSharedDir, c.sandbox.id, filename)
-		if err := bindMount(c.ctx, m.Source, mountDest, false); err != nil {
+		if err := bindMount(c.ctx, m.Source, mountDest, false, "private"); err != nil {
 			return "", false, err
 		}
 		// Save HostPath mount value into the mount list of the container.
@@ -639,7 +639,7 @@ func (c *Container) unmountHostMounts() error {
 			span, _ := c.trace("unmount")
 			span.SetTag("host-path", m.HostPath)
 
-			if err := syscall.Unmount(m.HostPath, syscall.MNT_DETACH); err != nil {
+			if err := syscall.Unmount(m.HostPath, syscall.MNT_DETACH|UmountNoFollow); err != nil {
 				c.Logger().WithFields(logrus.Fields{
 					"host-path": m.HostPath,
 					"error":     err,
