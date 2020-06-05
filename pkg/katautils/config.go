@@ -835,6 +835,7 @@ func newClhHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		PCIeRootPort:            h.PCIeRootPort,
 		DisableVhostNet:         true,
 		UseVSock:                true,
+		VirtioFSExtraArgs:       h.VirtioFSExtraArgs,
 	}, nil
 }
 
