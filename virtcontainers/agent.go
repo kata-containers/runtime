@@ -224,12 +224,6 @@ type agent interface {
 	// configureFromGrpc will update agent settings based on provided arguments which from Grpc
 	configureFromGrpc(id string, builtin bool, config interface{}) error
 
-	// getVMPath will return the agent vm socket's directory path
-	getVMPath(id string) string
-
-	// getSharePath will return the agent 9pfs share mount path
-	getSharePath(id string) string
-
 	// reseedRNG will reseed the guest random number generator
 	reseedRNG(data []byte) error
 

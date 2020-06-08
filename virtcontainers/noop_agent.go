@@ -185,16 +185,6 @@ func (n *noopAgent) configureFromGrpc(id string, builtin bool, config interface{
 	return nil
 }
 
-// getVMPath is the Noop agent vm path getter. It does nothing.
-func (n *noopAgent) getVMPath(id string) string {
-	return ""
-}
-
-// getVMPath is the Noop agent share path getter. It does nothing.
-func (n *noopAgent) getSharePath(id string) string {
-	return ""
-}
-
 // reseedRNG is the Noop agent RND reseeder. It does nothing.
 func (n *noopAgent) reseedRNG(data []byte) error {
 	return nil

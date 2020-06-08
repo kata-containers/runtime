@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/kata-containers/runtime/virtcontainers/persist/fs"
@@ -57,6 +58,7 @@ var testHyperstartTtySocket = ""
 // the next test to run.
 func cleanUp() {
 	globalSandboxList.removeSandbox(testSandboxID)
+	syscall.Unmount(getSharePath(testSandboxID), syscall.MNT_DETACH|UmountNoFollow)
 	store.DeleteAll()
 	os.RemoveAll(testDir)
 	os.MkdirAll(testDir, store.DirMode)
