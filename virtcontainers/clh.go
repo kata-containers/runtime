@@ -238,6 +238,8 @@ func (clh *cloudHypervisor) createSandbox(ctx context.Context, id string, networ
 		MaxVcpus:  int32(clh.config.DefaultMaxVCPUs),
 	}
 
+	clh.vmconfig.Memory.Mergeable = true
+
 	// Add the kernel path
 	kernelPath, err := clh.config.KernelAssetPath()
 	if err != nil {
