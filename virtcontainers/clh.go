@@ -666,7 +666,7 @@ func (clh *cloudHypervisor) waitVirtiofsd(start time.Time, timeout int, ready ch
 
 func (clh *cloudHypervisor) virtiofsdArgs(sockPath string) ([]string, error) {
 
-	sourcePath := filepath.Join(kataHostSharedDir(), clh.id)
+	sourcePath := filepath.Join(getSharePath(clh.id))
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		if err = os.MkdirAll(sourcePath, os.ModePerm); err != nil {
 			return nil, err
