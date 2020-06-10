@@ -6,6 +6,7 @@
 package virtcontainers
 
 import (
+	"fmt"
 	"time"
 
 	govmmQemu "github.com/intel/govmm/qemu"
