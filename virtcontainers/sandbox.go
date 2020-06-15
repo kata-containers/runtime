@@ -606,10 +606,6 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 		}
 	}
 
-	if err := s.createCgroupManager(); err != nil {
-		return nil, err
-	}
-
 	agentConfig, err := newAgentConfig(sandboxConfig.AgentType, sandboxConfig.AgentConfig)
 	if err != nil {
 		return nil, err
@@ -737,6 +733,12 @@ func fetchSandbox(ctx context.Context, sandboxID string) (sandbox *Sandbox, err 
 	sandbox, err = createSandbox(ctx, config, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sandbox with config %+v: %v", config, err)
+	}
+
+	if sandbox.config.SandboxCgroupOnly {
+		if err := sandbox.createCgroupManager(); err != nil {
+			return nil, err
+		}
 	}
 
 	// This sandbox already exists, we don't need to recreate the containers in the guest.
