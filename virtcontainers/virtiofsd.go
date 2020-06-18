@@ -168,6 +168,8 @@ func (v *virtiofsd) args(FdSocketNumber uint) ([]string, error) {
 		"-o", "source=" + v.sourcePath,
 		// fd number of vhost-user socket
 		fmt.Sprintf("--fd=%v", FdSocketNumber),
+		// --thread-pool-size=NUM     thread pool size limit (default 64)
+		"--thread-pool-size=5",
 	}
 
 	if v.debug {
