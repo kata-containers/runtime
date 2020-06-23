@@ -296,6 +296,14 @@ func beforeSubcommands(c *cli.Context) error {
 		ignoreConfigLogs = true
 	} else {
 		if path := c.GlobalString("log"); path != "" {
+			// avoid log.json file too large consume the memory footprint in the tmpfs,
+			// truncate the log.json file every time before kata subcommand is executed
+			if path != "/dev/null" && katautils.FileExists(path) {
+				if err := os.Truncate(path, 0); err != nil {
+					return err
+				}
+			}
+
 			f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0640)
 			if err != nil {
 				return err
