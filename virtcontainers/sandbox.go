@@ -505,7 +505,7 @@ func createSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Fac
 	return s, nil
 }
 
-func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (*Sandbox, error) {
+func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (sb *Sandbox, retErr error) {
 	span, ctx := trace(ctx, "newSandbox")
 	defer span.Finish()
 
@@ -547,8 +547,8 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 	}
 
 	defer func() {
-		if err != nil {
-			s.Logger().WithError(err).WithField("sandboxid", s.id).Error("Create new sandbox failed")
+		if retErr != nil {
+			s.Logger().WithError(retErr).WithField("sandboxid", s.id).Error("Create new sandbox failed")
 			globalSandboxList.removeSandbox(s.id)
 			s.newStore.Destroy(s.id)
 		}
@@ -1606,7 +1606,6 @@ const maxBlockIndex = 65535
 // the BlockIndexMap and marks it as used. This index is used to maintain the
 // index at which a block device is assigned to a container in the sandbox.
 func (s *Sandbox) getAndSetSandboxBlockIndex() (int, error) {
-	var err error
 	currentIndex := -1
 	for i := 0; i < maxBlockIndex; i++ {
 		if _, ok := s.state.BlockIndexMap[i]; !ok {
@@ -1618,11 +1617,6 @@ func (s *Sandbox) getAndSetSandboxBlockIndex() (int, error) {
 		return -1, errors.New("no available block index")
 	}
 	s.state.BlockIndexMap[currentIndex] = struct{}{}
-	defer func() {
-		if err != nil {
-			delete(s.state.BlockIndexMap, currentIndex)
-		}
-	}()
 
 	return currentIndex, nil
 }
