@@ -42,6 +42,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
+	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 )
 
 const (
@@ -2222,4 +2223,25 @@ func (s *Sandbox) GetPatchedOCISpec() *specs.Spec {
 	}
 
 	return nil
+}
+
+// getSandboxCPUSet returns the union of each of the sandbox's containers' CPU sets
+// as a string in canonical linux CPU list format
+func (s *Sandbox) getSandboxCPUSet() (string, error) {
+	if s.config == nil {
+		return "", nil
+	}
+
+	result := cpuset.NewCPUSet()
+	for _, ctr := range s.config.Containers {
+		if ctr.Resources.CPU != nil {
+			currSet, err := cpuset.Parse(ctr.Resources.CPU.Cpus)
+			if err != nil {
+				return "", fmt.Errorf("unable to parse CPUset for container %s", ctr.ID)
+			}
+			result = result.Union(currSet)
+		}
+	}
+
+	return result.String(), nil
 }
