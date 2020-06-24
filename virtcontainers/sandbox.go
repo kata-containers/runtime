@@ -640,11 +640,15 @@ func (s *Sandbox) createCgroupManager() error {
 		cgroupPath = spec.Linux.CgroupsPath
 
 		// Kata relies on the cgroup parent created and configured by the container
-		// engine, but sometimes the sandbox cgroup is not configured and the container
-		// may have access to all the resources, hence the runtime must constrain the
-		// sandbox and update the list of devices with the devices hotplugged in the
-		// hypervisor.
-		resources = *spec.Linux.Resources
+		// engine by default. The exception is for devices whitelist as well as sandbox-level
+		// CPUSet.
+		resources.CPU = &specs.LinuxCPU{
+			Cpus: spec.Linux.Resources.CPU.Cpus,
+		}
+
+		//TODO: in Docker or Podman use case, it is reasonable to set a constraint. Need to add a flag
+		// to allow users to configure Kata to constrain CPUs and Memory in this alternative
+		// scenario
 	}
 
 	if s.devManager != nil {
@@ -1169,7 +1173,7 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 		}
 	}()
 
-	// Sandbox is reponsable to update VM resources needed by Containers
+	// Sandbox is reponsible to update VM resources needed by Containers
 	// Update resources after having added containers to the sandbox, since
 	// container status is requiered to know if more resources should be added.
 	err = s.updateResources()
@@ -1808,6 +1812,11 @@ func (s *Sandbox) AddDevice(info config.DeviceInfo) (api.Device, error) {
 // number of vCPUs required based on the sum of container requests, plus default CPUs for the VM.
 // Similar is done for memory. If changes in memory or CPU are made, the VM will be updated and
 // the agent will online the applicable CPU and memory.
+//
+// ...We'll also update the host cpuset...
+//   TODO: we should really remove the cgroupUpdate functions and replace with a host-based cgroup
+//  update for updating the sandbox, but we'll leave that for a later step (2.0?)
+//
 func (s *Sandbox) updateResources() error {
 	if s == nil {
 		return errors.New("sandbox is nil")
@@ -1815,6 +1824,15 @@ func (s *Sandbox) updateResources() error {
 
 	if s.config == nil {
 		return fmt.Errorf("sandbox config is nil")
+	}
+
+	// update host cpuset:
+	cpuset, err := s.getSandboxCpuSet()
+	if err != nil {
+		return err
+	}
+	if err := s.cgroupMgr.UpdateCpuSets(cpuset); err != nil {
+		return err
 	}
 
 	sandboxVCPUs := s.calculateSandboxCPUs()
