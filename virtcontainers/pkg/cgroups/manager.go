@@ -335,9 +335,17 @@ func (m *Manager) RemoveDevice(device string) error {
 func (m *Manager) UpdateCpuSets(cpuset string) error {
 	cgroups, err := m.GetCgroups()
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get original cgroups: err: %v", err)
 	}
 
+	m.logger().WithField("map-length", len(m.GetPaths())).Debug("EGERNST")
+
+	for key, cgroupPath := range m.GetPaths() {
+		m.logger().WithFields(logrus.Fields{
+			"key":  key,
+			"path": cgroupPath,
+		}).Debug("EGERNST")
+	}
 	m.Lock()
 	cgroups.CpusetCpus = cpuset
 	m.Unlock()

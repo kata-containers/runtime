@@ -1828,11 +1828,17 @@ func (s *Sandbox) updateResources() error {
 
 	// update host cpuset:
 	cpuset, err := s.getSandboxCpuSet()
+	s.Logger().WithField("cpuset", cpuset).Debugf("EGERNST: calc cpuset")
 	if err != nil {
 		return err
 	}
-	if err := s.cgroupMgr.UpdateCpuSets(cpuset); err != nil {
-		return err
+	if s.cgroupMgr == nil {
+		s.Logger().Debugf("EGERNST: cgroupmgr was nil, we'll update next time around i hope")
+	} else {
+
+		if err := s.cgroupMgr.UpdateCpuSets(cpuset); err != nil {
+			return err
+		}
 	}
 
 	sandboxVCPUs := s.calculateSandboxCPUs()
