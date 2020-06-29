@@ -1270,7 +1270,7 @@ func (n *Network) Run(networkNSPath string, cb func() error) error {
 }
 
 // Add adds all needed interfaces inside the network namespace.
-func (n *Network) Add(ctx context.Context, config *NetworkConfig, hypervisor hypervisor, hotplug bool) ([]Endpoint, error) {
+func (n *Network) Add(ctx context.Context, config *NetworkConfig, s *Sandbox, hotplug bool) ([]Endpoint, error) {
 	span, _ := n.trace(ctx, "add")
 	defer span.Finish()
 
@@ -1283,11 +1283,11 @@ func (n *Network) Add(ctx context.Context, config *NetworkConfig, hypervisor hyp
 		for _, endpoint := range endpoints {
 			networkLogger().WithField("endpoint-type", endpoint.Type()).WithField("hotplug", hotplug).Info("Attaching endpoint")
 			if hotplug {
-				if err := endpoint.HotAttach(hypervisor); err != nil {
+				if err := endpoint.HotAttach(s.hypervisor); err != nil {
 					return err
 				}
 			} else {
-				if err := endpoint.Attach(hypervisor); err != nil {
+				if err := endpoint.Attach(s); err != nil {
 					return err
 				}
 			}
