@@ -2268,7 +2268,7 @@ func (s *Sandbox) getSandboxCPUSet() (string, error) {
 		if ctr.Resources.CPU != nil {
 			currSet, err := cpuset.Parse(ctr.Resources.CPU.Cpus)
 			if err != nil {
-				return "", fmt.Errorf("unable to parse CPUset for container %s", ctr.ID)
+				return "", fmt.Errorf("unable to parse CPUset for container %s: %v", ctr.ID, err)
 			}
 			result = result.Union(currSet)
 		}
