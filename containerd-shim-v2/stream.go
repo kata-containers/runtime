@@ -95,6 +95,7 @@ func ioCopy(exitch chan struct{}, tty *ttyIO, stdinPipe io.WriteCloser, stdoutPi
 			p := bufPool.Get().(*[]byte)
 			defer bufPool.Put(p)
 			io.CopyBuffer(stdinPipe, tty.Stdin, *p)
+			stdinPipe.Close()
 			wg.Done()
 		}()
 	}
