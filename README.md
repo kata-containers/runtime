@@ -41,7 +41,7 @@ The runtime is
 [OCI](https://github.com/opencontainers/runtime-spec)-compatible,
 [CRI-O](https://github.com/cri-o/cri-o)-compatible, and
 [Containerd](https://github.com/containerd/containerd)-compatible,
- allowing it
+allowing it
 to work seamlessly with both Docker and Kubernetes respectively.
 
 ## License
