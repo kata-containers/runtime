@@ -836,13 +836,12 @@ func (clh *cloudHypervisor) getAvailableVersion() error {
 	clhPath, err := clh.clhPath()
 	if err != nil {
 		return err
-
 	}
 
 	cmd := exec.Command(clhPath, "--version")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not retrieve cloud-hypervisor version, binary returned error: %s", err)
 	}
 
 	words := strings.Fields(string(out))
@@ -860,23 +859,22 @@ func (clh *cloudHypervisor) getAvailableVersion() error {
 	versionSplit[0] = strings.TrimLeft(versionSplit[0], "v")
 	major, err := strconv.ParseUint(versionSplit[0], 10, 64)
 	if err != nil {
-		return err
-
+		return fmt.Errorf("Failed to parse cloud-hypervisor version: %v, Unexpected format", words)
 	}
 	minor, err := strconv.ParseUint(versionSplit[1], 10, 64)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to parse cloud-hypervisor version: %v, Unexpected format", words)
 
 	}
 
 	// revision could have aditional commit information separated by '-'
 	revisionSplit := strings.SplitN(versionSplit[2], "-", -1)
 	if len(revisionSplit) < 1 {
-		return errors.Errorf("Failed parse cloud-hypervisor revision %s", versionSplit[2])
+		return errors.Errorf("Failed parse cloud-hypervisor revision %v", words)
 	}
 	revision, err := strconv.ParseUint(revisionSplit[0], 10, 64)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to parse cloud-hypervisor version, Unexpected revision format: %v", words)
 	}
 
 	clh.version = CloudHypervisorVersion{
