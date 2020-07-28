@@ -472,6 +472,7 @@ func generic9PVolume(volume types.Volume, nestedRun bool) govmmQemu.FSDevice {
 		MountTag:      volume.MountTag,
 		SecurityModel: govmmQemu.None,
 		DisableModern: nestedRun,
+		Multidev:      govmmQemu.Remap,
 	}
 }
 
