@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+// Debug for issue: https://github.com/kata-containers/runtime/issues/2864
+
 package virtcontainers
 
 import (
