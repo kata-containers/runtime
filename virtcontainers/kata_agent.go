@@ -54,6 +54,8 @@ const (
 
 	// path to vfio devices
 	vfioPath = "/dev/vfio/"
+
+	agentPidEnv = "KATA_AGENT_PIDNS"
 )
 
 var (
@@ -1468,6 +1470,15 @@ func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process,
 
 	sharedPidNs := k.handlePidNamespace(grpcSpec, sandbox)
 
+	agentPidNs := k.checkAgentPidNs(c)
+	if agentPidNs {
+		if !sandbox.config.EnableAgentPidNs {
+			agentPidNs = false
+			k.Logger().Warn("Env variable for sharing container pid namespace with the agent set, but the runtime configuration does not allow this")
+		} else {
+			k.Logger().Warn("Container will share PID namespace with the agent")
+		}
+	}
 	passSeccomp := !sandbox.config.DisableGuestSeccomp && sandbox.seccompSupported
 
 	// We need to constraint the spec to make sure we're not passing
@@ -1481,6 +1492,7 @@ func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process,
 		Devices:      ctrDevices,
 		OCI:          grpcSpec,
 		SandboxPidns: sharedPidNs,
+		AgentPidns:   agentPidNs,
 	}
 
 	if _, err = k.sendReq(req); err != nil {
@@ -1704,6 +1716,23 @@ func (k *kataAgent) handlePidNamespace(grpcSpec *grpc.Spec, sandbox *Sandbox) bo
 	}
 
 	return sharedPidNs
+}
+
+// checkAgentPidNs checks if environment variable KATA_AGENT_PIDNS has been set for a containers
+// This variable is used to indicate if the containers pid namespace should be shared
+// with the agent pidns. This approach was taken due to the lack of support for container level annotations.
+func (k *kataAgent) checkAgentPidNs(container *Container) bool {
+	agentPidNs := false
+
+	for _, env := range container.config.Cmd.Envs {
+		if env.Var == agentPidEnv {
+			if val, err := strconv.ParseBool(env.Value); err == nil {
+				agentPidNs = val
+			}
+		}
+	}
+
+	return agentPidNs
 }
 
 func (k *kataAgent) startContainer(sandbox *Sandbox, c *Container) error {

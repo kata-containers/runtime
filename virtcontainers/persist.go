@@ -198,6 +198,7 @@ func (s *Sandbox) dumpConfig(ss *persistapi.SandboxState) {
 		Stateful:            sconfig.Stateful,
 		SystemdCgroup:       sconfig.SystemdCgroup,
 		SandboxCgroupOnly:   sconfig.SandboxCgroupOnly,
+		EnableAgentPidNs:    sconfig.EnableAgentPidNs,
 		DisableGuestSeccomp: sconfig.DisableGuestSeccomp,
 		Cgroups:             sconfig.Cgroups,
 	}
@@ -487,6 +488,7 @@ func loadSandboxConfig(id string) (*SandboxConfig, error) {
 		Stateful:            savedConf.Stateful,
 		SystemdCgroup:       savedConf.SystemdCgroup,
 		SandboxCgroupOnly:   savedConf.SandboxCgroupOnly,
+		EnableAgentPidNs:    savedConf.EnableAgentPidNs,
 		DisableGuestSeccomp: savedConf.DisableGuestSeccomp,
 		Cgroups:             savedConf.Cgroups,
 	}

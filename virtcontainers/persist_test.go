@@ -22,8 +22,9 @@ func TestSandboxRestore(t *testing.T) {
 	var err error
 	assert := assert.New(t)
 	sconfig := SandboxConfig{
-		ID:           "test-exp",
-		Experimental: []exp.Feature{persist.NewStoreFeature},
+		ID:               "test-exp",
+		Experimental:     []exp.Feature{persist.NewStoreFeature},
+		EnableAgentPidNs: true,
 	}
 	container := make(map[string]*Container)
 	container["test-exp"] = &Container{}
@@ -56,6 +57,7 @@ func TestSandboxRestore(t *testing.T) {
 	assert.Equal(sandbox.state.State, types.StateString(""))
 	assert.Equal(sandbox.state.GuestMemoryBlockSizeMB, uint32(0))
 	assert.Equal(len(sandbox.state.BlockIndexMap), 0)
+	assert.Equal(sandbox.config.EnableAgentPidNs, true)
 
 	// set state data and save again
 	sandbox.state.State = types.StateString("running")
@@ -78,4 +80,5 @@ func TestSandboxRestore(t *testing.T) {
 	assert.Equal(sandbox.state.GuestMemoryBlockSizeMB, uint32(1024))
 	assert.Equal(len(sandbox.state.BlockIndexMap), 1)
 	assert.Equal(sandbox.state.BlockIndexMap[2], struct{}{})
+	assert.Equal(sandbox.config.EnableAgentPidNs, true)
 }

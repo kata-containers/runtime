@@ -236,3 +236,10 @@ sandbox_cgroup_only=@DEFSANDBOXCGROUPONLY@
 # Supported experimental features:
 # (default: [])
 experimental=@DEFAULTEXPFEATURES@
+
+# If enabled, containers are allowed to join the pid namespace of the agent
+# when the env variable KATA_AGENT_PIDNS is set for a container.
+# Use this with caution and only when required, as this option allows the container
+# to access the agent process. It is recommended to enable this option 
+# only in debug scenarios and with containers with lowered priveleges.
+#enable_agent_pidns = true

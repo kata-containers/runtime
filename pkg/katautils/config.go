@@ -144,6 +144,7 @@ type runtime struct {
 	DisableNewNetNs     bool     `toml:"disable_new_netns"`
 	DisableGuestSeccomp bool     `toml:"disable_guest_seccomp"`
 	SandboxCgroupOnly   bool     `toml:"sandbox_cgroup_only"`
+	EnableAgentPidNs    bool     `toml:"enable_agent_pidns"`
 	Experimental        []string `toml:"experimental"`
 	InterNetworkModel   string   `toml:"internetworking_model"`
 }
@@ -1220,6 +1221,11 @@ func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolved
 
 	config.SandboxCgroupOnly = tomlConf.Runtime.SandboxCgroupOnly
 	config.DisableNewNetNs = tomlConf.Runtime.DisableNewNetNs
+	config.EnableAgentPidNs = tomlConf.Runtime.EnableAgentPidNs
+	if config.EnableAgentPidNs {
+		kataUtilsLogger.Warn("Feature to allow containers to share PID namespace with the agent has been enabled. Please understand this has security implications and should only be used for debug purposes")
+	}
+
 	for _, f := range tomlConf.Runtime.Experimental {
 		feature := exp.Get(f)
 		if feature == nil {
