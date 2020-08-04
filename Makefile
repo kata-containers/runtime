@@ -111,6 +111,7 @@ INITRDPATH := $(PKGDATADIR)/$(INITRDNAME)
 IMAGEPATH := $(PKGDATADIR)/$(IMAGENAME)
 FIRMWAREPATH :=
 
+### This is a test
 # Name of default configuration file the runtime will use.
 CONFIG_FILE = configuration.toml
 
