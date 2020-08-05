@@ -123,6 +123,9 @@ type RuntimeConfig struct {
 	//Determines kata processes are managed only in sandbox cgroup
 	SandboxCgroupOnly bool
 
+	//Determines if containers are allowed to join the pid namespace of the kata agent
+	EnableAgentPidNs bool
+
 	//Experimental features enabled
 	Experimental []exp.Feature
 }
@@ -851,6 +854,8 @@ func SandboxConfig(ocispec specs.Spec, runtime RuntimeConfig, bundlePath, cid, c
 		SystemdCgroup: systemdCgroup,
 
 		SandboxCgroupOnly: runtime.SandboxCgroupOnly,
+
+		EnableAgentPidNs: runtime.EnableAgentPidNs,
 
 		DisableGuestSeccomp: runtime.DisableGuestSeccomp,
 

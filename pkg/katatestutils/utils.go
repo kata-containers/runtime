@@ -34,6 +34,7 @@ type RuntimeConfigOptions struct {
 	EnableIOThreads      bool
 	HotplugVFIOOnRootBus bool
 	DisableNewNetNs      bool
+	EnableAgentPidNs     bool
 	HypervisorDebug      bool
 	RuntimeDebug         bool
 	RuntimeTrace         bool
@@ -89,5 +90,6 @@ func MakeRuntimeConfigFileData(config RuntimeConfigOptions) string {
 	[runtime]
 	enable_debug = ` + strconv.FormatBool(config.RuntimeDebug) + `
 	enable_tracing = ` + strconv.FormatBool(config.RuntimeTrace) + `
-	disable_new_netns= ` + strconv.FormatBool(config.DisableNewNetNs)
+	disable_new_netns= ` + strconv.FormatBool(config.DisableNewNetNs) + `
+	enable_agent_pidns= ` + strconv.FormatBool(config.EnableAgentPidNs)
 }

@@ -254,6 +254,9 @@ type SandboxConfig struct {
 	// SandboxCgroupOnly enables cgroup only at podlevel in the host
 	SandboxCgroupOnly bool
 
+	// Determines if containers are allowed to join the pid namespace of the kata agent
+	EnableAgentPidNs bool
+
 	DisableGuestSeccomp bool
 
 	// Experimental enables experimental features

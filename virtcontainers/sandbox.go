@@ -123,6 +123,9 @@ type SandboxConfig struct {
 	// SandboxCgroupOnly enables cgroup only at podlevel in the host
 	SandboxCgroupOnly bool
 
+	// EnableAgentPidNs allows containers to share pid namespace with the agent
+	EnableAgentPidNs bool
+
 	DisableGuestSeccomp bool
 
 	// Experimental features enabled

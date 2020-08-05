@@ -86,6 +86,7 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config testRuntimeConf
 	disableNewNetNs := false
 	sharedFS := "virtio-9p"
 	virtioFSdaemon := path.Join(dir, "virtiofsd")
+	enableAgentPidNs := true
 
 	configFileOptions := ktu.RuntimeConfigOptions{
 		Hypervisor:           "qemu",
@@ -119,6 +120,7 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config testRuntimeConf
 		AgentTrace:           agentTrace,
 		SharedFS:             sharedFS,
 		VirtioFSDaemon:       virtioFSdaemon,
+		EnableAgentPidNs:     enableAgentPidNs,
 	}
 
 	runtimeConfigFileData := ktu.MakeRuntimeConfigFileData(configFileOptions)
@@ -210,7 +212,8 @@ func createAllRuntimeConfigFiles(dir, hypervisor string) (config testRuntimeConf
 		NetmonConfig:    netmonConfig,
 		DisableNewNetNs: disableNewNetNs,
 
-		FactoryConfig: factoryConfig,
+		EnableAgentPidNs: enableAgentPidNs,
+		FactoryConfig:    factoryConfig,
 	}
 
 	err = SetKernelParams(&runtimeConfig)
