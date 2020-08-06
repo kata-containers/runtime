@@ -1831,9 +1831,9 @@ func (k *kataAgent) memHotplugByProbe(addr uint64, sizeMB uint32, memorySectionS
 	return err
 }
 
-func (k *kataAgent) onlineCPUMem(cpus uint32, cpuOnly bool) error {
+func (k *kataAgent) onlineCPUMem(cpus uint32, cpuOnly bool, wait bool) error {
 	req := &grpc.OnlineCPUMemRequest{
-		Wait:    false,
+		Wait:    wait,
 		NbCpus:  cpus,
 		CpuOnly: cpuOnly,
 	}

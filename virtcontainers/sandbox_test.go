@@ -25,6 +25,7 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/persist/fs"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/types"
+	"github.com/kata-containers/runtime/virtcontainers/utils"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
@@ -1311,6 +1312,17 @@ func TestSandboxUpdateResources(t *testing.T) {
 		c.Resources.CPU.Period = &containerCPUPeriod
 		c.Resources.CPU.Quota = &containerCPUQouta
 	}
+	err = s.updateResources()
+	assert.NoError(t, err)
+
+	// add a container with huge memory equal utils.MaxHotplugMemMBOnceTime
+	contConfig3 := newTestContainerConfigNoop("cont-00003")
+	contConfig3.Resources.Memory = &specs.LinuxMemory{
+		Limit: new(int64),
+	}
+	container3MemLimitInBytes := int64(utils.MaxHotplugMemMBOnceTime << utils.MibToBytesShift)
+	contConfig3.Resources.Memory.Limit = &container3MemLimitInBytes
+	s.config.Containers = append(s.config.Containers, contConfig3)
 	err = s.updateResources()
 	assert.NoError(t, err)
 }

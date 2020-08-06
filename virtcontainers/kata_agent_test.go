@@ -337,7 +337,7 @@ func TestKataAgentSendReq(t *testing.T) {
 	err = k.resumeContainer(sandbox, Container{})
 	assert.Nil(err)
 
-	err = k.onlineCPUMem(1, true)
+	err = k.onlineCPUMem(1, true, false)
 	assert.Nil(err)
 
 	_, err = k.statsContainer(sandbox, Container{})

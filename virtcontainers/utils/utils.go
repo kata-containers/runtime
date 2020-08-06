@@ -22,6 +22,9 @@ const fileMode0755 = os.FileMode(0755)
 // MibToBytesShift the number to shift needed to convert MiB to Bytes
 const MibToBytesShift = 20
 
+// Max Hotplug Memory size at once time, unit is MB
+const MaxHotplugMemMBOnceTime = 32 * 1024
+
 // MaxSocketPathLen is the effective maximum Unix domain socket length.
 //
 // See unix(7).

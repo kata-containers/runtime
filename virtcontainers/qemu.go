@@ -2267,3 +2267,7 @@ func (q *qemu) check() error {
 func (q *qemu) generateSocket(id string, useVsock bool) (interface{}, error) {
 	return generateVMSocket(id, useVsock, q.store.RunVMStoragePath())
 }
+
+func (q *qemu) getMemorySize() uint32 {
+	return q.config.MemorySize + uint32(q.state.HotpluggedMemory)
+}

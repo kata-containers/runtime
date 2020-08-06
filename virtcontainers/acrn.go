@@ -813,3 +813,7 @@ func (a *Acrn) loadInfo() error {
 	}
 	return nil
 }
+
+func (a *Acrn) getMemorySize() uint32 {
+	return a.config.MemorySize
+}

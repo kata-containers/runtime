@@ -1266,3 +1266,7 @@ func (clh *cloudHypervisor) vmInfo() (chclient.VmInfo, error) {
 	return info, openAPIClientError(err)
 
 }
+
+func (clh *cloudHypervisor) getMemorySize() uint32 {
+	return clh.config.MemorySize
+}

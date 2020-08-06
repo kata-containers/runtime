@@ -781,6 +781,9 @@ type hypervisor interface {
 	hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error)
 	resizeMemory(memMB uint32, memoryBlockSizeMB uint32, probe bool) (uint32, memoryDevice, error)
 	resizeVCPUs(vcpus uint32) (uint32, uint32, error)
+	// getMemorySize return the total memory in the guest include default memory size + hot plugged memory
+	// return memory size unit is MB
+	getMemorySize() uint32
 	getSandboxConsole(sandboxID string) (string, error)
 	disconnect()
 	capabilities() types.Capabilities

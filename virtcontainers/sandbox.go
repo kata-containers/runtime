@@ -1873,7 +1873,7 @@ func (s *Sandbox) updateResources() error {
 	// If the CPUs were increased, ask agent to online them
 	if oldCPUs < newCPUs {
 		vcpusAdded := newCPUs - oldCPUs
-		if err := s.agent.onlineCPUMem(vcpusAdded, true); err != nil {
+		if err := s.agent.onlineCPUMem(vcpusAdded, true, false); err != nil {
 			return err
 		}
 	}
@@ -1881,6 +1881,20 @@ func (s *Sandbox) updateResources() error {
 
 	// Update Memory
 	s.Logger().WithField("memory-sandbox-size-byte", sandboxMemoryByte).Debugf("Request to hypervisor to update memory")
+	reqMemMB := uint32(sandboxMemoryByte >> utils.MibToBytesShift)
+	currentMemMB := s.hypervisor.getMemorySize()
+
+	// If request hotplug memory size larger than utils.MaxHotplugMemMBOnceTime,
+	// inorder to avoid hotplug memory oom problem, we need to hotplug large memory
+	// with two steps. First, hotplug utils.MaxHotplugMemMBOnceTime size memory into
+	// guest and wait all hotplug memory online. Then, hotplug the left unplugged memory
+	// into the guest
+	if currentMemMB < reqMemMB && (reqMemMB-currentMemMB) > utils.MaxHotplugMemMBOnceTime {
+		if err := s.beforeHotplugHugeMem(currentMemMB); err != nil {
+			return err
+		}
+	}
+
 	newMemory, updatedMemoryDevice, err := s.hypervisor.resizeMemory(uint32(sandboxMemoryByte>>utils.MibToBytesShift), s.state.GuestMemoryBlockSizeMB, s.state.GuestMemoryHotplugProbe)
 	if err != nil {
 		return err
@@ -1893,7 +1907,7 @@ func (s *Sandbox) updateResources() error {
 			return err
 		}
 	}
-	if err := s.agent.onlineCPUMem(0, false); err != nil {
+	if err := s.agent.onlineCPUMem(0, false, false); err != nil {
 		return err
 	}
 	return nil
@@ -1933,6 +1947,18 @@ func (s *Sandbox) calculateSandboxCPUs() uint32 {
 		}
 	}
 	return utils.CalculateVCpusFromMilliCpus(mCPU)
+}
+
+func (s *Sandbox) beforeHotplugHugeMem(currentMemSizeInMB uint32) error {
+	wantedTotalMemSize := currentMemSizeInMB + utils.MaxHotplugMemMBOnceTime
+	newMemory, _, err := s.hypervisor.resizeMemory(wantedTotalMemSize, s.state.GuestMemoryBlockSizeMB, s.state.GuestMemoryHotplugProbe)
+	if err != nil {
+		return err
+	}
+
+	s.Logger().Debugf("first part hotplug memory size: %d MB", newMemory)
+	// wait all first part hotplugged memory online in the guest
+	return s.agent.onlineCPUMem(0, false, true)
 }
 
 // GetHypervisorType is used for getting Hypervisor name currently used.

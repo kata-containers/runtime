@@ -102,7 +102,7 @@ func (n *noopAgent) memHotplugByProbe(addr uint64, sizeMB uint32, memorySectionS
 }
 
 // onlineCPUMem is the Noop agent Container online CPU and Memory implementation. It does nothing.
-func (n *noopAgent) onlineCPUMem(cpus uint32, cpuOnly bool) error {
+func (n *noopAgent) onlineCPUMem(cpus uint32, cpuOnly bool, wait bool) error {
 	return nil
 }
 

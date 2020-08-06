@@ -370,7 +370,7 @@ func (v *VM) AddMemory(numMB uint32) error {
 // OnlineCPUMemory puts the hotplugged CPU and memory online.
 func (v *VM) OnlineCPUMemory() error {
 	v.logger().Infof("online CPU %d and memory", v.cpuDelta)
-	err := v.agent.onlineCPUMem(v.cpuDelta, false)
+	err := v.agent.onlineCPUMem(v.cpuDelta, false, false)
 	if err == nil {
 		v.cpuDelta = 0
 	}

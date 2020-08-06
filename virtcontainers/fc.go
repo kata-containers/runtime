@@ -1212,3 +1212,7 @@ func (fc *firecracker) watchConsole() (*os.File, error) {
 
 	return stdio, nil
 }
+
+func (fc *firecracker) getMemorySize() uint32 {
+	return fc.config.MemorySize
+}
