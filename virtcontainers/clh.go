@@ -86,9 +86,9 @@ type clhClient interface {
 	// Add/remove CPUs to/from the VM
 	VmResizePut(ctx context.Context, vmResize chclient.VmResize) (*http.Response, error)
 	// Add VFIO PCI device to the VM
-	VmAddDevicePut(ctx context.Context, vmAddDevice chclient.VmAddDevice) (*http.Response, error)
+	VmAddDevicePut(ctx context.Context, vmAddDevice chclient.VmAddDevice) (chclient.PciDeviceInfo, *http.Response, error)
 	// Add a new disk device to the VM
-	VmAddDiskPut(ctx context.Context, diskConfig chclient.DiskConfig) (*http.Response, error)
+	VmAddDiskPut(ctx context.Context, diskConfig chclient.DiskConfig) (chclient.PciDeviceInfo, *http.Response, error)
 }
 
 type CloudHypervisorVersion struct {
@@ -296,6 +296,12 @@ func (clh *cloudHypervisor) createSandbox(ctx context.Context, id string, networ
 		Mode: cctOFF,
 	}
 
+	clh.vmconfig.Cpus.Topology = chclient.CpuTopology{
+		ThreadsPerCore: 1,
+		CoresPerDie:    int32(clh.config.DefaultMaxVCPUs),
+		DiesPerPackage: 1,
+		Packages:       1,
+	}
 	// Overwrite the default value of HTTP API socket path for cloud hypervisor
 	apiSocketPath, err := clh.apiSocketPath(id)
 	if err != nil {
@@ -422,7 +428,7 @@ func (clh *cloudHypervisor) hotplugBlockDevice(drive *config.BlockDrive) error {
 			Readonly:  drive.ReadOnly,
 			VhostUser: false,
 		}
-		_, err = cl.VmAddDiskPut(ctx, blkDevice)
+		_, _, err = cl.VmAddDiskPut(ctx, blkDevice)
 	}
 
 	if err != nil {
@@ -441,7 +447,7 @@ func (clh *cloudHypervisor) hotPlugVFIODevice(device config.VFIODev) error {
 		return openAPIClientError(err)
 	}
 
-	_, err = cl.VmAddDevicePut(ctx, chclient.VmAddDevice{Path: device.SysfsDev})
+	_, _, err = cl.VmAddDevicePut(ctx, chclient.VmAddDevice{Path: device.SysfsDev})
 	if err != nil {
 		err = fmt.Errorf("Failed to hotplug device %+v %s", device, openAPIClientError(err))
 	}
