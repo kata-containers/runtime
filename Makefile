@@ -711,6 +711,7 @@ clean:
 		$(GENERATED_FILES) \
 		$(NETMON_TARGET) \
 		$(SHIMV2) \
+		$(SHIMV2_DIR)/$(notdir $(GENERATED_CONFIG)) \
 		$(TARGET) \
 		.git-commit .git-commit.tmp
 
