@@ -1330,33 +1330,36 @@ func (q *qemu) hotplugVFIODevice(device *config.VFIODev, op operation) (err erro
 
 			switch device.Type {
 			case config.VFIODeviceNormalType:
-				return q.qmpMonitorCh.qmp.ExecuteVFIODeviceAdd(q.qmpMonitorCh.ctx, devID, device.BDF, device.Bus, romFile)
+				err = q.qmpMonitorCh.qmp.ExecuteVFIODeviceAdd(q.qmpMonitorCh.ctx, devID, device.BDF, device.Bus, romFile)
 			case config.VFIODeviceMediatedType:
-				return q.qmpMonitorCh.qmp.ExecutePCIVFIOMediatedDeviceAdd(q.qmpMonitorCh.ctx, devID, device.SysfsDev, "", device.Bus, romFile)
+				err = q.qmpMonitorCh.qmp.ExecutePCIVFIOMediatedDeviceAdd(q.qmpMonitorCh.ctx, devID, device.SysfsDev, "", device.Bus, romFile)
 			default:
-				return fmt.Errorf("Incorrect VFIO device type found")
+				err = fmt.Errorf("Incorrect VFIO device type found")
 			}
-		}
-
-		addr, bridge, err := q.arch.addDeviceToBridge(devID, types.PCI)
-		if err != nil {
-			return err
-		}
-
-		defer func() {
+		} else {
+			addr, bridge, err := q.arch.addDeviceToBridge(devID, types.PCI)
 			if err != nil {
-				q.arch.removeDeviceFromBridge(devID)
+				return err
 			}
-		}()
 
-		switch device.Type {
-		case config.VFIODeviceNormalType:
-			return q.qmpMonitorCh.qmp.ExecutePCIVFIODeviceAdd(q.qmpMonitorCh.ctx, devID, device.BDF, addr, bridge.ID, romFile)
-		case config.VFIODeviceMediatedType:
-			return q.qmpMonitorCh.qmp.ExecutePCIVFIOMediatedDeviceAdd(q.qmpMonitorCh.ctx, devID, device.SysfsDev, addr, bridge.ID, romFile)
-		default:
-			return fmt.Errorf("Incorrect VFIO device type found")
+			defer func() {
+				if err != nil {
+					q.arch.removeDeviceFromBridge(devID)
+				}
+			}()
+
+			device.Bus = bridge.ID
+
+			switch device.Type {
+			case config.VFIODeviceNormalType:
+				err = q.qmpMonitorCh.qmp.ExecutePCIVFIODeviceAdd(q.qmpMonitorCh.ctx, devID, device.BDF, addr, device.Bus, romFile)
+			case config.VFIODeviceMediatedType:
+				err = q.qmpMonitorCh.qmp.ExecutePCIVFIOMediatedDeviceAdd(q.qmpMonitorCh.ctx, devID, device.SysfsDev, addr, device.Bus, romFile)
+			default:
+				err = fmt.Errorf("Incorrect VFIO device type found")
+			}
 		}
+		return err
 	} else {
 		q.Logger().WithField("dev-id", devID).Info("Start hot-unplug VFIO device")
 
