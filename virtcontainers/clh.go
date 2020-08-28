@@ -425,9 +425,6 @@ func (clh *cloudHypervisor) hotplugAddBlockDevice(drive *config.BlockDrive) erro
 
 	driveID := clhDriveIndexToID(drive.Index)
 
-	//Explicitly set PCIAddr to NULL, so that VirtPath can be used
-	drive.PCIAddr = ""
-
 	if drive.Pmem {
 		err = fmt.Errorf("pmem device hotplug not supported")
 	} else {
@@ -437,7 +434,13 @@ func (clh *cloudHypervisor) hotplugAddBlockDevice(drive *config.BlockDrive) erro
 			VhostUser: false,
 			Id:        driveID,
 		}
-		_, _, err = cl.VmAddDiskPut(ctx, blkDevice)
+		var deviceInfo chclient.PciDeviceInfo
+		deviceInfo, _, err = cl.VmAddDiskPut(ctx, blkDevice)
+
+		// Set the PCIAddr as the PCI BDF returned from clh
+		drive.PCIAddr = deviceInfo.Bdf
+		// Set the predicted device path as 'nil'
+		drive.VirtPath = ""
 	}
 
 	if err != nil {
