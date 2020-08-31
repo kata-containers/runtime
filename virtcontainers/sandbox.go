@@ -1598,6 +1598,11 @@ func (s *Sandbox) Stop(force bool) error {
 		return err
 	}
 
+	// Stop communicating with the agent.
+	if err := s.agent.disconnect(); err != nil && !force {
+		return err
+	}
+
 	return nil
 }
 
