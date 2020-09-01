@@ -77,6 +77,7 @@ var (
 	kataSCSIDevType             = "scsi"
 	kataNvdimmDevType           = "nvdimm"
 	kataVirtioFSDevType         = "virtio-fs"
+	kataVfioVMDevType           = "vfio-vm"
 	sharedDir9pOptions          = []string{"trans=virtio,version=9p2000.L,cache=mmap", "nodev"}
 	sharedDirVirtioFSOptions    = []string{}
 	sharedDirVirtioFSDaxOptions = "dax"
@@ -1253,6 +1254,40 @@ func (k *kataAgent) appendVhostUserBlkDevice(dev ContainerDevice, c *Container) 
 	return kataDevice
 }
 
+func (k *kataAgent) appendVfioDevice(dev ContainerDevice, c *Container) *grpc.Device {
+	device := c.sandbox.devManager.GetDeviceByID(dev.ID)
+
+	devList, ok := device.GetDeviceInfo().([]*config.VFIODev)
+	if !ok || devList == nil {
+		k.Logger().WithField("device", device).Error("malformed vfio device")
+		return nil
+	}
+
+	groupNum := filepath.Base(dev.ContainerPath)
+
+	// Each /dev/vfio/NN device represents a VFIO group, which
+	// could include several PCI devices.  So we give group
+	// information in the main structure, then list each
+	// individual PCI device in the Options array.
+	//
+	// Each option is formatted as "DDDD:BB:DD.F=<pcipath>"
+	// DDDD:BB:DD.F is the device's PCI address on the
+	// *host*. <pcipath> is the device's PCI path in the guest
+	// (see qomGetPciPath() for details).
+	kataDevice := &grpc.Device{
+		ContainerPath: dev.ContainerPath,
+		Type:          kataVfioVMDevType,
+		Id:            groupNum,
+		Options:       make([]string, len(devList)),
+	}
+
+	for i, pciDev := range devList {
+		kataDevice.Options[i] = fmt.Sprintf("0000:%s=%s", pciDev.BDF, pciDev.GuestPciPath)
+	}
+
+	return kataDevice
+}
+
 func (k *kataAgent) appendDevices(deviceList []*grpc.Device, c *Container) []*grpc.Device {
 	var kataDevice *grpc.Device
 
@@ -1268,6 +1303,8 @@ func (k *kataAgent) appendDevices(deviceList []*grpc.Device, c *Container) []*gr
 			kataDevice = k.appendBlockDevice(dev, c)
 		case config.VhostUserBlk:
 			kataDevice = k.appendVhostUserBlkDevice(dev, c)
+		case config.DeviceVFIO:
+			kataDevice = k.appendVfioDevice(dev, c)
 		}
 
 		if kataDevice == nil {
