@@ -71,7 +71,7 @@ assets:
     description: "Component used to create virtual machines"
 
     cloud_hypervisor:
-      description: "Cloud Hypervisor is an open source Virtual Machine Monitor"
+      description: "Cloud Hypervisor is an open source Virtual Machine Monitor."
       url: "https://github.com/cloud-hypervisor/cloud-hypervisor"
       uscan-url: >-
         https://github.com/cloud-hypervisor/cloud-hypervisor/tags.*/v?(\d\S+)\.tar\.gz
