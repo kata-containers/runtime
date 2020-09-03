@@ -96,6 +96,9 @@ type HypervisorInfo struct {
 	EntropySource        string
 	SharedFS             string
 	VirtioFSDaemon       string
+	VirtioFSExtraArgs    []string
+	VirtioFSCache        string
+	VirtioFSCacheSize    uint32
 	Msize9p              uint32
 	MemorySlots          uint32
 	PCIeRootPort         uint32
@@ -371,6 +374,9 @@ func getHypervisorInfo(config oci.RuntimeConfig) HypervisorInfo {
 		EntropySource:     config.HypervisorConfig.EntropySource,
 		SharedFS:          config.HypervisorConfig.SharedFS,
 		VirtioFSDaemon:    config.HypervisorConfig.VirtioFSDaemon,
+		VirtioFSExtraArgs: config.HypervisorConfig.VirtioFSExtraArgs,
+		VirtioFSCache:     config.HypervisorConfig.VirtioFSCache,
+		VirtioFSCacheSize: config.HypervisorConfig.VirtioFSCacheSize,
 
 		HotplugVFIOOnRootBus: config.HypervisorConfig.HotplugVFIOOnRootBus,
 		PCIeRootPort:         config.HypervisorConfig.PCIeRootPort,
