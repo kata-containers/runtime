@@ -33,7 +33,7 @@ import (
 )
 
 //
-// Constants and type definitions related to cloud hypervisor
+// Constants and type definitions related to cloud hypervisor.
 //
 
 type clhState uint8
