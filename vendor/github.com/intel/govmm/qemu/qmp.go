@@ -281,7 +281,7 @@ func (q *QMP) readLoop(fromVMCh chan<- []byte) {
 
 		fromVMCh <- sendLine
 	}
-	q.cfg.Logger.Infof("sanner return error: %v", scanner.Err())
+	q.cfg.Logger.Infof("scanner return error: %v", scanner.Err())
 	close(fromVMCh)
 }
 
@@ -1217,6 +1217,15 @@ func (q *QMP) ExecutePCIVFIOMediatedDeviceAdd(ctx context.Context, devID, sysfsd
 	return q.executeCommand(ctx, "device_add", args, nil)
 }
 
+// ExecuteAPVFIOMediatedDeviceAdd adds a VFIO mediated AP device to a QEMU instance using the device_add command.
+func (q *QMP) ExecuteAPVFIOMediatedDeviceAdd(ctx context.Context, sysfsdev string) error {
+	args := map[string]interface{}{
+		"driver":   VfioAP,
+		"sysfsdev": sysfsdev,
+	}
+	return q.executeCommand(ctx, "device_add", args, nil)
+}
+
 // isSocketIDSupported returns if the cpu driver supports the socket id option
 func isSocketIDSupported(driver string) bool {
 	if driver == "host-s390x-cpu" || driver == "host-powerpc64-cpu" {
@@ -1629,4 +1638,19 @@ func (q *QMP) ExecQomSet(ctx context.Context, path, property string, value uint6
 	}
 
 	return q.executeCommand(ctx, "qom-set", args, nil)
+}
+
+// ExecQomGet qom-get path property
+func (q *QMP) ExecQomGet(ctx context.Context, path, property string) (interface{}, error) {
+	args := map[string]interface{}{
+		"path":     path,
+		"property": property,
+	}
+
+	response, err := q.executeCommandWithResponse(ctx, "qom-get", args, nil, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return response, nil
 }
