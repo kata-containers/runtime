@@ -253,6 +253,14 @@
   revision = "20b96f641a5ea98f2f8619ff4f3e061cff4833bd"
 
 [[projects]]
+  digest = "1:d24202e1443ccfa3cddbf2637429b1a75b579b770f763248dd7a444768c457d3"
+  name = "github.com/go-logr/logr"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "d18fcbf02861580d05a1f23601145b272c4e7b4b"
+  version = "v0.2.0"
+
+[[projects]]
   digest = "1:e101aa2e25fac7e82ba4d2f66807eedd4bcf11abc5afcb4a4629a88f9a652b84"
   name = "github.com/go-openapi/analysis"
   packages = [
@@ -759,6 +767,22 @@
   revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
   version = "v2.2.2"
 
+[[projects]]
+  digest = "1:1e59c620b71c049ef7cb4da2bd22da52d554800199ef5edbca216517ca06e644"
+  name = "k8s.io/klog"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "d738e55e1450a3219a8c244003042ba290711105"
+  version = "v2.2.0"
+
+[[projects]]
+  digest = "1:d5f1568a8309586aaaf439f98ec19cf3c0495aad05926d4ec9f404c0aae2c4df"
+  name = "k8s.io/kubernetes"
+  packages = ["pkg/kubelet/cm/cpuset"]
+  pruneopts = "NUT"
+  revision = "c96aede7b5205121079932896c4ad89bb93260af"
+  version = "v1.18.4"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -830,6 +854,7 @@
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/status",
+    "k8s.io/kubernetes/pkg/kubelet/cm/cpuset",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
