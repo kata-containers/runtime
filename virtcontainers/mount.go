@@ -315,13 +315,17 @@ func isSymlink(path string) bool {
 	return stat.Mode()&os.ModeSymlink != 0
 }
 
-func bindUnmountContainerRootfs(ctx context.Context, sharedDir, cID string) error {
+func bindUnmountContainerRootfs(ctx context.Context, sharedDir string, con *Container) error {
 	span, _ := trace(ctx, "bindUnmountContainerRootfs")
 	defer span.Finish()
 
-	rootfsDest := filepath.Join(sharedDir, cID, rootfsDir)
-	if isSymlink(filepath.Join(sharedDir, cID)) || isSymlink(rootfsDest) {
-		logrus.Warnf("container dir %s is a symlink, malicious guest?", cID)
+	if con.state.Fstype != "" && con.state.BlockDeviceID != "" {
+		return nil
+	}
+
+	rootfsDest := filepath.Join(sharedDir, con.id, rootfsDir)
+	if isSymlink(filepath.Join(sharedDir, con.id)) || isSymlink(rootfsDest) {
+		logrus.Warnf("container dir %s is a symlink, malicious guest?", con.id)
 		return nil
 	}
 
@@ -351,7 +355,7 @@ func bindUnmountAllRootfs(ctx context.Context, sharedDir string, sandbox *Sandbo
 		if c.state.Fstype == "" {
 			// even if error found, don't break out of loop until all mounts attempted
 			// to be unmounted, and collect all errors
-			errors = merr.Append(errors, bindUnmountContainerRootfs(c.ctx, sharedDir, c.id))
+			errors = merr.Append(errors, bindUnmountContainerRootfs(c.ctx, sharedDir, c))
 		}
 	}
 	return errors.ErrorOrNil()
