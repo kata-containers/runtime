@@ -954,3 +954,31 @@ func TestIsCRIOContainerManager(t *testing.T) {
 		assert.Equal(tc.result, result, "test case %d", (i + 1))
 	}
 }
+
+func TestRegexpContains(t *testing.T) {
+	assert := assert.New(t)
+
+	type testData struct {
+		regexps  []string
+		toMatch  string
+		expected bool
+	}
+
+	data := []testData{
+		{[]string{}, "", false},
+		{[]string{}, "nonempty", false},
+		{[]string{"simple"}, "simple", true},
+		{[]string{"simple"}, "some_simple_text", true},
+		{[]string{"simple"}, "simp", false},
+		{[]string{"one", "two"}, "one", true},
+		{[]string{"one", "two"}, "two", true},
+		{[]string{"o*"}, "oooo", true},
+		{[]string{"o*"}, "oooa", true},
+		{[]string{"^o*$"}, "oooa", false},
+	}
+
+	for _, d := range data {
+		matched := regexpContains(d.regexps, d.toMatch)
+		assert.Equal(d.expected, matched, "%+v", d)
+	}
+}
