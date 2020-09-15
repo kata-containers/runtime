@@ -78,6 +78,7 @@ var (
 	kataNvdimmDevType           = "nvdimm"
 	kataVirtioFSDevType         = "virtio-fs"
 	kataVfioVMDevType           = "vfio-vm"
+	kataVfioDevType             = "vfio"
 	sharedDir9pOptions          = []string{"trans=virtio,version=9p2000.L,cache=mmap", "nodev"}
 	sharedDirVirtioFSOptions    = []string{}
 	sharedDirVirtioFSDaxOptions = "dax"
@@ -1093,7 +1094,7 @@ func (k *kataAgent) replaceOCIMountsForStorages(spec *specs.Spec, volumeStorages
 	return nil
 }
 
-func (k *kataAgent) constraintGRPCSpec(grpcSpec *grpc.Spec, passSeccomp bool) {
+func (k *kataAgent) constraintGRPCSpec(grpcSpec *grpc.Spec, passSeccomp, vfioInGuest bool) {
 	// Disable Hooks since they have been handled on the host and there is
 	// no reason to send them to the agent. It would make no sense to try
 	// to apply them on the guest.
@@ -1152,17 +1153,25 @@ func (k *kataAgent) constraintGRPCSpec(grpcSpec *grpc.Spec, passSeccomp bool) {
 	}
 	grpcSpec.Linux.Namespaces = tmpNamespaces
 
-	// VFIO char device shouldn't not appear in the guest,
-	// the device driver should handle it and determinate its group.
-	var linuxDevices []grpc.LinuxDevice
-	for _, dev := range grpcSpec.Linux.Devices {
-		if dev.Type == "c" && strings.HasPrefix(dev.Path, vfioPath) {
-			k.Logger().WithField("vfio-dev", dev.Path).Debug("removing vfio device from grpcSpec")
-			continue
+	// If we're in guest-native-driver mode for VFIO devices, we
+	// need to remove the VFIO char devices from the container
+	// spec: the guest device driver will bind the device and
+	// create its own (different) devices.
+	// When we're not in guest native driver mode, we need to
+	// leave them in, so the agent can use the information here
+	// and elsewhere to properly bind drivers and create device
+	// node in the container.
+	if !vfioInGuest {
+		var linuxDevices []grpc.LinuxDevice
+		for _, dev := range grpcSpec.Linux.Devices {
+			if dev.Type == "c" && strings.HasPrefix(dev.Path, vfioPath) {
+				k.Logger().WithField("vfio-dev", dev.Path).Debug("removing vfio device from grpcSpec")
+				continue
+			}
+			linuxDevices = append(linuxDevices, dev)
 		}
-		linuxDevices = append(linuxDevices, dev)
+		grpcSpec.Linux.Devices = linuxDevices
 	}
-	grpcSpec.Linux.Devices = linuxDevices
 }
 
 func (k *kataAgent) handleShm(mounts []specs.Mount, sandbox *Sandbox) {
@@ -1279,9 +1288,19 @@ func (k *kataAgent) appendVfioDevice(dev ContainerDevice, c *Container) *grpc.De
 	// (see qomGetPciPath() for details).
 	kataDevice := &grpc.Device{
 		ContainerPath: dev.ContainerPath,
-		Type:          kataVfioVMDevType,
+		Type:          kataVfioDevType,
 		Id:            groupNum,
 		Options:       make([]string, len(devList)),
+	}
+
+	// We always pass the device information to the agent, since
+	// it needs that to wait for them to be ready.  But depending
+	// on the vfio_in_guest option, we can either tell it to let
+	// them bind to the VM native drivers (type kataVfioDevVMType)
+	// or to rebind it to VFIO within the VM (type
+	// kataVfioDevType)
+	if !c.sandbox.config.VFIOInGuest {
+		kataDevice.Type = kataVfioVMDevType
 	}
 
 	for i, pciDev := range devList {
@@ -1523,7 +1542,7 @@ func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process,
 
 	// We need to constraint the spec to make sure we're not passing
 	// irrelevant information to the agent.
-	k.constraintGRPCSpec(grpcSpec, passSeccomp)
+	k.constraintGRPCSpec(grpcSpec, passSeccomp, sandbox.config.VFIOInGuest)
 
 	req := &grpc.CreateContainerRequest{
 		ContainerId:  c.id,

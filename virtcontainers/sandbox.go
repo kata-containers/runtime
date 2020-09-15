@@ -128,6 +128,10 @@ type SandboxConfig struct {
 
 	DisableGuestSeccomp bool
 
+	//Determines if VFIO devices get bound to the VFIO driver in
+	//the guest, or to the guest's native drivers
+	VFIOInGuest bool
+
 	// Experimental features enabled
 	Experimental []exp.Feature
 

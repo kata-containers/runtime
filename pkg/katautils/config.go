@@ -146,6 +146,7 @@ type runtime struct {
 	DisableGuestSeccomp bool     `toml:"disable_guest_seccomp"`
 	SandboxCgroupOnly   bool     `toml:"sandbox_cgroup_only"`
 	EnableAgentPidNs    bool     `toml:"enable_agent_pidns"`
+	VFIOInGuest         bool     `toml:"vfio_in_guest"`
 	Experimental        []string `toml:"experimental"`
 	InterNetworkModel   string   `toml:"internetworking_model"`
 }
@@ -1237,6 +1238,7 @@ func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolved
 	if config.EnableAgentPidNs {
 		kataUtilsLogger.Warn("Feature to allow containers to share PID namespace with the agent has been enabled. Please understand this has security implications and should only be used for debug purposes")
 	}
+	config.VFIOInGuest = tomlConf.Runtime.VFIOInGuest
 
 	for _, f := range tomlConf.Runtime.Experimental {
 		feature := exp.Get(f)

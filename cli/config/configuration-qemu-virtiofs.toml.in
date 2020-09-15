@@ -466,3 +466,17 @@ sandbox_cgroup_only=@DEFSANDBOXCGROUPONLY@
 # Supported experimental features:
 # (default: [])
 experimental=@DEFAULTEXPFEATURES@
+
+# Use VFIO driver for VFIO devices in the VM, as well as the host.
+#
+# When enabled, VFIO devices passed to the container appear as VFIO
+# devices within the container, similar behaviour to a conventional
+# container.  NOTE: The VFIO device within the container will have a
+# different name from the device on the host, since the VM has its own
+# IOMMU/VFIO group numbering.
+#
+# When disabled, the VM will use its native drivers for the VFIO
+# device.This behaviour is inherently Kata specific, and will require
+# a container image which expects it.
+# (default: false)
+#vfio_in_guest = true
