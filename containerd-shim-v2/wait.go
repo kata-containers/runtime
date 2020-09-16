@@ -7,12 +7,14 @@ package containerdshim
 
 import (
 	"context"
+	"os"
 	"path"
 	"time"
 
 	"github.com/containerd/containerd/api/events"
 	"github.com/containerd/containerd/api/types/task"
 	"github.com/containerd/containerd/mount"
+	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 )
@@ -151,6 +153,26 @@ func watchOOMEvents(ctx context.Context, s *service) {
 				continue
 			}
 
+			// write oom file for CRI-O
+			if c, ok := s.containers[containerID]; ok && oci.IsCRIOContainerManager(c.spec) {
+				oomPath := path.Join(c.bundle, "oom")
+				logrus.WithFields(logrus.Fields{
+					"sandbox":   s.sandbox.ID(),
+					"container": containerID,
+				}).Infof("write oom file to notify CRI-O: %s", oomPath)
+
+				f, err := os.OpenFile(oomPath, os.O_CREATE, 0666)
+				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						"sandbox":   s.sandbox.ID(),
+						"container": containerID,
+					}).Warnf("failed to write oom file %s", oomPath)
+				} else {
+					f.Close()
+				}
+			}
+
+			// publish event for containerd
 			s.send(&events.TaskOOM{
 				ContainerID: containerID,
 			})
