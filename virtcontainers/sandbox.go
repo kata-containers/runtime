@@ -728,14 +728,14 @@ func fetchSandbox(ctx context.Context, sandboxID string) (sandbox *Sandbox, err 
 
 	var config SandboxConfig
 
-	// Try to load sandbox config from old store at first.
-	c, ctx, err := loadSandboxConfigFromOldStore(ctx, sandboxID)
+	// Try to load sandbox config from new store at first.
+	c, err := loadSandboxConfig(sandboxID)
 	if err != nil {
-		virtLog.Warningf("failed to get sandbox config from old store: %v", err)
-		// If we failed to load sandbox config from old store, try again with new store.
-		c, err = loadSandboxConfig(sandboxID)
+		virtLog.Warningf("failed to get sandbox config from new store: %v", err)
+		// If we failed to load sandbox config from new store, try again with old store.
+		c, ctx, err = loadSandboxConfigFromOldStore(ctx, sandboxID)
 		if err != nil {
-			virtLog.Warningf("failed to get sandbox config from new store: %v", err)
+			virtLog.Warningf("failed to get sandbox config from old store: %v", err)
 			return nil, err
 		}
 	}
@@ -837,7 +837,11 @@ func (s *Sandbox) Delete() error {
 	}
 
 	s.agent.cleanup(s)
-
+	if useOldStore(s.ctx) && s.store != nil {
+		if err := s.store.Delete(); err != nil {
+			s.Logger().WithError(err).Error("store delete failed")
+		}
+	}
 	return s.newStore.Destroy(s.id)
 }
 
