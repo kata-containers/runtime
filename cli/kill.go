@@ -108,8 +108,11 @@ func kill(ctx context.Context, containerID, signal string, all bool) error {
 
 	// Checks the MUST and MUST NOT from OCI runtime specification
 	status, sandboxID, err := getExistingContainerInfo(ctx, containerID)
-
 	if err != nil {
+		if err.Error() == syscall.ENOENT.Error() {
+			kataLog.WithField("container", containerID).Info("skipping kill as container does not exist")
+			return nil
+		}
 		return err
 	}
 
