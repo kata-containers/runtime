@@ -121,7 +121,6 @@ type hypervisor struct {
 	HugePages               bool     `toml:"enable_hugepages"`
 	VirtioMem               bool     `toml:"enable_virtio_mem"`
 	IOMMU                   bool     `toml:"enable_iommu"`
-	IOMMUPlatform           bool     `toml:"enable_iommu_platform"`
 	FileBackedMemRootDir    string   `toml:"file_mem_backend"`
 	Swap                    bool     `toml:"enable_swap"`
 	Debug                   bool     `toml:"enable_debug"`
@@ -445,15 +444,6 @@ func (h hypervisor) getInitrdAndImage() (initrd string, image string, err error)
 	return
 }
 
-func (h hypervisor) getIOMMUPlatform() bool {
-	if h.IOMMUPlatform {
-		kataUtilsLogger.Info("IOMMUPlatform is enabled by default.")
-	} else {
-		kataUtilsLogger.Info("IOMMUPlatform is disabled by default.")
-	}
-	return h.IOMMUPlatform
-}
-
 func (p proxy) path() (string, error) {
 	path := p.Path
 	if path == "" {
@@ -681,7 +671,6 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		MemPrealloc:             h.MemPrealloc,
 		HugePages:               h.HugePages,
 		IOMMU:                   h.IOMMU,
-		IOMMUPlatform:           h.getIOMMUPlatform(),
 		FileBackedMemRootDir:    h.FileBackedMemRootDir,
 		Mlock:                   !h.Swap,
 		Debug:                   h.Debug,
@@ -1126,7 +1115,6 @@ func GetDefaultHypervisorConfig() vc.HypervisorConfig {
 		MemPrealloc:             defaultEnableMemPrealloc,
 		HugePages:               defaultEnableHugePages,
 		IOMMU:                   defaultEnableIOMMU,
-		IOMMUPlatform:           defaultEnableIOMMUPlatform,
 		FileBackedMemRootDir:    defaultFileBackedMemRootDir,
 		Mlock:                   !defaultEnableSwap,
 		Debug:                   defaultEnableDebug,
