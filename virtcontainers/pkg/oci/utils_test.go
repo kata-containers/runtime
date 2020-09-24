@@ -844,7 +844,6 @@ func TestAddHypervisorAnnotations(t *testing.T) {
 	assert.Error(err)
 
 	ocispec.Annotations[vcAnnotations.DefaultMaxVCPUs] = "1"
-	ocispec.Annotations[vcAnnotations.DefaultMemory] = fmt.Sprintf("%d", vc.MinHypervisorMemory+1)
 	assert.Error(err)
 }
 

@@ -326,11 +326,11 @@ func (h hypervisor) defaultMaxVCPUs() uint32 {
 }
 
 func (h hypervisor) defaultMemSz() uint32 {
-	if h.MemorySize < vc.MinHypervisorMemory {
-		return defaultMemSize // MiB
+	if h.MemorySize > 0 {
+		return h.MemorySize
 	}
 
-	return h.MemorySize
+	return defaultMemSize
 }
 
 func (h hypervisor) defaultMemSlots() uint32 {
