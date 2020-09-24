@@ -75,9 +75,6 @@ const (
 	// Port where the agent will send the logs. Logs are sent through the vsock in cases
 	// where the hypervisor has no console.sock, i.e firecracker
 	vSockLogsPort = 1025
-
-	// MinHypervisorMemory is the minimum memory required for a VM.
-	MinHypervisorMemory = 256
 )
 
 // In some architectures the maximum number of vCPUs depends on the number of physical cores.
