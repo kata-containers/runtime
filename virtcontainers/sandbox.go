@@ -1867,7 +1867,10 @@ func (s *Sandbox) updateResources() error {
 		return fmt.Errorf("sandbox config is nil")
 	}
 
-	sandboxVCPUs := s.calculateSandboxCPUs()
+	sandboxVCPUs, err := s.calculateSandboxCPUs()
+	if err != nil {
+		return err
+	}
 	// Add default vcpus for sandbox
 	sandboxVCPUs += s.hypervisor.hypervisorConfig().NumVCPUs
 
@@ -1927,8 +1930,9 @@ func (s *Sandbox) calculateSandboxMemory() int64 {
 	return memorySandbox
 }
 
-func (s *Sandbox) calculateSandboxCPUs() uint32 {
+func (s *Sandbox) calculateSandboxCPUs() (uint32, error) {
 	mCPU := uint32(0)
+	cpusetCount := int(0)
 
 	for _, c := range s.config.Containers {
 		// Do not hot add again non-running containers resources
@@ -1942,9 +1946,22 @@ func (s *Sandbox) calculateSandboxCPUs() uint32 {
 				mCPU += utils.CalculateMilliCPUs(*cpu.Quota, *cpu.Period)
 			}
 
+			set, err := cpuset.Parse(cpu.Cpus)
+			if err != nil {
+				return 0, nil
+			}
+			cpusetCount += set.Size()
 		}
 	}
-	return utils.CalculateVCpusFromMilliCpus(mCPU)
+
+	// If we aren't being constrained, then we could have two scenarios:
+	//  1. BestEffort QoS: no proper support today in Kata.
+	//  2. We could be constrained only by CPUSets. Check for this:
+	if mCPU == 0 && cpusetCount > 0 {
+		return uint32(cpusetCount), nil
+	}
+
+	return utils.CalculateVCpusFromMilliCpus(mCPU), nil
 }
 
 // GetHypervisorType is used for getting Hypervisor name currently used.
@@ -1963,15 +1980,13 @@ func (s *Sandbox) cgroupsUpdate() error {
 	// in the Kata sandbox cgroup (inherited). Check to see if sandbox cpuset needs to be
 	// updated.
 	if s.config.SandboxCgroupOnly {
-		cpuset, err := s.getSandboxCPUSet()
+		cpuset, memset, err := s.getSandboxCPUSet()
 		if err != nil {
 			return err
 		}
 
-		if cpuset != "" {
-			if err := s.cgroupMgr.SetCPUSet(cpuset); err != nil {
-				return err
-			}
+		if err := s.cgroupMgr.SetCPUSet(cpuset, memset); err != nil {
+			return err
 		}
 
 		return nil
@@ -2268,23 +2283,30 @@ func (s *Sandbox) GetOOMEvent() (string, error) {
 	return s.agent.getOOMEvent()
 }
 
-// getSandboxCPUSet returns the union of each of the sandbox's containers' CPU sets
-// as a string in canonical linux CPU list format
-func (s *Sandbox) getSandboxCPUSet() (string, error) {
+// getSandboxCPUSet returns the union of each of the sandbox's containers' CPU sets'
+// cpus and mems as a string in canonical linux CPU/mems list format
+func (s *Sandbox) getSandboxCPUSet() (string, string, error) {
 	if s.config == nil {
-		return "", nil
+		return "", "", nil
 	}
 
-	result := cpuset.NewCPUSet()
+	cpuResult := cpuset.NewCPUSet()
+	memResult := cpuset.NewCPUSet()
 	for _, ctr := range s.config.Containers {
 		if ctr.Resources.CPU != nil {
-			currSet, err := cpuset.Parse(ctr.Resources.CPU.Cpus)
+			currCPUSet, err := cpuset.Parse(ctr.Resources.CPU.Cpus)
 			if err != nil {
-				return "", fmt.Errorf("unable to parse CPUset for container %s: %v", ctr.ID, err)
+				return "", "", fmt.Errorf("unable to parse CPUset.cpus for container %s: %v", ctr.ID, err)
 			}
-			result = result.Union(currSet)
+			cpuResult = cpuResult.Union(currCPUSet)
+
+			currMemSet, err := cpuset.Parse(ctr.Resources.CPU.Mems)
+			if err != nil {
+				return "", "", fmt.Errorf("unable to parse CPUset.mems for container %s: %v", ctr.ID, err)
+			}
+			memResult = memResult.Union(currMemSet)
 		}
 	}
 
-	return result.String(), nil
+	return cpuResult.String(), memResult.String(), nil
 }
