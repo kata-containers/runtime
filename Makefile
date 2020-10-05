@@ -183,7 +183,7 @@ DEFVIRTIOFSCACHE ?= auto
 #
 # see `virtiofsd -h` for possible options.
 # Make sure you quote args.
-DEFVIRTIOFSEXTRAARGS ?= []
+DEFVIRTIOFSEXTRAARGS ?= [\"-o\", \"xattr\"]
 DEFENABLEIOTHREADS := false
 DEFENABLEMEMPREALLOC := false
 DEFENABLEHUGEPAGES := false
