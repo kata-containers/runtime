@@ -2297,7 +2297,7 @@ func (k *kataAgent) convertToKataAgentInterface(iface *vcTypes.Interface) *aType
 		Mtu:         iface.Mtu,
 		RawFlags:    iface.RawFlags,
 		HwAddr:      iface.HwAddr,
-		PciAddr:     iface.PciAddr,
+		PciPath:     iface.PciAddr,
 	}
 }
 
@@ -2313,7 +2313,7 @@ func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) (ifaces []*
 			IPAddresses: k.convertToIPAddresses(aIface.IPAddresses),
 			Mtu:         aIface.Mtu,
 			HwAddr:      aIface.HwAddr,
-			PciAddr:     aIface.PciAddr,
+			PciAddr:     aIface.PciPath,
 		}
 
 		ifaces = append(ifaces, iface)
