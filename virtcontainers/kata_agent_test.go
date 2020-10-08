@@ -526,14 +526,15 @@ func TestHandleBlockVolume(t *testing.T) {
 	bDevID := "MockDeviceBlock"
 	vDestination := "/VhostUserBlk/destination"
 	bDestination := "/DeviceBlock/destination"
-	vPCIAddr := "0001:01"
+	vPCIPath, err := vcTypes.PciPathFromString("01/02")
+	assert.NoError(t, err)
 	bPCIPath, err := vcTypes.PciPathFromString("03/04")
 	assert.NoError(t, err)
 
 	vDev := drivers.NewVhostUserBlkDevice(&config.DeviceInfo{ID: vDevID})
 	bDev := drivers.NewBlockDevice(&config.DeviceInfo{ID: bDevID})
 
-	vDev.VhostUserDeviceAttrs = &config.VhostUserDeviceAttrs{PCIAddr: vPCIAddr}
+	vDev.VhostUserDeviceAttrs = &config.VhostUserDeviceAttrs{PCIPath: vPCIPath}
 	bDev.BlockDrive = &config.BlockDrive{PCIPath: bPCIPath}
 
 	var devices []api.Device
@@ -575,7 +576,7 @@ func TestHandleBlockVolume(t *testing.T) {
 		Fstype:     "bind",
 		Options:    []string{"bind"},
 		Driver:     kataBlkDevType,
-		Source:     vPCIAddr,
+		Source:     vPCIPath.String(),
 	}
 	bStorage := &pb.Storage{
 		MountPoint: bDestination,
@@ -665,7 +666,7 @@ func TestAppendVhostUserBlkDevices(t *testing.T) {
 			},
 			VhostUserDeviceAttrs: &config.VhostUserDeviceAttrs{
 				Type:    config.VhostUserBlk,
-				PCIAddr: testPCIPath.String(),
+				PCIPath: testPCIPath,
 			},
 		},
 	}

@@ -1250,7 +1250,7 @@ func (k *kataAgent) appendVhostUserBlkDevice(dev ContainerDevice, c *Container) 
 	kataDevice := &grpc.Device{
 		ContainerPath: dev.ContainerPath,
 		Type:          kataBlkDevType,
-		Id:            d.PCIAddr,
+		Id:            d.PCIPath.String(),
 	}
 
 	return kataDevice
@@ -1633,7 +1633,7 @@ func (k *kataAgent) handleVhostUserBlkVolume(c *Container, device api.Device) (*
 	}
 
 	vol.Driver = kataBlkDevType
-	vol.Source = d.PCIAddr
+	vol.Source = d.PCIPath.String()
 
 	return vol, nil
 }
