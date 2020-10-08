@@ -33,6 +33,7 @@ import (
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	persistapi "github.com/kata-containers/runtime/virtcontainers/persist/api"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
@@ -1420,8 +1421,16 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) (err error) {
 			}
 		}()
 
-		pciAddr := fmt.Sprintf("%02x/%s", bridge.Addr, addr)
-		endpoint.SetPciAddr(pciAddr)
+		bridgeSlot, err := vcTypes.PciSlotFromInt(bridge.Addr)
+		if err != nil {
+			return err
+		}
+		devSlot, err := vcTypes.PciSlotFromString(addr)
+		if err != nil {
+			return err
+		}
+		pciPath, err := vcTypes.PciPathFromSlots(bridgeSlot, devSlot)
+		endpoint.SetPciPath(pciPath)
 
 		var machine govmmQemu.Machine
 		machine, err = q.getQemuMachine()

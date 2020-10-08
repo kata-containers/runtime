@@ -1,4 +1,4 @@
-// Copyright 2018 Intel Corporation.
+// Copyright (c) 2018 Intel Corporation.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -20,10 +20,8 @@ type Interface struct {
 	Mtu         uint64
 	RawFlags    uint32
 	HwAddr      string
-	// pciAddr is the PCI address in the format  "bridgeAddr/deviceAddr".
-	// Here, bridgeAddr is the address at which the bridge is attached on the root bus,
-	// while deviceAddr is the address at which the network device is attached on the bridge.
-	PciAddr string
+	// PCI path for the interface
+	PciPath PciPath
 	// LinkType defines the type of interface described by this structure.
 	// The expected values are the one that are defined by the netlink
 	// library, regarding each type of link. Here is a non exhaustive

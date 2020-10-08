@@ -2300,7 +2300,7 @@ func (k *kataAgent) convertToKataAgentInterface(iface *vcTypes.Interface) *aType
 		Mtu:         iface.Mtu,
 		RawFlags:    iface.RawFlags,
 		HwAddr:      iface.HwAddr,
-		PciPath:     iface.PciAddr,
+		PciPath:     iface.PciPath.String(),
 	}
 }
 
@@ -2311,13 +2311,17 @@ func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) ([]*vcTypes
 			continue
 		}
 
+		pcipath, err := vcTypes.PciPathFromString(aIface.PciPath)
+		if err != nil {
+			return nil, err
+		}
 		iface := &vcTypes.Interface{
 			Device:      aIface.Device,
 			Name:        aIface.Name,
 			IPAddresses: k.convertToIPAddresses(aIface.IPAddresses),
 			Mtu:         aIface.Mtu,
 			HwAddr:      aIface.HwAddr,
-			PciAddr:     aIface.PciPath,
+			PciPath:     pcipath,
 		}
 
 		ifaces = append(ifaces, iface)
