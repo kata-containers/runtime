@@ -1225,7 +1225,7 @@ func (k *kataAgent) appendBlockDevice(dev ContainerDevice, c *Container) *grpc.D
 		kataDevice.Id = d.DevNo
 	case config.VirtioBlock:
 		kataDevice.Type = kataBlkDevType
-		kataDevice.Id = d.PCIAddr
+		kataDevice.Id = d.PCIPath.String()
 		kataDevice.VmPath = d.VirtPath
 	case config.VirtioSCSI:
 		kataDevice.Type = kataSCSIDevType
@@ -1329,10 +1329,10 @@ func (k *kataAgent) buildContainerRootfs(sandbox *Sandbox, c *Container, rootPat
 			rootfs.Source = blockDrive.DevNo
 		case sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioBlock:
 			rootfs.Driver = kataBlkDevType
-			if blockDrive.PCIAddr == "" {
+			if blockDrive.PCIPath.IsNil() {
 				rootfs.Source = blockDrive.VirtPath
 			} else {
-				rootfs.Source = blockDrive.PCIAddr
+				rootfs.Source = blockDrive.PCIPath.String()
 			}
 
 		case sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioSCSI:
@@ -1603,10 +1603,10 @@ func (k *kataAgent) handleDeviceBlockVolume(c *Container, device api.Device) (*g
 		vol.Source = blockDrive.DevNo
 	case c.sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioBlock:
 		vol.Driver = kataBlkDevType
-		if blockDrive.PCIAddr == "" {
+		if blockDrive.PCIPath.IsNil() {
 			vol.Source = blockDrive.VirtPath
 		} else {
-			vol.Source = blockDrive.PCIAddr
+			vol.Source = blockDrive.PCIPath.String()
 		}
 	case c.sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioMmio:
 		vol.Driver = kataMmioBlkDevType
