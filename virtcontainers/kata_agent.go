@@ -673,7 +673,10 @@ func (k *kataAgent) listInterfaces() ([]*vcTypes.Interface, error) {
 	}
 	resultInterfaces, ok := resultingInterfaces.(*grpc.Interfaces)
 	if ok {
-		return k.convertToInterfaces(resultInterfaces.Interfaces), err
+		ifaces, err := k.convertToInterfaces(resultInterfaces.Interfaces)
+		if err == nil {
+			return ifaces, nil
+		}
 	}
 	return nil, err
 }
@@ -2301,7 +2304,8 @@ func (k *kataAgent) convertToKataAgentInterface(iface *vcTypes.Interface) *aType
 	}
 }
 
-func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) (ifaces []*vcTypes.Interface) {
+func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) ([]*vcTypes.Interface, error) {
+	ifaces := make([]*vcTypes.Interface, 0)
 	for _, aIface := range aIfaces {
 		if aIface == nil {
 			continue
@@ -2319,7 +2323,7 @@ func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) (ifaces []*
 		ifaces = append(ifaces, iface)
 	}
 
-	return ifaces
+	return ifaces, nil
 }
 
 func (k *kataAgent) convertToKataAgentRoutes(routes []*vcTypes.Route) (aRoutes []*aTypes.Route) {
