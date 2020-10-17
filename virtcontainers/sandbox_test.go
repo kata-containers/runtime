@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	exp "github.com/kata-containers/runtime/virtcontainers/experimental"
 	"github.com/kata-containers/runtime/virtcontainers/persist/fs"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
+	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -1553,4 +1555,41 @@ func TestGetSandboxCpuSet(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSandboxStoreClean(t *testing.T) {
+	ctx := context.Background()
+	contID := "SandboxStore"
+	contConfig := newTestContainerConfigNoop(contID)
+	hConfig := newHypervisorConfig(nil, nil)
+	assert := assert.New(t)
+
+	// create a sandbox
+	p, err := testCreateSandbox(t, testSandboxID, MockHypervisor, hConfig, NoopAgentType, NetworkConfig{}, []ContainerConfig{contConfig}, nil)
+	assert.NoError(err)
+	defer cleanUp()
+
+	l := len(p.GetAllContainers())
+	assert.Equal(l, 1)
+
+	// persist to disk
+	err = p.storeSandbox()
+	assert.NoError(err)
+
+	loadSandboxConfigFromOldStore(ctx, p.ID())
+
+	runtimeSidPath := store.SandboxConfigurationRoot(p.ID())
+	runtimeSidPath = strings.TrimPrefix(runtimeSidPath, "file://")
+
+	p.store, err = store.NewVCSandboxStore(ctx, testSandboxID)
+	assert.Nil(err)
+
+	p.ctx = context.WithValue(ctx, oldstoreKey, true)
+	err = p.Delete()
+	assert.NoError(err)
+
+	// expect runtimeSidPath not exist, if exist, it means this case failed.
+	_, err = os.Stat(runtimeSidPath)
+	assert.Error(err)
+	assert.True(os.IsNotExist(err))
 }
