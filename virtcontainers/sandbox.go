@@ -1163,6 +1163,10 @@ func (s *Sandbox) CreateContainer(contConfig ContainerConfig) (VCContainer, erro
 			if len(s.config.Containers) > 0 {
 				// delete container config
 				s.config.Containers = s.config.Containers[:len(s.config.Containers)-1]
+				// need to flush change to persist storage
+				if newErr := s.storeSandbox(); newErr != nil {
+					s.Logger().WithError(newErr).Error("Fail to flush s.config.Containers change into sandbox store")
+				}
 			}
 			if !storeAlreadyExists {
 				if delerr := c.store.Delete(); delerr != nil {
@@ -1591,6 +1595,11 @@ func (s *Sandbox) Stop(force bool) error {
 	}
 
 	if err := s.storeSandbox(); err != nil {
+		return err
+	}
+
+	// Stop communicating with the agent.
+	if err := s.agent.disconnect(); err != nil && !force {
 		return err
 	}
 
