@@ -23,7 +23,7 @@ machine_type = "@MACHINETYPE@"
 # Your distribution recommends: @DEFENABLEANNOTATIONS@
 enable_annotations = @DEFENABLEANNOTATIONS@
 
-# List of valid annotations values for the hypervisor
+# List of valid annotation values for the hypervisor path
 # Each member of the list is a path pattern as described by glob(3).
 # The default if not set is empty (all annotations rejected.)
 # Your distribution recommends: @QEMUVALIDHYPERVISORPATHS@
@@ -117,7 +117,8 @@ shared_fs = "@DEFSHAREDFS_QEMU_VIRTIOFS@"
 # Path to vhost-user-fs daemon.
 virtio_fs_daemon = "@DEFVIRTIOFSDAEMON@"
 
-# List of valid annotations values for the virtiofs daemon
+# List of valid annotation values for the virtiofs daemon path
+# Each member of the list is a path pattern as described by glob(3).
 # The default if not set is empty (all annotations rejected.)
 # Your distribution recommends: @DEFVALIDVIRTIOFSDAEMONPATHS@
 valid_virtio_fs_daemon_paths = @DEFVALIDVIRTIOFSDAEMONPATHS@
@@ -201,7 +202,8 @@ enable_vhost_user_store = @DEFENABLEVHOSTUSERSTORE@
 # simulated block device nodes for vhost-user devices to live.
 vhost_user_store_path = "@DEFVHOSTUSERSTOREPATH@"
 
-# List of valid annotations values for the virtiofs daemon
+# List of valid annotation values for the virtiofs daemon path
+# Each member of the list is a path pattern as described by glob(3).
 # The default if not set is empty (all annotations rejected.)
 # Your distribution recommends: @DEFVALIDVHOSTUSERSTOREPATHS@
 valid_vhost_user_store_paths = @DEFVALIDVHOSTUSERSTOREPATHS@
@@ -212,7 +214,8 @@ valid_vhost_user_store_paths = @DEFVALIDVHOSTUSERSTOREPATHS@
 # This option will be ignored if VM templating is enabled.
 #file_mem_backend = "@DEFFILEMEMBACKEND@"
 
-# List of valid annotations values for the file_mem_backend annotation
+# List of valid annotation values for the file_mem_backend path
+# Each member of the list is a path pattern as described by glob(3).
 # The default if not set is empty (all annotations rejected.)
 # Your distribution recommends: @DEFVALIDVHOSTUSERSTOREPATHS@
 valid_file_mem_backends = @DEFVALIDFILEMEMBACKENDS@
