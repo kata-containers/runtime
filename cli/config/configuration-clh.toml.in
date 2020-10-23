@@ -22,7 +22,7 @@ image = "@IMAGEPATH@"
 # Your distribution recommends: @DEFENABLEANNOTATIONS@
 enable_annotations = @DEFENABLEANNOTATIONS@
 
-# List of valid annotations values for the hypervisor
+# List of valid annotation values for the hypervisor path
 # Each member of the list is a path pattern as described by glob(3).
 # The default if not set is empty (all annotations rejected.)
 # Your distribution recommends: @CLHVALIDHYPERVISORPATHS@
@@ -75,7 +75,8 @@ default_memory = @DEFMEMSZ@
 # Path to vhost-user-fs daemon.
 virtio_fs_daemon = "@DEFVIRTIOFSDAEMON@"
 
-# List of valid annotations values for the virtiofs daemon
+# List of valid annotation values for the virtiofs daemon path
+# Each member of the list is a path pattern as described by glob(3).
 # The default if not set is empty (all annotations rejected.)
 # Your distribution recommends: @DEFVALIDVIRTIOFSDAEMONPATHS@
 valid_virtio_fs_daemon_paths = @DEFVALIDVIRTIOFSDAEMONPATHS@

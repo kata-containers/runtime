@@ -23,13 +23,14 @@ image = "@IMAGEPATH@"
 # Your distribution recommends: @DEFENABLEANNOTATIONS@
 enable_annotations = @DEFENABLEANNOTATIONS@
 
-# List of valid annotations values for the hypervisor
+# List of valid annotation values for the hypervisor path
 # Each member of the list is a path pattern as described by glob(3).
 # The default if not set is empty (all annotations rejected.)
 # Your distribution recommends: @ACRNVALIDHYPERVISORPATHS@
 valid_hypervisor_paths = @ACRNVALIDHYPERVISORPATHS@
 
-# List of valid annotations values for ctlpath
+# List of valid annotation values for ctl path
+# Each member of the list is a path pattern as described by glob(3).
 # The default if not set is empty (all annotations rejected.)
 # Your distribution recommends: @ACRNVALIDCTLPATHS@
 valid_ctlpaths = @ACRNVALIDCTLPATHS@
