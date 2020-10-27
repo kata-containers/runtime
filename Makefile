@@ -174,7 +174,7 @@ DEFMEMSZ := 2048
 DEFMEMSLOTS := 10
 #Default number of bridges
 DEFBRIDGES := 1
-DEFENABLEANNOTATIONS := []
+DEFENABLEANNOTATIONS := [\".*\"]
 DEFDISABLEGUESTSECCOMP := true
 #Default experimental features enabled
 DEFAULTEXPFEATURES := []
