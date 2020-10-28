@@ -29,6 +29,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 )
@@ -422,8 +423,8 @@ func (clh *cloudHypervisor) hotplugAddBlockDevice(drive *config.BlockDrive) erro
 
 	driveID := clhDriveIndexToID(drive.Index)
 
-	//Explicitly set PCIAddr to NULL, so that VirtPath can be used
-	drive.PCIAddr = ""
+	//Explicitly set PCIPath to NULL, so that VirtPath can be used
+	drive.PCIPath = vcTypes.PciPath{}
 
 	if drive.Pmem {
 		err = fmt.Errorf("pmem device hotplug not supported")

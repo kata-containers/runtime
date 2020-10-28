@@ -673,7 +673,10 @@ func (k *kataAgent) listInterfaces() ([]*vcTypes.Interface, error) {
 	}
 	resultInterfaces, ok := resultingInterfaces.(*grpc.Interfaces)
 	if ok {
-		return k.convertToInterfaces(resultInterfaces.Interfaces), err
+		ifaces, err := k.convertToInterfaces(resultInterfaces.Interfaces)
+		if err == nil {
+			return ifaces, nil
+		}
 	}
 	return nil, err
 }
@@ -1222,7 +1225,7 @@ func (k *kataAgent) appendBlockDevice(dev ContainerDevice, c *Container) *grpc.D
 		kataDevice.Id = d.DevNo
 	case config.VirtioBlock:
 		kataDevice.Type = kataBlkDevType
-		kataDevice.Id = d.PCIAddr
+		kataDevice.Id = d.PCIPath.String()
 		kataDevice.VmPath = d.VirtPath
 	case config.VirtioSCSI:
 		kataDevice.Type = kataSCSIDevType
@@ -1247,7 +1250,7 @@ func (k *kataAgent) appendVhostUserBlkDevice(dev ContainerDevice, c *Container) 
 	kataDevice := &grpc.Device{
 		ContainerPath: dev.ContainerPath,
 		Type:          kataBlkDevType,
-		Id:            d.PCIAddr,
+		Id:            d.PCIPath.String(),
 	}
 
 	return kataDevice
@@ -1326,10 +1329,10 @@ func (k *kataAgent) buildContainerRootfs(sandbox *Sandbox, c *Container, rootPat
 			rootfs.Source = blockDrive.DevNo
 		case sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioBlock:
 			rootfs.Driver = kataBlkDevType
-			if blockDrive.PCIAddr == "" {
+			if blockDrive.PCIPath.IsNil() {
 				rootfs.Source = blockDrive.VirtPath
 			} else {
-				rootfs.Source = blockDrive.PCIAddr
+				rootfs.Source = blockDrive.PCIPath.String()
 			}
 
 		case sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioSCSI:
@@ -1600,10 +1603,10 @@ func (k *kataAgent) handleDeviceBlockVolume(c *Container, device api.Device) (*g
 		vol.Source = blockDrive.DevNo
 	case c.sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioBlock:
 		vol.Driver = kataBlkDevType
-		if blockDrive.PCIAddr == "" {
+		if blockDrive.PCIPath.IsNil() {
 			vol.Source = blockDrive.VirtPath
 		} else {
-			vol.Source = blockDrive.PCIAddr
+			vol.Source = blockDrive.PCIPath.String()
 		}
 	case c.sandbox.config.HypervisorConfig.BlockDeviceDriver == config.VirtioMmio:
 		vol.Driver = kataMmioBlkDevType
@@ -1630,7 +1633,7 @@ func (k *kataAgent) handleVhostUserBlkVolume(c *Container, device api.Device) (*
 	}
 
 	vol.Driver = kataBlkDevType
-	vol.Source = d.PCIAddr
+	vol.Source = d.PCIPath.String()
 
 	return vol, nil
 }
@@ -2297,29 +2300,34 @@ func (k *kataAgent) convertToKataAgentInterface(iface *vcTypes.Interface) *aType
 		Mtu:         iface.Mtu,
 		RawFlags:    iface.RawFlags,
 		HwAddr:      iface.HwAddr,
-		PciAddr:     iface.PciAddr,
+		PciPath:     iface.PciPath.String(),
 	}
 }
 
-func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) (ifaces []*vcTypes.Interface) {
+func (k *kataAgent) convertToInterfaces(aIfaces []*aTypes.Interface) ([]*vcTypes.Interface, error) {
+	ifaces := make([]*vcTypes.Interface, 0)
 	for _, aIface := range aIfaces {
 		if aIface == nil {
 			continue
 		}
 
+		pcipath, err := vcTypes.PciPathFromString(aIface.PciPath)
+		if err != nil {
+			return nil, err
+		}
 		iface := &vcTypes.Interface{
 			Device:      aIface.Device,
 			Name:        aIface.Name,
 			IPAddresses: k.convertToIPAddresses(aIface.IPAddresses),
 			Mtu:         aIface.Mtu,
 			HwAddr:      aIface.HwAddr,
-			PciAddr:     aIface.PciAddr,
+			PciPath:     pcipath,
 		}
 
 		ifaces = append(ifaces, iface)
 	}
 
-	return ifaces
+	return ifaces, nil
 }
 
 func (k *kataAgent) convertToKataAgentRoutes(routes []*vcTypes.Route) (aRoutes []*aTypes.Route) {

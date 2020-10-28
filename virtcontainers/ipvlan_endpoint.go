@@ -10,6 +10,7 @@ import (
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	persistapi "github.com/kata-containers/runtime/virtcontainers/persist/api"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 )
 
 // IPVlanEndpoint represents a ipvlan endpoint that is bridged to the VM
@@ -17,7 +18,7 @@ type IPVlanEndpoint struct {
 	NetPair            NetworkInterfacePair
 	EndpointProperties NetworkInfo
 	EndpointType       EndpointType
-	PCIAddr            string
+	PCIPath            vcTypes.PciPath
 }
 
 func createIPVlanNetworkEndpoint(idx int, ifName string) (*IPVlanEndpoint, error) {
@@ -70,14 +71,14 @@ func (endpoint *IPVlanEndpoint) SetProperties(properties NetworkInfo) {
 	endpoint.EndpointProperties = properties
 }
 
-// PciAddr returns the PCI address of the endpoint.
-func (endpoint *IPVlanEndpoint) PciAddr() string {
-	return endpoint.PCIAddr
+// PciPath returns the PCI path of the endpoint.
+func (endpoint *IPVlanEndpoint) PciPath() vcTypes.PciPath {
+	return endpoint.PCIPath
 }
 
-// SetPciAddr sets the PCI address of the endpoint.
-func (endpoint *IPVlanEndpoint) SetPciAddr(pciAddr string) {
-	endpoint.PCIAddr = pciAddr
+// SetPciPath sets the PCI path of the endpoint.
+func (endpoint *IPVlanEndpoint) SetPciPath(pciPath vcTypes.PciPath) {
+	endpoint.PCIPath = pciPath
 }
 
 // NetworkPair returns the network pair of the endpoint.

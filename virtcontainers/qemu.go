@@ -33,6 +33,7 @@ import (
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	persistapi "github.com/kata-containers/runtime/virtcontainers/persist/api"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
@@ -1152,8 +1153,18 @@ func (q *qemu) hotplugAddBlockDevice(drive *config.BlockDrive, op operation, dev
 			}
 		}()
 
-		// PCI address is in the format bridge-addr/device-addr eg. "03/02"
-		drive.PCIAddr = fmt.Sprintf("%02x", bridge.Addr) + "/" + addr
+		bridgeSlot, err := vcTypes.PciSlotFromInt(bridge.Addr)
+		if err != nil {
+			return err
+		}
+		devSlot, err := vcTypes.PciSlotFromString(addr)
+		if err != nil {
+			return err
+		}
+		drive.PCIPath, err = vcTypes.PciPathFromSlots(bridgeSlot, devSlot)
+		if err != nil {
+			return err
+		}
 
 		if err = q.qmpMonitorCh.qmp.ExecutePCIDeviceAdd(q.qmpMonitorCh.ctx, drive.ID, devID, driver, addr, bridge.ID, romFile, 0, true, defaultDisableModern); err != nil {
 			return err
@@ -1204,8 +1215,15 @@ func (q *qemu) hotplugAddVhostUserBlkDevice(vAttr *config.VhostUserDeviceAttrs, 
 		}
 	}()
 
-	// PCI address is in the format bridge-addr/device-addr eg. "03/02"
-	vAttr.PCIAddr = fmt.Sprintf("%02x", bridge.Addr) + "/" + addr
+	bridgeSlot, err := vcTypes.PciSlotFromInt(bridge.Addr)
+	if err != nil {
+		return err
+	}
+	devSlot, err := vcTypes.PciSlotFromString(addr)
+	if err != nil {
+		return err
+	}
+	vAttr.PCIPath, err = vcTypes.PciPathFromSlots(bridgeSlot, devSlot)
 
 	if err = q.qmpMonitorCh.qmp.ExecutePCIVhostUserDevAdd(q.qmpMonitorCh.ctx, driver, devID, vAttr.DevID, addr, bridge.ID); err != nil {
 		return err
@@ -1420,8 +1438,16 @@ func (q *qemu) hotplugNetDevice(endpoint Endpoint, op operation) (err error) {
 			}
 		}()
 
-		pciAddr := fmt.Sprintf("%02x/%s", bridge.Addr, addr)
-		endpoint.SetPciAddr(pciAddr)
+		bridgeSlot, err := vcTypes.PciSlotFromInt(bridge.Addr)
+		if err != nil {
+			return err
+		}
+		devSlot, err := vcTypes.PciSlotFromString(addr)
+		if err != nil {
+			return err
+		}
+		pciPath, err := vcTypes.PciPathFromSlots(bridgeSlot, devSlot)
+		endpoint.SetPciPath(pciPath)
 
 		var machine govmmQemu.Machine
 		machine, err = q.getQemuMachine()

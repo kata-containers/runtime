@@ -12,6 +12,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	persistapi "github.com/kata-containers/runtime/virtcontainers/persist/api"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 )
 
@@ -20,7 +21,7 @@ type TapEndpoint struct {
 	TapInterface       TapInterface
 	EndpointProperties NetworkInfo
 	EndpointType       EndpointType
-	PCIAddr            string
+	PCIPath            vcTypes.PciPath
 }
 
 // Properties returns the properties of the tap interface.
@@ -43,14 +44,14 @@ func (endpoint *TapEndpoint) Type() EndpointType {
 	return endpoint.EndpointType
 }
 
-// PciAddr returns the PCI address of the endpoint.
-func (endpoint *TapEndpoint) PciAddr() string {
-	return endpoint.PCIAddr
+// PciPath returns the PCI path of the endpoint.
+func (endpoint *TapEndpoint) PciPath() vcTypes.PciPath {
+	return endpoint.PCIPath
 }
 
-// SetPciAddr sets the PCI address of the endpoint.
-func (endpoint *TapEndpoint) SetPciAddr(pciAddr string) {
-	endpoint.PCIAddr = pciAddr
+// SetPciPath sets the PCI path of the endpoint.
+func (endpoint *TapEndpoint) SetPciPath(pciPath vcTypes.PciPath) {
+	endpoint.PCIPath = pciPath
 }
 
 // NetworkPair returns the network pair of the endpoint.

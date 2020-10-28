@@ -23,6 +23,7 @@ import (
 
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	persistapi "github.com/kata-containers/runtime/virtcontainers/persist/api"
+	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
@@ -550,8 +551,8 @@ func (a *Acrn) updateBlockDevice(drive *config.BlockDrive) error {
 
 	slot := AcrnBlkdDevSlot[drive.Index]
 
-	//Explicitly set PCIAddr to NULL, so that VirtPath can be used
-	drive.PCIAddr = ""
+	//Explicitly set PCIPath to NULL, so that VirtPath can be used
+	drive.PCIPath = vcTypes.PciPath{}
 
 	args := []string{"blkrescan", a.acrnConfig.Name, fmt.Sprintf("%d,%s", slot, drive.File)}
 
