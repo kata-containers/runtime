@@ -685,10 +685,10 @@ func (k *kataAgent) listRoutes() ([]*vcTypes.Route, error) {
 		return nil, err
 	}
 	resultRoutes, ok := resultingRoutes.(*grpc.Routes)
-	if ok {
-		return k.convertToRoutes(resultRoutes.Routes), err
+	if !ok {
+		return nil, fmt.Errorf("Unexpected type %T for routes", resultingRoutes)
 	}
-	return nil, err
+	return k.convertToRoutes(resultRoutes.Routes), nil
 }
 
 func (k *kataAgent) startProxy(sandbox *Sandbox) error {
