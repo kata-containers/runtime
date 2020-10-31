@@ -672,13 +672,10 @@ func (k *kataAgent) listInterfaces() ([]*vcTypes.Interface, error) {
 		return nil, err
 	}
 	resultInterfaces, ok := resultingInterfaces.(*grpc.Interfaces)
-	if ok {
-		ifaces, err := k.convertToInterfaces(resultInterfaces.Interfaces)
-		if err == nil {
-			return ifaces, nil
-		}
+	if !ok {
+		return nil, fmt.Errorf("Unexpected type %T for interfaces", resultingInterfaces)
 	}
-	return nil, err
+	return k.convertToInterfaces(resultInterfaces.Interfaces)
 }
 
 func (k *kataAgent) listRoutes() ([]*vcTypes.Route, error) {
@@ -688,10 +685,10 @@ func (k *kataAgent) listRoutes() ([]*vcTypes.Route, error) {
 		return nil, err
 	}
 	resultRoutes, ok := resultingRoutes.(*grpc.Routes)
-	if ok {
-		return k.convertToRoutes(resultRoutes.Routes), err
+	if !ok {
+		return nil, fmt.Errorf("Unexpected type %T for routes", resultingRoutes)
 	}
-	return nil, err
+	return k.convertToRoutes(resultRoutes.Routes), nil
 }
 
 func (k *kataAgent) startProxy(sandbox *Sandbox) error {
