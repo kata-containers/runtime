@@ -1189,7 +1189,10 @@ func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolved
 	}
 
 	config.Debug = tomlConf.Runtime.Debug
-	if !tomlConf.Runtime.Debug {
+	if tomlConf.Runtime.Debug {
+		// logrus "Info" level is used as "Debug"
+		kataUtilsLogger.Logger.Level = logrus.InfoLevel
+	} else {
 		// If debug is not required, switch back to the original
 		// default log priority, otherwise continue in debug mode.
 		kataUtilsLogger.Logger.Level = originalLoggerLevel
