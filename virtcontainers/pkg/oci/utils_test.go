@@ -665,26 +665,37 @@ func TestMain(m *testing.M) {
 func TestAddAssetAnnotations(t *testing.T) {
 	assert := assert.New(t)
 
+	tmpdir, err := ioutil.TempDir("", "")
+	assert.NoError(err)
+	defer os.RemoveAll(tmpdir)
+
+	// Create a pretend asset file
+	// (required since the existence of binary asset annotations is verified).
+	fakeAssetFile := filepath.Join(tmpdir, "fake-binary")
+
+	err = ioutil.WriteFile(fakeAssetFile, []byte(""), fileMode)
+	assert.NoError(err)
+
 	expectedAnnotations := map[string]string{
-		vcAnnotations.FirmwarePath: "/some/where",
+		vcAnnotations.FirmwarePath: fakeAssetFile,
 		vcAnnotations.FirmwareHash: "ffff",
 
-		vcAnnotations.HypervisorPath: "/some/where",
+		vcAnnotations.HypervisorPath: fakeAssetFile,
 		vcAnnotations.HypervisorHash: "bbbbb",
 
-		vcAnnotations.HypervisorCtlPath: "/some/where/else",
+		vcAnnotations.HypervisorCtlPath: fakeAssetFile,
 		vcAnnotations.HypervisorCtlHash: "cc",
 
-		vcAnnotations.ImagePath: "/abc/rgb/image",
+		vcAnnotations.ImagePath: fakeAssetFile,
 		vcAnnotations.ImageHash: "52ss2550983",
 
-		vcAnnotations.InitrdPath: "/abc/rgb/initrd",
+		vcAnnotations.InitrdPath: fakeAssetFile,
 		vcAnnotations.InitrdHash: "aaaa",
 
-		vcAnnotations.JailerPath: "/foo/bar",
+		vcAnnotations.JailerPath: fakeAssetFile,
 		vcAnnotations.JailerHash: "dddd",
 
-		vcAnnotations.KernelPath: "/abc/rgb/kernel",
+		vcAnnotations.KernelPath: fakeAssetFile,
 		vcAnnotations.KernelHash: "3l2353we871g",
 	}
 
@@ -705,7 +716,7 @@ func TestAddAssetAnnotations(t *testing.T) {
 	}
 
 	// Try annotations without enabling them first
-	err := addAnnotations(ocispec, &config, runtimeConfig)
+	err = addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Error(err)
 	assert.Exactly(map[string]string{}, config.Annotations)
 
@@ -714,8 +725,16 @@ func TestAddAssetAnnotations(t *testing.T) {
 	err = addAnnotations(ocispec, &config, runtimeConfig)
 	assert.Error(err)
 
+	// Check if we filter the assets when the value is not allowed by path lists
+	runtimeConfig.HypervisorConfig.EnableAnnotations = []string{".*"}
+	err = addAnnotations(ocispec, &config, runtimeConfig)
+	assert.Error(err)
+
 	// Check that it works if all annotation are enabled
 	runtimeConfig.HypervisorConfig.EnableAnnotations = []string{".*"}
+	runtimeConfig.HypervisorConfig.HypervisorPathList = []string{fakeAssetFile}
+	runtimeConfig.HypervisorConfig.HypervisorCtlPathList = []string{fakeAssetFile}
+	runtimeConfig.HypervisorConfig.JailerPathList = []string{fakeAssetFile}
 	err = addAnnotations(ocispec, &config, runtimeConfig)
 	assert.NoError(err)
 	assert.Exactly(expectedAnnotations, config.Annotations)
