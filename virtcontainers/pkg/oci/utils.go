@@ -338,7 +338,11 @@ func SandboxID(spec specs.Spec) (string, error) {
 }
 
 func addAnnotations(ocispec specs.Spec, config *vc.SandboxConfig) error {
-	addAssetAnnotations(ocispec, config)
+	err := addAssetAnnotations(ocispec, config)
+	if err != nil {
+		return err
+	}
+
 	if err := addHypervisorConfigOverrides(ocispec, config); err != nil {
 		return err
 	}
@@ -353,17 +357,10 @@ func addAnnotations(ocispec specs.Spec, config *vc.SandboxConfig) error {
 	return nil
 }
 
-func addAssetAnnotations(ocispec specs.Spec, config *vc.SandboxConfig) {
-	assetAnnotations := []string{
-		vcAnnotations.KernelPath,
-		vcAnnotations.ImagePath,
-		vcAnnotations.InitrdPath,
-		vcAnnotations.FirmwarePath,
-		vcAnnotations.KernelHash,
-		vcAnnotations.ImageHash,
-		vcAnnotations.InitrdHash,
-		vcAnnotations.FirmwareHash,
-		vcAnnotations.AssetHashType,
+func addAssetAnnotations(ocispec specs.Spec, config *vc.SandboxConfig) error {
+	assetAnnotations, err := types.AssetAnnotations()
+	if err != nil {
+		return err
 	}
 
 	for _, a := range assetAnnotations {
@@ -374,6 +371,8 @@ func addAssetAnnotations(ocispec specs.Spec, config *vc.SandboxConfig) {
 
 		config.Annotations[a] = value
 	}
+
+	return nil
 }
 
 func addHypervisorConfigOverrides(ocispec specs.Spec, config *vc.SandboxConfig) error {
