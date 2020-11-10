@@ -72,7 +72,7 @@ func TestContainerSystemMountsInfo(t *testing.T) {
 	assert.False(t, c.systemMountsInfo.BindMountDev)
 }
 
-func TestContainerSandbox(t *testing.T) {
+func TestContainerSandboxSuccess(t *testing.T) {
 	expectedSandbox := &Sandbox{}
 
 	container := Container{
