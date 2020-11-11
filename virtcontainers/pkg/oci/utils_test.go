@@ -665,12 +665,26 @@ func TestAddAssetAnnotations(t *testing.T) {
 	assert := assert.New(t)
 
 	expectedAnnotations := map[string]string{
-		vcAnnotations.KernelPath:    "/abc/rgb/kernel",
-		vcAnnotations.ImagePath:     "/abc/rgb/image",
-		vcAnnotations.InitrdPath:    "/abc/rgb/initrd",
-		vcAnnotations.KernelHash:    "3l2353we871g",
-		vcAnnotations.ImageHash:     "52ss2550983",
-		vcAnnotations.AssetHashType: "sha",
+		vcAnnotations.FirmwarePath: "/some/where",
+		vcAnnotations.FirmwareHash: "ffff",
+
+		vcAnnotations.HypervisorPath: "/some/where",
+		vcAnnotations.HypervisorHash: "bbbbb",
+
+		vcAnnotations.HypervisorCtlPath: "/some/where/else",
+		vcAnnotations.HypervisorCtlHash: "cc",
+
+		vcAnnotations.ImagePath: "/abc/rgb/image",
+		vcAnnotations.ImageHash: "52ss2550983",
+
+		vcAnnotations.InitrdPath: "/abc/rgb/initrd",
+		vcAnnotations.InitrdHash: "aaaa",
+
+		vcAnnotations.JailerPath: "/foo/bar",
+		vcAnnotations.JailerHash: "dddd",
+
+		vcAnnotations.KernelPath: "/abc/rgb/kernel",
+		vcAnnotations.KernelHash: "3l2353we871g",
 	}
 
 	config := vc.SandboxConfig{
