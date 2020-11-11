@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"syscall"
 
 	"github.com/kata-containers/runtime/pkg/katautils"
 	vc "github.com/kata-containers/runtime/virtcontainers"
@@ -73,6 +74,11 @@ func delete(ctx context.Context, containerID string, force bool) error {
 	if err != nil {
 		if force {
 			kataLog.Warnf("Failed to get container, force will not fail: %s", err)
+			return nil
+		}
+		if err.Error() == syscall.ENOENT.Error() {
+			kataLog.WithField("container", containerID).Info("skipping delete as container does not exist")
+			katautils.DelContainerIDMapping(ctx, containerID)
 			return nil
 		}
 		return err
