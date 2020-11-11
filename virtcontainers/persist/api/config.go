@@ -60,11 +60,21 @@ type HypervisorConfig struct {
 	// HypervisorPath is the hypervisor executable host path.
 	HypervisorPath string
 
+	// HypervisorPathList is the list of hypervisor paths names allowed in annotations
+	HypervisorPathList []string
+
 	// HypervisorCtlPath is the hypervisor ctl executable host path.
 	HypervisorCtlPath string
 
+	// HypervisorCtlPathList is the list of hypervisor control paths names allowed in annotations
+	HypervisorCtlPathList []string
+
+	// HypervisorCtlPath is the hypervisor ctl executable host path.
 	// JailerPath is the jailer executable host path.
 	JailerPath string
+
+	// JailerPathList is the list of jailer paths names allowed in annotations
+	JailerPathList []string
 
 	// BlockDeviceDriver specifies the driver to be used for block device
 	// either VirtioSCSI or VirtioBlock with the default driver being defaultBlockDriver
@@ -94,6 +104,9 @@ type HypervisorConfig struct {
 	// VirtioFSDaemon is the virtio-fs vhost-user daemon path
 	VirtioFSDaemon string
 
+	// VirtioFSDaemonList is the list of valid virtiofs names for annotations
+	VirtioFSDaemonList []string
+
 	// VirtioFSCache cache mode for fs version cache or "none"
 	VirtioFSCache string
 
@@ -102,6 +115,9 @@ type HypervisorConfig struct {
 
 	// File based memory backend root directory
 	FileBackedMemRootDir string
+
+	// FileBackedMemRootList is the list of valid root directories values for annotations
+	FileBackedMemRootList []string
 
 	// BlockDeviceCacheSet specifies cache-related options will be set to block devices or not.
 	BlockDeviceCacheSet bool
@@ -176,12 +192,18 @@ type HypervisorConfig struct {
 	// related folders, sockets and device nodes should be.
 	VhostUserStorePath string
 
+	// VhostUserStorePathList is the list of valid values for vhost-user paths
+	VhostUserStorePathList []string
+
 	// GuestHookPath is the path within the VM that will be used for 'drop-in' hooks
 	GuestHookPath string
 
 	// VMid is the id of the VM that create the hypervisor if the VM is created by the factory.
 	// VMid is "" if the hypervisor is not created by the factory.
 	VMid string
+
+	// Enable annotations by name
+	EnableAnnotations []string
 }
 
 // KataAgentConfig is a structure storing information needed

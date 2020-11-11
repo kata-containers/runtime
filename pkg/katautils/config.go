@@ -86,9 +86,12 @@ type factory struct {
 
 type hypervisor struct {
 	Path                    string   `toml:"path"`
+	HypervisorPathList      []string `toml:"valid_hypervisor_paths"`
 	JailerPath              string   `toml:"jailer_path"`
+	JailerPathList          []string `toml:"valid_jailer_paths"`
 	Kernel                  string   `toml:"kernel"`
 	CtlPath                 string   `toml:"ctlpath"`
+	CtlPathList             []string `toml:"valid_ctlpaths"`
 	Initrd                  string   `toml:"initrd"`
 	Image                   string   `toml:"image"`
 	Firmware                string   `toml:"firmware"`
@@ -100,6 +103,7 @@ type hypervisor struct {
 	EntropySource           string   `toml:"entropy_source"`
 	SharedFS                string   `toml:"shared_fs"`
 	VirtioFSDaemon          string   `toml:"virtio_fs_daemon"`
+	VirtioFSDaemonList      []string `toml:"valid_virtio_fs_daemon_paths"`
 	VirtioFSCache           string   `toml:"virtio_fs_cache"`
 	VirtioFSExtraArgs       []string `toml:"virtio_fs_extra_args"`
 	VirtioFSCacheSize       uint32   `toml:"virtio_fs_cache_size"`
@@ -108,6 +112,7 @@ type hypervisor struct {
 	BlockDeviceCacheNoflush bool     `toml:"block_device_cache_noflush"`
 	EnableVhostUserStore    bool     `toml:"enable_vhost_user_store"`
 	VhostUserStorePath      string   `toml:"vhost_user_store_path"`
+	VhostUserStorePathList  []string `toml:"valid_vhost_user_store_paths"`
 	NumVCPUs                int32    `toml:"default_vcpus"`
 	DefaultMaxVCPUs         uint32   `toml:"default_maxvcpus"`
 	MemorySize              uint32   `toml:"default_memory"`
@@ -123,6 +128,7 @@ type hypervisor struct {
 	IOMMU                   bool     `toml:"enable_iommu"`
 	IOMMUPlatform           bool     `toml:"enable_iommu_platform"`
 	FileBackedMemRootDir    string   `toml:"file_mem_backend"`
+	FileBackedMemRootList   []string `toml:"valid_file_mem_backends"`
 	Swap                    bool     `toml:"enable_swap"`
 	Debug                   bool     `toml:"enable_debug"`
 	DisableNestingChecks    bool     `toml:"disable_nesting_checks"`
@@ -132,6 +138,7 @@ type hypervisor struct {
 	HotplugVFIOOnRootBus    bool     `toml:"hotplug_vfio_on_root_bus"`
 	DisableVhostNet         bool     `toml:"disable_vhost_net"`
 	GuestHookPath           string   `toml:"guest_hook_path"`
+	EnableAnnotations       []string `toml:"enable_annotations"`
 }
 
 type proxy struct {
@@ -560,7 +567,9 @@ func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 
 	return vc.HypervisorConfig{
 		HypervisorPath:        hypervisor,
+		HypervisorPathList:    h.HypervisorPathList,
 		JailerPath:            jailer,
+		JailerPathList:        h.JailerPathList,
 		KernelPath:            kernel,
 		InitrdPath:            initrd,
 		ImagePath:             image,
@@ -582,6 +591,7 @@ func newFirecrackerHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		DisableVhostNet:       true, // vhost-net backend is not supported in Firecracker
 		UseVSock:              true,
 		GuestHookPath:         h.guestHookPath(),
+		EnableAnnotations:     h.EnableAnnotations,
 	}, nil
 }
 
@@ -656,6 +666,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 
 	return vc.HypervisorConfig{
 		HypervisorPath:          hypervisor,
+		HypervisorPathList:      h.HypervisorPathList,
 		KernelPath:              kernel,
 		InitrdPath:              initrd,
 		ImagePath:               image,
@@ -675,6 +686,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		DisableBlockDeviceUse:   h.DisableBlockDeviceUse,
 		SharedFS:                sharedFS,
 		VirtioFSDaemon:          h.VirtioFSDaemon,
+		VirtioFSDaemonList:      h.VirtioFSDaemonList,
 		VirtioFSCacheSize:       h.VirtioFSCacheSize,
 		VirtioFSCache:           h.defaultVirtioFSCache(),
 		VirtioFSExtraArgs:       h.VirtioFSExtraArgs,
@@ -683,6 +695,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		IOMMU:                   h.IOMMU,
 		IOMMUPlatform:           h.getIOMMUPlatform(),
 		FileBackedMemRootDir:    h.FileBackedMemRootDir,
+		FileBackedMemRootList:   h.FileBackedMemRootList,
 		Mlock:                   !h.Swap,
 		Debug:                   h.Debug,
 		DisableNestingChecks:    h.DisableNestingChecks,
@@ -699,7 +712,9 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		DisableVhostNet:         h.DisableVhostNet,
 		EnableVhostUserStore:    h.EnableVhostUserStore,
 		VhostUserStorePath:      h.vhostUserStorePath(),
+		VhostUserStorePathList:  h.VhostUserStorePathList,
 		GuestHookPath:           h.guestHookPath(),
+		EnableAnnotations:       h.EnableAnnotations,
 	}, nil
 }
 
@@ -742,25 +757,28 @@ func newAcrnHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 	}
 
 	return vc.HypervisorConfig{
-		HypervisorPath:       hypervisor,
-		KernelPath:           kernel,
-		ImagePath:            image,
-		HypervisorCtlPath:    hypervisorctl,
-		FirmwarePath:         firmware,
-		KernelParams:         vc.DeserializeParams(strings.Fields(kernelParams)),
-		NumVCPUs:             h.defaultVCPUs(),
-		DefaultMaxVCPUs:      h.defaultMaxVCPUs(),
-		MemorySize:           h.defaultMemSz(),
-		MemSlots:             h.defaultMemSlots(),
-		EntropySource:        h.GetEntropySource(),
-		DefaultBridges:       h.defaultBridges(),
-		HugePages:            h.HugePages,
-		Mlock:                !h.Swap,
-		Debug:                h.Debug,
-		DisableNestingChecks: h.DisableNestingChecks,
-		BlockDeviceDriver:    blockDriver,
-		DisableVhostNet:      h.DisableVhostNet,
-		GuestHookPath:        h.guestHookPath(),
+		HypervisorPath:        hypervisor,
+		HypervisorPathList:    h.HypervisorPathList,
+		KernelPath:            kernel,
+		ImagePath:             image,
+		HypervisorCtlPath:     hypervisorctl,
+		HypervisorCtlPathList: h.CtlPathList,
+		FirmwarePath:          firmware,
+		KernelParams:          vc.DeserializeParams(strings.Fields(kernelParams)),
+		NumVCPUs:              h.defaultVCPUs(),
+		DefaultMaxVCPUs:       h.defaultMaxVCPUs(),
+		MemorySize:            h.defaultMemSz(),
+		MemSlots:              h.defaultMemSlots(),
+		EntropySource:         h.GetEntropySource(),
+		DefaultBridges:        h.defaultBridges(),
+		HugePages:             h.HugePages,
+		Mlock:                 !h.Swap,
+		Debug:                 h.Debug,
+		DisableNestingChecks:  h.DisableNestingChecks,
+		BlockDeviceDriver:     blockDriver,
+		DisableVhostNet:       h.DisableVhostNet,
+		GuestHookPath:         h.guestHookPath(),
+		EnableAnnotations:     h.EnableAnnotations,
 	}, nil
 }
 
@@ -813,6 +831,7 @@ func newClhHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 
 	return vc.HypervisorConfig{
 		HypervisorPath:          hypervisor,
+		HypervisorPathList:      h.HypervisorPathList,
 		KernelPath:              kernel,
 		InitrdPath:              initrd,
 		ImagePath:               image,
@@ -831,11 +850,13 @@ func newClhHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		DisableBlockDeviceUse:   h.DisableBlockDeviceUse,
 		SharedFS:                sharedFS,
 		VirtioFSDaemon:          h.VirtioFSDaemon,
+		VirtioFSDaemonList:      h.VirtioFSDaemonList,
 		VirtioFSCacheSize:       h.VirtioFSCacheSize,
 		VirtioFSCache:           h.VirtioFSCache,
 		MemPrealloc:             h.MemPrealloc,
 		HugePages:               h.HugePages,
 		FileBackedMemRootDir:    h.FileBackedMemRootDir,
+		FileBackedMemRootList:   h.FileBackedMemRootList,
 		Mlock:                   !h.Swap,
 		Debug:                   h.Debug,
 		DisableNestingChecks:    h.DisableNestingChecks,
@@ -850,6 +871,7 @@ func newClhHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		DisableVhostNet:         true,
 		UseVSock:                true,
 		VirtioFSExtraArgs:       h.VirtioFSExtraArgs,
+		EnableAnnotations:       h.EnableAnnotations,
 	}, nil
 }
 
