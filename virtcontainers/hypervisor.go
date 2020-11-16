@@ -333,6 +333,9 @@ type HypervisorConfig struct {
 	// File based memory backend root directory
 	FileBackedMemRootDir string
 
+	// PFlash image paths
+	PFlash []string
+
 	// FileBackedMemRootList is the list of valid root directories values for annotations
 	FileBackedMemRootList []string
 
