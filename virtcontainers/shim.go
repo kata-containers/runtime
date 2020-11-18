@@ -208,9 +208,6 @@ func startShim(args []string, params ShimParams) (int, error) {
 		cmd.Stderr = f
 		// Create Session
 		cmd.SysProcAttr.Setsid = true
-		// Set Controlling terminal to Ctty
-		cmd.SysProcAttr.Setctty = true
-		cmd.SysProcAttr.Ctty = int(f.Fd())
 	}
 	defer func() {
 		if f != nil {
