@@ -47,6 +47,8 @@ func TestCCCheckCLIFunction(t *testing.T) {
 	var cpuData []testCPUData
 	var moduleData []testModuleData
 
+	t.Skip(testDisabledAsNonRoot)
+
 	if cpuType == cpuTypeIntel {
 		cpuData = []testCPUData{
 			{archGenuineIntel, "lm vmx sse4_1", false},
@@ -245,6 +247,8 @@ func TestCheckCheckKernelModulesNoUnrestrictedGuest(t *testing.T) {
 }
 
 func TestCheckHostIsVMContainerCapable(t *testing.T) {
+	t.Skip(testDisabledAsNonRoot)
+
 	assert := assert.New(t)
 
 	dir, err := ioutil.TempDir("", "")
