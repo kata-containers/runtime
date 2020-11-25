@@ -215,6 +215,10 @@ externals:
     version: "v18.06-ce"
     meta:
       swarm-version: "1.12.1"
+    architecture:
+      aarch64:
+        agent:
+          version: "v19.03-ce"
 
   kubernetes:
     description: "Kubernetes project container manager"
