@@ -514,6 +514,8 @@ func TestCheckCheckCPUAttribs(t *testing.T) {
 }
 
 func TestCheckHaveKernelModule(t *testing.T) {
+	t.Skip(testDisabledAsNonRoot)
+
 	assert := assert.New(t)
 
 	dir, err := ioutil.TempDir("", "")
