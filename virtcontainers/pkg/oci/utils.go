@@ -503,6 +503,14 @@ func addHypervisorConfigOverrides(ocispec specs.Spec, config *vc.SandboxConfig, 
 		config.HypervisorConfig.PCIeRootPort = uint32(pcieRootPort)
 	}
 
+	if value, ok := ocispec.Annotations[vcAnnotations.PCIeLazyAttachDelay]; ok {
+		pcieLazyAttachDelay, err := strconv.ParseUint(value, 10, 32)
+		if err != nil {
+			return fmt.Errorf("Error parsing annotation for pcie_lazy_attach_delay: %v, Please specify an integer greater than or equal to 0", err)
+		}
+		config.HypervisorConfig.PCIeLazyAttachDelay = uint32(pcieLazyAttachDelay)
+	}
+
 	if value, ok := ocispec.Annotations[vcAnnotations.EntropySource]; ok {
 		if value != "" {
 			config.HypervisorConfig.EntropySource = value

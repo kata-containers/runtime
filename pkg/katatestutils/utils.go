@@ -30,6 +30,7 @@ type RuntimeConfigOptions struct {
 	SharedFS             string
 	VirtioFSDaemon       string
 	PCIeRootPort         uint32
+	PCIeLazyAttachDelay  uint32
 	DisableBlock         bool
 	EnableIOThreads      bool
 	HotplugVFIOOnRootBus bool
@@ -62,6 +63,7 @@ func MakeRuntimeConfigFileData(config RuntimeConfigOptions) string {
 	disable_block_device_use =  ` + strconv.FormatBool(config.DisableBlock) + `
 	enable_iothreads =  ` + strconv.FormatBool(config.EnableIOThreads) + `
 	hotplug_vfio_on_root_bus =  ` + strconv.FormatBool(config.HotplugVFIOOnRootBus) + `
+	pcie_lazy_attach_delay = ` + strconv.FormatUint(uint64(config.PCIeLazyAttachDelay), 10) + `
 	pcie_root_port = ` + strconv.FormatUint(uint64(config.PCIeRootPort), 10) + `
 	msize_9p = ` + strconv.FormatUint(uint64(config.DefaultMsize9p), 10) + `
 	enable_debug = ` + strconv.FormatBool(config.HypervisorDebug) + `

@@ -99,6 +99,7 @@ type HypervisorInfo struct {
 	Msize9p              uint32
 	MemorySlots          uint32
 	PCIeRootPort         uint32
+	PCIeLazyAttachDelay  uint32
 	HotplugVFIOOnRootBus bool
 	Debug                bool
 	UseVSock             bool
@@ -374,6 +375,7 @@ func getHypervisorInfo(config oci.RuntimeConfig) HypervisorInfo {
 
 		HotplugVFIOOnRootBus: config.HypervisorConfig.HotplugVFIOOnRootBus,
 		PCIeRootPort:         config.HypervisorConfig.PCIeRootPort,
+		PCIeLazyAttachDelay:  config.HypervisorConfig.PCIeLazyAttachDelay,
 	}
 }
 

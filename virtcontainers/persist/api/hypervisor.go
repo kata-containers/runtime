@@ -42,6 +42,7 @@ type HypervisorState struct {
 	VirtiofsdPid         int
 	HotplugVFIOOnRootBus bool
 	PCIeRootPort         int
+	PCIeLazyAttachDelay  int
 
 	// clh sepcific: refer to 'virtcontainers/clh.go:CloudHypervisorState'
 	APISocket string

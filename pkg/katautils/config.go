@@ -121,6 +121,7 @@ type hypervisor struct {
 	DefaultBridges          uint32   `toml:"default_bridges"`
 	Msize9p                 uint32   `toml:"msize_9p"`
 	PCIeRootPort            uint32   `toml:"pcie_root_port"`
+	PCIeLazyAttachDelay     uint32   `toml:"pcie_lazy_attach_delay"`
 	DisableBlockDeviceUse   bool     `toml:"disable_block_device_use"`
 	MemPrealloc             bool     `toml:"enable_mem_prealloc"`
 	HugePages               bool     `toml:"enable_hugepages"`
@@ -708,6 +709,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		UseVSock:                useVSock,
 		DisableImageNvdimm:      h.DisableImageNvdimm,
 		HotplugVFIOOnRootBus:    h.HotplugVFIOOnRootBus,
+		PCIeLazyAttachDelay:     h.PCIeLazyAttachDelay,
 		PCIeRootPort:            h.PCIeRootPort,
 		DisableVhostNet:         h.DisableVhostNet,
 		EnableVhostUserStore:    h.EnableVhostUserStore,
@@ -867,6 +869,7 @@ func newClhHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		EnableIOThreads:         h.EnableIOThreads,
 		Msize9p:                 h.msize9p(),
 		HotplugVFIOOnRootBus:    h.HotplugVFIOOnRootBus,
+		PCIeLazyAttachDelay:     h.PCIeLazyAttachDelay,
 		PCIeRootPort:            h.PCIeRootPort,
 		DisableVhostNet:         true,
 		UseVSock:                true,
@@ -1161,6 +1164,7 @@ func GetDefaultHypervisorConfig() vc.HypervisorConfig {
 		Msize9p:                 defaultMsize9p,
 		HotplugVFIOOnRootBus:    defaultHotplugVFIOOnRootBus,
 		PCIeRootPort:            defaultPCIeRootPort,
+		PCIeLazyAttachDelay:     defaultPCIeLazyAttachDelay,
 		GuestHookPath:           defaultGuestHookPath,
 		VhostUserStorePath:      defaultVhostUserStorePath,
 		VirtioFSCache:           defaultVirtioFSCacheMode,

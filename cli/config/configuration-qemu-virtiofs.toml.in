@@ -275,6 +275,20 @@ valid_file_mem_backends = @DEFVALIDFILEMEMBACKENDS@
 # Default false
 #hotplug_vfio_on_root_bus = true
 
+# Before hot plugging a PCIe device, you need to add a pcie_root_port device.
+# Use this parameter when using some large PCI bar devices, such as Nvidia GPU
+# The value means the number of pcie_root_port
+# This value is valid when hotplug_vfio_on_root_bus is true and machine_type is "q35"
+# Default 0
+#pcie_root_port = 2
+
+# Delay in seconds to attach the large PCI Bar devices
+# Use this parameter when using some large PCI bar devices, and the guest kernel is 5.x
+# The value means the delay in seconds for attach a large PCI device
+# This value is valid when hotplug_vfio_on_root_bus is true, machine_type is "q35" and pcie_root_port is configured.
+# Default 0
+#pcie_lazy_attach_delay = 3
+
 # If vhost-net backend for virtio-net is not desired, set to true. Default is false, which trades off
 # security (vhost-net runs ring0) for network I/O performance.
 #disable_vhost_net = true
