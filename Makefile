@@ -767,7 +767,6 @@ else
 endif
 	@printf "\n"
 	@printf "• hypervisors:\n"
-	@printf "\tDefault: $(DEFAULT_HYPERVISOR)\n"
 	@printf "\tKnown: $(sort $(HYPERVISORS))\n"
 	@printf "\tAvailable for this architecture: $(sort $(KNOWN_HYPERVISORS))\n"
 	@printf "\n"
