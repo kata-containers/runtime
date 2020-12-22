@@ -14,6 +14,7 @@ import (
 	"github.com/containerd/containerd/api/events"
 	"github.com/containerd/containerd/api/types/task"
 	"github.com/containerd/containerd/mount"
+	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -147,9 +148,10 @@ func watchOOMEvents(ctx context.Context, s *service) {
 				logrus.WithField("sandbox", s.sandbox.ID()).WithError(err).Warn("failed to get OOM event from sandbox")
 				// If the GetOOMEvent call is not implemented, then the agent is most likely an older version,
 				// stop attempting to get OOM events.
-				if isGRPCErrorCode(codes.Unimplemented, err) {
+				if isGRPCErrorCode(codes.NotFound, err) || err.Error() == "Dead agent" {
 					return
 				}
+				time.Sleep(vc.DefaultMonitorCheckInterval)
 				continue
 			}
 

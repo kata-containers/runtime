@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	defaultCheckInterval = 1 * time.Second
-	watcherChannelSize   = 128
+	DefaultMonitorCheckInterval = 1 * time.Second
+	watcherChannelSize          = 128
 )
 
 type monitor struct {
@@ -31,7 +31,7 @@ type monitor struct {
 func newMonitor(s *Sandbox) *monitor {
 	return &monitor{
 		sandbox:       s,
-		checkInterval: defaultCheckInterval,
+		checkInterval: DefaultMonitorCheckInterval,
 		stopCh:        make(chan bool, 1),
 	}
 }
