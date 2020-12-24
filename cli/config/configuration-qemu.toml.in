@@ -365,6 +365,10 @@ valid_file_mem_backends = @DEFVALIDFILEMEMBACKENDS@
 # Default /var/run/kata-containers/cache.sock
 #vm_cache_endpoint = "/var/run/kata-containers/cache.sock"
 
+# -pflash can add image file to VM. The arguments of it should be in format
+# of ["/path/to/flash0.img", "/path/to/flash1.img"]
+#pflashes = []
+
 [proxy.@PROJECT_TYPE@]
 path = "@PROXYPATH@"
 

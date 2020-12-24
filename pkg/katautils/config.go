@@ -106,6 +106,7 @@ type hypervisor struct {
 	VirtioFSDaemonList      []string `toml:"valid_virtio_fs_daemon_paths"`
 	VirtioFSCache           string   `toml:"virtio_fs_cache"`
 	VirtioFSExtraArgs       []string `toml:"virtio_fs_extra_args"`
+	PFlashList              []string `toml:"pflashes"`
 	VirtioFSCacheSize       uint32   `toml:"virtio_fs_cache_size"`
 	BlockDeviceCacheSet     bool     `toml:"block_device_cache_set"`
 	BlockDeviceCacheDirect  bool     `toml:"block_device_cache_direct"`
@@ -248,6 +249,23 @@ func (h hypervisor) firmware() (string, error) {
 	}
 
 	return ResolvePath(p)
+}
+
+func (h hypervisor) PFlash() ([]string, error) {
+	pflashes := h.PFlashList
+
+	if len(pflashes) == 0 {
+		return []string(nil), nil
+	}
+
+	for _, pflash := range pflashes {
+		_, err := ResolvePath(pflash)
+		if err != nil {
+			return []string{}, fmt.Errorf("pflash path doesn't exist: %s", pflash)
+		}
+	}
+
+	return pflashes, nil
 }
 
 func (h hypervisor) machineAccelerators() string {
@@ -626,6 +644,11 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		return vc.HypervisorConfig{}, err
 	}
 
+	pflashes, err := h.PFlash()
+	if err != nil {
+		return vc.HypervisorConfig{}, err
+	}
+
 	machineAccelerators := h.machineAccelerators()
 	cpuFeatures := h.cpuFeatures()
 	kernelParams := h.kernelParams()
@@ -690,6 +713,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		VirtioFSCacheSize:       h.VirtioFSCacheSize,
 		VirtioFSCache:           h.defaultVirtioFSCache(),
 		VirtioFSExtraArgs:       h.VirtioFSExtraArgs,
+		PFlash:                  pflashes,
 		MemPrealloc:             h.MemPrealloc,
 		HugePages:               h.HugePages,
 		IOMMU:                   h.IOMMU,

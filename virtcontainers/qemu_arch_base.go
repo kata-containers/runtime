@@ -119,6 +119,12 @@ type qemuArch interface {
 	// addBridge adds a new Bridge to the list of Bridges
 	addBridge(types.Bridge)
 
+	// getPFlash() get pflash from configuration
+	getPFlash() ([]string, error)
+
+	// setPFlash() grants access to pflash
+	setPFlash([]string)
+
 	// handleImagePath handles the Hypervisor Config image path
 	handleImagePath(config HypervisorConfig)
 
@@ -149,6 +155,7 @@ type qemuArchBase struct {
 	kernelParamsDebug     []Param
 	kernelParams          []Param
 	Bridges               []types.Bridge
+	PFlash                []string
 }
 
 const (
@@ -799,4 +806,12 @@ func (q *qemuArchBase) appendIOMMU(devices []govmmQemu.Device) ([]govmmQemu.Devi
 	default:
 		return devices, fmt.Errorf("Machine Type %s does not support vIOMMU", q.machineType)
 	}
+}
+
+func (q *qemuArchBase) getPFlash() ([]string, error) {
+	return q.PFlash, nil
+}
+
+func (q *qemuArchBase) setPFlash(p []string) {
+	q.PFlash = p
 }
