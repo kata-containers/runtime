@@ -2234,6 +2234,11 @@ func (q *qemu) toGrpc() ([]byte, error) {
 }
 
 func (q *qemu) save() (s persistapi.HypervisorState) {
+	// If QEMU isn't even running, there isn't any state to save
+	if q.stopped {
+		return
+	}
+
 	pids := q.getPids()
 	if len(pids) != 0 {
 		s.Pid = pids[0]
