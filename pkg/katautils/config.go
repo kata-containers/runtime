@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	govmmQemu "github.com/intel/govmm/qemu"
+	govmmQemu "github.com/kata-containers/govmm/qemu"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	exp "github.com/kata-containers/runtime/virtcontainers/experimental"
