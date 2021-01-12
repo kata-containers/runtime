@@ -431,11 +431,11 @@
   revision = "e921aa3d0fa39cbd7933c15bd6ae7f0a1d7ab757"
 
 [[projects]]
-  digest = "1:647e03799be4f4878fa6deb1656f1c172c13d1e31b3aaf96384755006c94ded9"
+  digest = "1:168ed421445ef3bf865d9ea9c2d87aa6b5114f01c885c4c33f0d2d12a9dffa4a"
   name = "github.com/kata-containers/govmm"
   packages = ["qemu"]
   pruneopts = "NUT"
-  revision = "5e9aa08c4fd1201d65c6dd1136c8ab70ff17ee82"
+  revision = "7d320e8f5dcad260c1723bda3bff21539750d51f"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
