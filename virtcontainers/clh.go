@@ -21,14 +21,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	persistapi "github.com/kata-containers/runtime/virtcontainers/persist/api"
 	chclient "github.com/kata-containers/runtime/virtcontainers/pkg/cloud-hypervisor/client"
 	"github.com/opencontainers/selinux/go-selinux/label"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/kata-containers/runtime/virtcontainers/device/config"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
@@ -68,7 +68,8 @@ const (
 	virtioFsCacheAlways   = "always"
 )
 
-// Interface that hides the implementation of openAPI client
+var tags = []string{"subsystem", "cloudHypervisor", "type", "clh"}
+
 // If the client changes  its methods, this interface should do it as well,
 // The main purpose is to hide the client in an interface to allow mock testing.
 // This is an interface that has to match with OpenAPI CLH client
@@ -167,7 +168,7 @@ func (clh *cloudHypervisor) checkVersion() error {
 func (clh *cloudHypervisor) createSandbox(ctx context.Context, id string, networkNS NetworkNamespace, hypervisorConfig *HypervisorConfig, stateful bool) error {
 	clh.ctx = ctx
 
-	span, _ := clh.trace("createSandbox")
+	span, _ := katatrace.Trace(clh.ctx, clh.Logger(), "createSandbox", tags...)
 	defer span.Finish()
 
 	err := hypervisorConfig.valid()
@@ -327,7 +328,7 @@ func (clh *cloudHypervisor) createSandbox(ctx context.Context, id string, networ
 
 // startSandbox will start the VMM and boot the virtual machine for the given sandbox.
 func (clh *cloudHypervisor) startSandbox(timeout int) error {
-	span, _ := clh.trace("startSandbox")
+	span, _ := katatrace.Trace(clh.ctx, clh.Logger(), "startSandbox", tags...)
 	defer span.Finish()
 
 	ctx, cancel := context.WithTimeout(context.Background(), clhAPITimeout*time.Second)
@@ -457,7 +458,7 @@ func (clh *cloudHypervisor) hotPlugVFIODevice(device config.VFIODev) error {
 }
 
 func (clh *cloudHypervisor) hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
-	span, _ := clh.trace("hotplugAddDevice")
+	span, _ := katatrace.Trace(clh.ctx, clh.Logger(), "hotplugAddDevice", tags...)
 	defer span.Finish()
 
 	switch devType {
@@ -474,7 +475,7 @@ func (clh *cloudHypervisor) hotplugAddDevice(devInfo interface{}, devType device
 }
 
 func (clh *cloudHypervisor) hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
-	span, _ := clh.trace("hotplugRemoveDevice")
+	span, _ := katatrace.Trace(clh.ctx, clh.Logger(), "hotplugRemoveDevice", tags...)
 	defer span.Finish()
 
 	var deviceID string
@@ -635,7 +636,7 @@ func (clh *cloudHypervisor) resumeSandbox() error {
 
 // stopSandbox will stop the Sandbox's VM.
 func (clh *cloudHypervisor) stopSandbox() (err error) {
-	span, _ := clh.trace("stopSandbox")
+	span, _ := katatrace.Trace(clh.ctx, clh.Logger(), "stopSandbox", tags...)
 	defer span.Finish()
 	clh.Logger().WithField("function", "stopSandbox").Info("Stop Sandbox")
 	return clh.terminate()
@@ -681,7 +682,7 @@ func (clh *cloudHypervisor) getPids() []int {
 }
 
 func (clh *cloudHypervisor) addDevice(devInfo interface{}, devType deviceType) error {
-	span, _ := clh.trace("addDevice")
+	span, _ := katatrace.Trace(clh.ctx, clh.Logger(), "addDevice", tags...)
 	defer span.Finish()
 
 	var err error
@@ -715,7 +716,7 @@ func (clh *cloudHypervisor) Logger() *log.Entry {
 
 // Adds all capabilities supported by cloudHypervisor implementation of hypervisor interface
 func (clh *cloudHypervisor) capabilities() types.Capabilities {
-	span, _ := clh.trace("capabilities")
+	span, _ := katatrace.Trace(clh.ctx, clh.Logger(), "capabilities", tags...)
 	defer span.Finish()
 
 	clh.Logger().WithField("function", "capabilities").Info("get Capabilities")
@@ -725,23 +726,8 @@ func (clh *cloudHypervisor) capabilities() types.Capabilities {
 	return caps
 }
 
-func (clh *cloudHypervisor) trace(name string) (opentracing.Span, context.Context) {
-
-	if clh.ctx == nil {
-		clh.Logger().WithField("type", "bug").Error("trace called before context set")
-		clh.ctx = context.Background()
-	}
-
-	span, ctx := opentracing.StartSpanFromContext(clh.ctx, name)
-
-	span.SetTag("subsystem", "cloudHypervisor")
-	span.SetTag("type", "clh")
-
-	return span, ctx
-}
-
 func (clh *cloudHypervisor) terminate() (err error) {
-	span, _ := clh.trace("terminate")
+	span, _ := katatrace.Trace(clh.ctx, clh.Logger(), "terminate", tags...)
 	defer span.Finish()
 
 	pid := clh.state.PID

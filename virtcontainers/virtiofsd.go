@@ -18,11 +18,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
+
+var viofsdTags = []string{"subsystem", "virtiofsd"}
 
 const (
 	//Timeout to wait in secounds
@@ -82,7 +84,7 @@ func (v *virtiofsd) getSocketFD() (*os.File, error) {
 
 // Start the virtiofsd daemon
 func (v *virtiofsd) Start(ctx context.Context) (int, error) {
-	span, _ := v.trace("Start")
+	span, _ := katatrace.Trace(v.ctx, v.Logger(), "Start", viofsdTags...)
 	defer span.Finish()
 	pid := 0
 
@@ -202,18 +204,6 @@ func (v *virtiofsd) Logger() *log.Entry {
 	return virtLog.WithField("subsystem", "virtiofsd")
 }
 
-func (v *virtiofsd) trace(name string) (opentracing.Span, context.Context) {
-	if v.ctx == nil {
-		v.ctx = context.Background()
-	}
-
-	span, ctx := opentracing.StartSpanFromContext(v.ctx, name)
-
-	span.SetTag("subsystem", "virtiofds")
-
-	return span, ctx
-}
-
 func waitVirtiofsReady(cmd *exec.Cmd, stderr io.ReadCloser, debug bool) error {
 	if cmd == nil {
 		return errors.New("cmd is nil")
@@ -258,7 +248,7 @@ func waitVirtiofsReady(cmd *exec.Cmd, stderr io.ReadCloser, debug bool) error {
 }
 
 func (v *virtiofsd) kill() (err error) {
-	span, _ := v.trace("kill")
+	span, _ := katatrace.Trace(v.ctx, v.Logger(), "kill", viofsdTags...)
 	defer span.Finish()
 
 	if v.PID == 0 {

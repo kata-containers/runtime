@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/sirupsen/logrus"
@@ -27,7 +28,7 @@ func hookLogger() *logrus.Entry {
 }
 
 func runHook(ctx context.Context, hook specs.Hook, cid, bundlePath string) error {
-	span, _ := Trace(ctx, "hook")
+	span, _ := katatrace.Trace(ctx, hookLogger(), "hook", cliTags...)
 	defer span.Finish()
 
 	span.SetTag("subsystem", "runHook")
@@ -90,7 +91,7 @@ func runHook(ctx context.Context, hook specs.Hook, cid, bundlePath string) error
 }
 
 func runHooks(ctx context.Context, hooks []specs.Hook, cid, bundlePath, hookType string) error {
-	span, _ := Trace(ctx, "hooks")
+	span, _ := katatrace.Trace(ctx, hookLogger(), "hooks", cliTags...)
 	defer span.Finish()
 
 	span.SetTag("subsystem", hookType)

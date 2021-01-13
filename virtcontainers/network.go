@@ -19,12 +19,12 @@ import (
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/containernetworking/plugins/pkg/testutils"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/rootless"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
@@ -34,6 +34,8 @@ import (
 // NetInterworkingModel defines the network model connecting
 // the network interface to the virtual machine.
 type NetInterworkingModel int
+
+var networkTags = []string{"subsystem", "network", "type", "default"}
 
 const (
 	// NetXConnectDefaultModel Ask to use DefaultNetInterworkingModel
@@ -1250,18 +1252,9 @@ func createEndpoint(netInfo NetworkInfo, idx int, model NetInterworkingModel, li
 type Network struct {
 }
 
-func (n *Network) trace(ctx context.Context, name string) (opentracing.Span, context.Context) {
-	span, ct := opentracing.StartSpanFromContext(ctx, name)
-
-	span.SetTag("subsystem", "network")
-	span.SetTag("type", "default")
-
-	return span, ct
-}
-
 // Run runs a callback in the specified network namespace.
 func (n *Network) Run(networkNSPath string, cb func() error) error {
-	span, _ := n.trace(context.Background(), "run")
+	span, _ := katatrace.Trace(context.Background(), networkLogger(), "run", networkTags...)
 	defer span.Finish()
 
 	return doNetNS(networkNSPath, func(_ ns.NetNS) error {
@@ -1271,7 +1264,7 @@ func (n *Network) Run(networkNSPath string, cb func() error) error {
 
 // Add adds all needed interfaces inside the network namespace.
 func (n *Network) Add(ctx context.Context, config *NetworkConfig, s *Sandbox, hotplug bool) ([]Endpoint, error) {
-	span, _ := n.trace(ctx, "add")
+	span, _ := katatrace.Trace(ctx, networkLogger(), "add", networkTags...)
 	defer span.Finish()
 
 	endpoints, err := createEndpointsFromScan(config.NetNSPath, config)
@@ -1333,7 +1326,7 @@ func (n *Network) PostAdd(ctx context.Context, ns *NetworkNamespace, hotplug boo
 // Remove network endpoints in the network namespace. It also deletes the network
 // namespace in case the namespace has been created by us.
 func (n *Network) Remove(ctx context.Context, ns *NetworkNamespace, hypervisor hypervisor) error {
-	span, _ := n.trace(ctx, "remove")
+	span, _ := katatrace.Trace(ctx, networkLogger(), "remove", networkTags...)
 	defer span.Finish()
 
 	for _, endpoint := range ns.Endpoints {

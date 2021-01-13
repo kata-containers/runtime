@@ -10,7 +10,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 
@@ -53,7 +53,7 @@ var psCLICommand = cli.Command{
 }
 
 func ps(ctx context.Context, containerID, format string, args []string) error {
-	span, _ := katautils.Trace(ctx, "ps")
+	span, _ := katatrace.Trace(ctx, kataLog, "ps", cliTags...)
 	defer span.Finish()
 
 	if containerID == "" {

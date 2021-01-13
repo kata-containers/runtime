@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/rootless"
 )
 
@@ -63,7 +64,7 @@ func FetchContainerIDMapping(containerID string) (string, error) {
 
 // AddContainerIDMapping add a container id mapping to sandbox id
 func AddContainerIDMapping(ctx context.Context, containerID, sandboxID string) error {
-	span, _ := Trace(ctx, "addContainerIDMapping")
+	span, _ := katatrace.Trace(ctx, kataUtilsLogger, "addContainerIDMapping", cliTags...)
 	defer span.Finish()
 
 	if containerID == "" {
@@ -94,7 +95,7 @@ func AddContainerIDMapping(ctx context.Context, containerID, sandboxID string) e
 
 // DelContainerIDMapping delete container id mapping from a sandbox
 func DelContainerIDMapping(ctx context.Context, containerID string) error {
-	span, _ := Trace(ctx, "delContainerIDMapping")
+	span, _ := katatrace.Trace(ctx, kataUtilsLogger, "delContainerIDMapping", cliTags...)
 	defer span.Finish()
 
 	if containerID == "" {

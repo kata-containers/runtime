@@ -26,11 +26,11 @@ import (
 
 	govmmQemu "github.com/kata-containers/govmm/qemu"
 	"github.com/opencontainers/selinux/go-selinux/label"
-	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	persistapi "github.com/kata-containers/runtime/virtcontainers/persist/api"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
@@ -48,6 +48,8 @@ const romFile = ""
 // of virtio. Since moving to QEMU4.0, we can start using virtio 1.0 version.
 // Default value is false.
 const defaultDisableModern = false
+
+var qemuTags = []string{"subsystem", "hypervisor", "type", "qemu"}
 
 type qmpChannel struct {
 	sync.Mutex
@@ -182,7 +184,7 @@ func (q *qemu) kernelParameters() string {
 
 // Adds all capabilities supported by qemu implementation of hypervisor interface
 func (q *qemu) capabilities() types.Capabilities {
-	span, _ := q.trace("capabilities")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "capabilities", qemuTags...)
 	defer span.Finish()
 
 	return q.arch.capabilities()
@@ -213,23 +215,9 @@ func (q *qemu) qemuPath() (string, error) {
 	return p, nil
 }
 
-func (q *qemu) trace(name string) (opentracing.Span, context.Context) {
-	if q.ctx == nil {
-		q.Logger().WithField("type", "bug").Error("trace called before context set")
-		q.ctx = context.Background()
-	}
-
-	span, ctx := opentracing.StartSpanFromContext(q.ctx, name)
-
-	span.SetTag("subsystem", "hypervisor")
-	span.SetTag("type", "qemu")
-
-	return span, ctx
-}
-
 // setup sets the Qemu structure up.
 func (q *qemu) setup(id string, hypervisorConfig *HypervisorConfig) error {
-	span, _ := q.trace("setup")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "setup", qemuTags...)
 	defer span.Finish()
 
 	err := hypervisorConfig.valid()
@@ -468,7 +456,7 @@ func (q *qemu) createSandbox(ctx context.Context, id string, networkNS NetworkNa
 	// Save the tracing context
 	q.ctx = ctx
 
-	span, _ := q.trace("createSandbox")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "createSandbox", qemuTags...)
 	defer span.Finish()
 
 	if err := q.setup(id, hypervisorConfig); err != nil {
@@ -774,7 +762,7 @@ func (q *qemu) setupVirtioMem() error {
 
 // startSandbox will start the Sandbox's VM.
 func (q *qemu) startSandbox(timeout int) error {
-	span, _ := q.trace("startSandbox")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "startSandbox", qemuTags...)
 	defer span.Finish()
 
 	if q.config.Debug {
@@ -886,7 +874,7 @@ func (q *qemu) bootFromTemplate() error {
 
 // waitSandbox will wait for the Sandbox's VM to be up and running.
 func (q *qemu) waitSandbox(timeout int) error {
-	span, _ := q.trace("waitSandbox")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "waitSandbox", qemuTags...)
 	defer span.Finish()
 
 	if timeout < 0 {
@@ -940,7 +928,7 @@ func (q *qemu) waitSandbox(timeout int) error {
 
 // stopSandbox will stop the Sandbox's VM.
 func (q *qemu) stopSandbox() error {
-	span, _ := q.trace("stopSandbox")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "stopSandbox", qemuTags...)
 	defer span.Finish()
 
 	q.Logger().Info("Stopping Sandbox")
@@ -1015,7 +1003,7 @@ func (q *qemu) cleanupVM() error {
 }
 
 func (q *qemu) togglePauseSandbox(pause bool) error {
-	span, _ := q.trace("togglePauseSandbox")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "togglePauseSandbox", qemuTags...)
 	defer span.Finish()
 
 	err := q.qmpSetup()
@@ -1509,7 +1497,7 @@ func (q *qemu) hotplugDevice(devInfo interface{}, devType deviceType, op operati
 }
 
 func (q *qemu) hotplugAddDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
-	span, _ := q.trace("hotplugAddDevice")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "hotplugAddDevice", qemuTags...)
 	defer span.Finish()
 
 	data, err := q.hotplugDevice(devInfo, devType, addDevice)
@@ -1521,7 +1509,7 @@ func (q *qemu) hotplugAddDevice(devInfo interface{}, devType deviceType) (interf
 }
 
 func (q *qemu) hotplugRemoveDevice(devInfo interface{}, devType deviceType) (interface{}, error) {
-	span, _ := q.trace("hotplugRemoveDevice")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "hotplugRemoveDevice", qemuTags...)
 	defer span.Finish()
 
 	data, err := q.hotplugDevice(devInfo, devType, removeDevice)
@@ -1738,14 +1726,14 @@ func (q *qemu) hotplugAddMemory(memDev *memoryDevice) (int, error) {
 }
 
 func (q *qemu) pauseSandbox() error {
-	span, _ := q.trace("pauseSandbox")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "pauseSandbox", qemuTags...)
 	defer span.Finish()
 
 	return q.togglePauseSandbox(true)
 }
 
 func (q *qemu) resumeSandbox() error {
-	span, _ := q.trace("resumeSandbox")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "resumeSandbox", qemuTags...)
 	defer span.Finish()
 
 	return q.togglePauseSandbox(false)
@@ -1754,7 +1742,7 @@ func (q *qemu) resumeSandbox() error {
 // addDevice will add extra devices to Qemu command line.
 func (q *qemu) addDevice(devInfo interface{}, devType deviceType) error {
 	var err error
-	span, _ := q.trace("addDevice")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "addDevice", qemuTags...)
 	defer span.Finish()
 
 	switch v := devInfo.(type) {
@@ -1812,7 +1800,7 @@ func (q *qemu) addDevice(devInfo interface{}, devType deviceType) error {
 // getSandboxConsole builds the path of the console where we can read
 // logs coming from the sandbox.
 func (q *qemu) getSandboxConsole(id string) (string, error) {
-	span, _ := q.trace("getSandboxConsole")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "getSandboxConsole", qemuTags...)
 	defer span.Finish()
 
 	return utils.BuildSocketPath(q.store.RunVMStoragePath(), id, consoleSocket)
@@ -1873,7 +1861,7 @@ func (q *qemu) waitMigration() error {
 }
 
 func (q *qemu) disconnect() {
-	span, _ := q.trace("disconnect")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "disconnect", qemuTags...)
 	defer span.Finish()
 
 	q.qmpShutdown()
@@ -2079,7 +2067,7 @@ func genericAppendPCIeRootPort(devices []govmmQemu.Device, number uint32, machin
 }
 
 func (q *qemu) getThreadIDs() (vcpuThreadIDs, error) {
-	span, _ := q.trace("getThreadIDs")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "getThreadIDs", qemuTags...)
 	defer span.Finish()
 
 	tid := vcpuThreadIDs{}
@@ -2146,7 +2134,7 @@ func (q *qemu) resizeVCPUs(reqVCPUs uint32) (currentVCPUs uint32, newVCPUs uint3
 }
 
 func (q *qemu) cleanup() error {
-	span, _ := q.trace("cleanup")
+	span, _ := katatrace.Trace(q.ctx, q.Logger(), "cleanup", qemuTags...)
 	defer span.Finish()
 
 	for _, fd := range q.fds {

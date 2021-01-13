@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	merr "github.com/hashicorp/go-multierror"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -215,7 +216,7 @@ const mountPerm = os.FileMode(0755)
 // * recursively create the destination
 // pgtypes stands for propagation types, which are shared, private, slave, and ubind.
 func bindMount(ctx context.Context, source, destination string, readonly bool, pgtypes string) error {
-	span, _ := trace(ctx, "bindMount")
+	span, _ := katatrace.Trace(ctx, virtLog, "bindMount", apiTags...)
 	defer span.Finish()
 
 	if source == "" {
@@ -281,7 +282,7 @@ func remountRo(ctx context.Context, src string) error {
 // bindMountContainerRootfs bind mounts a container rootfs into a 9pfs shared
 // directory between the guest and the host.
 func bindMountContainerRootfs(ctx context.Context, shareDir, cid, cRootFs string, readonly bool) error {
-	span, _ := trace(ctx, "bindMountContainerRootfs")
+	span, _ := katatrace.Trace(ctx, virtLog, "bindMountContainerRootfs", apiTags...)
 	defer span.Finish()
 
 	rootfsDest := filepath.Join(shareDir, cid, rootfsDir)
@@ -321,7 +322,7 @@ func isSymlink(path string) bool {
 }
 
 func bindUnmountContainerRootfs(ctx context.Context, sharedDir string, con *Container) error {
-	span, _ := trace(ctx, "bindUnmountContainerRootfs")
+	span, _ := katatrace.Trace(ctx, virtLog, "bindUnmountContainerRootfs", apiTags...)
 	defer span.Finish()
 
 	if con.state.Fstype != "" && con.state.BlockDeviceID != "" {
@@ -347,7 +348,7 @@ func bindUnmountContainerRootfs(ctx context.Context, sharedDir string, con *Cont
 }
 
 func bindUnmountAllRootfs(ctx context.Context, sharedDir string, sandbox *Sandbox) error {
-	span, _ := trace(ctx, "bindUnmountAllRootfs")
+	span, _ := katatrace.Trace(ctx, virtLog, "bindUnmountAllRootfs", apiTags...)
 	defer span.Finish()
 
 	var errors *merr.Error

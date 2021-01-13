@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vcAnnot "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
@@ -62,7 +63,7 @@ EXAMPLE:
 }
 
 func delete(ctx context.Context, containerID string, force bool) error {
-	span, ctx := katautils.Trace(ctx, "delete")
+	span, ctx := katatrace.Trace(ctx, kataLog, "delete", cliTags...)
 	defer span.Finish()
 
 	kataLog = kataLog.WithField("container", containerID)
@@ -138,7 +139,7 @@ func delete(ctx context.Context, containerID string, force bool) error {
 }
 
 func deleteSandbox(ctx context.Context, sandboxID string, force bool) error {
-	span, _ := katautils.Trace(ctx, "deleteSandbox")
+	span, _ := katatrace.Trace(ctx, kataLog, "deleteSandbox", cliTags...)
 	defer span.Finish()
 
 	status, err := vci.StatusSandbox(ctx, sandboxID)
@@ -160,7 +161,7 @@ func deleteSandbox(ctx context.Context, sandboxID string, force bool) error {
 }
 
 func deleteContainer(ctx context.Context, sandboxID, containerID string, forceStop bool) error {
-	span, _ := katautils.Trace(ctx, "deleteContainer")
+	span, _ := katatrace.Trace(ctx, kataLog, "deleteContainer", cliTags...)
 	defer span.Finish()
 
 	if forceStop {
@@ -177,7 +178,7 @@ func deleteContainer(ctx context.Context, sandboxID, containerID string, forceSt
 }
 
 func removeCgroupsPath(ctx context.Context, containerID string, cgroupsPathList []string) error {
-	span, _ := katautils.Trace(ctx, "removeCgroupsPath")
+	span, _ := katatrace.Trace(ctx, kataLog, "removeCgroupsPath", cliTags...)
 	defer span.Finish()
 
 	if len(cgroupsPathList) == 0 {

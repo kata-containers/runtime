@@ -13,6 +13,7 @@ import (
 	"os"
 
 	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/compatoci"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
@@ -91,7 +92,7 @@ func create(ctx context.Context, containerID, bundlePath, console, pidFilePath s
 	runtimeConfig oci.RuntimeConfig) error {
 	var err error
 
-	span, ctx := katautils.Trace(ctx, "create")
+	span, ctx := katatrace.Trace(ctx, kataLog, "create", cliTags...)
 	defer span.Finish()
 
 	kataLog = kataLog.WithField("container", containerID)
@@ -152,7 +153,7 @@ func create(ctx context.Context, containerID, bundlePath, console, pidFilePath s
 }
 
 func createPIDFile(ctx context.Context, pidFilePath string, pid int) error {
-	span, _ := katautils.Trace(ctx, "createPIDFile")
+	span, _ := katatrace.Trace(ctx, kataLog, "createPIDFile", cliTags...)
 	defer span.Finish()
 
 	if pidFilePath == "" {

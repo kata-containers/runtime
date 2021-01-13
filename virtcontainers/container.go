@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/containerd/cgroups"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vccgroups "github.com/kata-containers/runtime/virtcontainers/pkg/cgroups"
 	vcTypes "github.com/kata-containers/runtime/virtcontainers/pkg/types"
 	"github.com/kata-containers/runtime/virtcontainers/types"
@@ -32,6 +33,8 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/pkg/rootless"
 	"github.com/kata-containers/runtime/virtcontainers/store"
 )
+
+var containerTags = []string{"subsystem", "container"}
 
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/major.h
 // This file has definitions for major device numbers.
@@ -354,19 +357,6 @@ func (c *Container) Logger() *logrus.Entry {
 	})
 }
 
-func (c *Container) trace(name string) (opentracing.Span, context.Context) {
-	if c.ctx == nil {
-		c.Logger().WithField("type", "bug").Error("trace called before context set")
-		c.ctx = context.Background()
-	}
-
-	span, ctx := opentracing.StartSpanFromContext(c.ctx, name)
-
-	span.SetTag("subsystem", "container")
-
-	return span, ctx
-}
-
 // Sandbox returns the sandbox handler related to this container.
 func (c *Container) Sandbox() VCSandbox {
 	return c.sandbox
@@ -581,12 +571,12 @@ func (c *Container) mountSharedDirMounts(hostSharedDir, hostMountDir, guestShare
 
 func (c *Container) unmountHostMounts() error {
 	var span opentracing.Span
-	span, c.ctx = c.trace("unmountHostMounts")
+	span, c.ctx = katatrace.Trace(c.ctx, c.Logger(), "unmountHostMounts", containerTags...)
 	defer span.Finish()
 
 	for _, m := range c.mounts {
 		if m.HostPath != "" {
-			span, _ := c.trace("unmount")
+			span, _ := katatrace.Trace(c.ctx, c.Logger(), "unmount", containerTags...)
 			span.SetTag("host-path", m.HostPath)
 
 			if err := syscall.Unmount(m.HostPath, syscall.MNT_DETACH|UmountNoFollow); err != nil {
@@ -709,7 +699,7 @@ func (c *Container) createBlockDevices() error {
 
 // newContainer creates a Container structure from a sandbox and a container configuration.
 func newContainer(sandbox *Sandbox, contConfig *ContainerConfig) (*Container, error) {
-	span, _ := sandbox.trace("newContainer")
+	span, _ := katatrace.Trace(sandbox.ctx, sandbox.Logger(), "newContainer", sandboxTags...)
 	defer span.Finish()
 
 	if !contConfig.valid() {
@@ -1036,7 +1026,7 @@ func (c *Container) start() error {
 }
 
 func (c *Container) stop(force bool) error {
-	span, _ := c.trace("stop")
+	span, _ := katatrace.Trace(c.ctx, c.Logger(), "stop", containerTags...)
 	defer span.Finish()
 
 	// In case the container status has been updated implicitly because
@@ -1056,7 +1046,7 @@ func (c *Container) stop(force bool) error {
 	}
 
 	defer func() {
-		span, _ := c.trace("stopShim")
+		span, _ := katatrace.Trace(c.ctx, c.Logger(), "stopShim", containerTags...)
 		defer span.Finish()
 
 		// If shim is still running something went wrong

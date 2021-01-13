@@ -12,7 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/opencontainers/runc/libcontainer/specconv"
 	"github.com/urfave/cli"
 )
@@ -78,7 +78,7 @@ generate a proper rootless spec file.`,
 			return err
 		}
 
-		span, _ := katautils.Trace(ctx, "spec")
+		span, _ := katatrace.Trace(ctx, kataLog, "spec", cliTags...)
 		defer span.Finish()
 
 		spec := specconv.Example()

@@ -15,6 +15,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	govmmQemu "github.com/kata-containers/govmm/qemu"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	exp "github.com/kata-containers/runtime/virtcontainers/experimental"
@@ -33,7 +34,7 @@ var (
 	defaultShim  = vc.KataShimType
 
 	// if true, enable opentracing support.
-	tracing = false
+	Tracing = false
 )
 
 // The TOML configuration file contains a number of sections (or
@@ -1242,7 +1243,7 @@ func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolved
 	}
 
 	config.Trace = tomlConf.Runtime.Tracing
-	tracing = config.Trace
+	katatrace.TracingSet = config.Trace
 
 	if tomlConf.Runtime.InterNetworkModel != "" {
 		err = config.InterNetworkModel.SetModel(tomlConf.Runtime.InterNetworkModel)

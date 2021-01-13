@@ -13,6 +13,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	exp "github.com/kata-containers/runtime/virtcontainers/experimental"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
@@ -505,7 +506,7 @@ var kataEnvCLICommand = cli.Command{
 			return err
 		}
 
-		span, _ := katautils.Trace(ctx, "kata-env")
+		span, _ := katatrace.Trace(ctx, kataLog, "kata-env", cliTags...)
 		defer span.Finish()
 
 		return handleSettings(defaultOutputFile, context)

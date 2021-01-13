@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -51,7 +51,7 @@ var kataOverheadCLICommand = cli.Command{
 }
 
 func overhead(ctx context.Context, containerID string) error {
-	span, _ := katautils.Trace(ctx, "overhead")
+	span, _ := katatrace.Trace(ctx, kataLog, "overhead", cliTags...)
 	defer span.Finish()
 
 	kataLog = kataLog.WithField("container", containerID)

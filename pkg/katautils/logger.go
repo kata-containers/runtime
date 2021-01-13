@@ -13,12 +13,16 @@ import (
 
 	"github.com/sirupsen/logrus"
 	lSyslog "github.com/sirupsen/logrus/hooks/syslog"
+
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 )
 
 // Default our log level to 'Warn', rather than the logrus default
 // of 'Info', which is rather noisy.
 var originalLoggerLevel = logrus.WarnLevel
 var kataUtilsLogger = logrus.NewEntry(logrus.New())
+
+var cliTags = []string{"source", "runtime", "component", "cli"}
 
 // SetLogger sets the logger for the factory.
 func SetLogger(ctx context.Context, logger *logrus.Entry, level logrus.Level) {
@@ -28,6 +32,8 @@ func SetLogger(ctx context.Context, logger *logrus.Entry, level logrus.Level) {
 
 	originalLoggerLevel = level
 	kataUtilsLogger = logger.WithFields(fields)
+
+	katatrace.SetLogger(kataUtilsLogger)
 }
 
 // sysLogHook wraps a syslog logrus hook and a formatter to be used for all

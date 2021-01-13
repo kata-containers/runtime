@@ -14,7 +14,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 
@@ -190,7 +190,7 @@ func generateExecParams(context *cli.Context, specProcess *specs.Process) (execP
 }
 
 func execute(ctx context.Context, context *cli.Context) error {
-	span, ctx := katautils.Trace(ctx, "execute")
+	span, ctx := katatrace.Trace(ctx, kataLog, "execute", cliTags...)
 	defer span.Finish()
 
 	containerID := context.Args().First()

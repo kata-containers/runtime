@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/urfave/cli"
 )
@@ -41,7 +41,7 @@ instance of a container.`,
 }
 
 func state(ctx context.Context, containerID string) error {
-	span, _ := katautils.Trace(ctx, "state")
+	span, _ := katatrace.Trace(ctx, kataLog, "state", cliTags...)
 	defer span.Finish()
 
 	kataLog = kataLog.WithField("container", containerID)

@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 
-	"github.com/kata-containers/runtime/pkg/katautils"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -143,7 +143,7 @@ information is displayed once every 5 seconds.`,
 			return err
 		}
 
-		span, _ := katautils.Trace(ctx, "events")
+		span, _ := katatrace.Trace(ctx, kataLog, "events", cliTags...)
 		defer span.Finish()
 
 		containerID := context.Args().First()

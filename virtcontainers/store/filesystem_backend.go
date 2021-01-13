@@ -14,9 +14,9 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/rootless"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/uuid"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -51,6 +51,8 @@ const (
 	// uuidFile is the file name storing a guest VM uuid state.
 	uuidFile = "uuid.json"
 )
+
+var fsBackendTags = []string{"subsystem", "store", "type", "filesystem"}
 
 // DirMode is the permission bits used for creating a directory
 const DirMode = os.FileMode(0750) | os.ModeDir
@@ -159,21 +161,6 @@ func (f *filesystem) logger() *logrus.Entry {
 	})
 }
 
-func (f *filesystem) trace(name string) (opentracing.Span, context.Context) {
-	if f.ctx == nil {
-		f.logger().WithField("type", "bug").Error("trace called before context set")
-		f.ctx = context.Background()
-	}
-
-	span, ctx := opentracing.StartSpanFromContext(f.ctx, name)
-
-	span.SetTag("subsystem", "store")
-	span.SetTag("type", "filesystem")
-	span.SetTag("path", f.path)
-
-	return span, ctx
-}
-
 func (f *filesystem) itemToPath(item Item) (string, error) {
 	fileName, err := itemToFile(item)
 	if err != nil {
@@ -234,7 +221,7 @@ func (f *filesystem) delete() error {
 }
 
 func (f *filesystem) load(item Item, data interface{}) error {
-	span, _ := f.trace("load")
+	span, _ := katatrace.Trace(f.ctx, f.logger(), "load", append(fsBackendTags, "path", f.path)...)
 	defer span.Finish()
 
 	span.SetTag("item", item)
@@ -257,7 +244,7 @@ func (f *filesystem) load(item Item, data interface{}) error {
 }
 
 func (f *filesystem) store(item Item, data interface{}) error {
-	span, _ := f.trace("store")
+	span, _ := katatrace.Trace(f.ctx, f.logger(), "store", append(fsBackendTags, "path", f.path)...)
 	defer span.Finish()
 
 	span.SetTag("item", item)
@@ -283,7 +270,7 @@ func (f *filesystem) store(item Item, data interface{}) error {
 }
 
 func (f *filesystem) raw(id string) (string, error) {
-	span, _ := f.trace("raw")
+	span, _ := katatrace.Trace(f.ctx, f.logger(), "raw", append(fsBackendTags, "path", f.path)...)
 	defer span.Finish()
 
 	span.SetTag("id", id)

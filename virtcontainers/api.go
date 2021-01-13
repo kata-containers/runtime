@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	deviceApi "github.com/kata-containers/runtime/virtcontainers/device/api"
 	deviceConfig "github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/persist"
@@ -20,7 +21,6 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -30,20 +30,7 @@ func init() {
 
 var virtLog = logrus.WithField("source", "virtcontainers")
 
-// trace creates a new tracing span based on the specified name and parent
-// context.
-func trace(parent context.Context, name string) (opentracing.Span, context.Context) {
-	span, ctx := opentracing.StartSpanFromContext(parent, name)
-
-	// Should not need to be changed (again).
-	span.SetTag("source", "virtcontainers")
-	span.SetTag("component", "virtcontainers")
-
-	// Should be reset as new subsystems are entered.
-	span.SetTag("subsystem", "api")
-
-	return span, ctx
-}
+var apiTags = []string{"source", "virtcontainers", "component", "virtcontainers", "subsystem", "api"}
 
 // SetLogger sets the logger for virtcontainers package.
 func SetLogger(ctx context.Context, logger *logrus.Entry) {
@@ -60,7 +47,7 @@ func SetLogger(ctx context.Context, logger *logrus.Entry) {
 // CreateSandbox is the virtcontainers sandbox creation entry point.
 // CreateSandbox creates a sandbox and its containers. It does not start them.
 func CreateSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (VCSandbox, error) {
-	span, ctx := trace(ctx, "CreateSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "CreateSandbox", apiTags...)
 	defer span.Finish()
 
 	s, err := createSandboxFromConfig(ctx, sandboxConfig, factory)
@@ -72,7 +59,7 @@ func CreateSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Fac
 }
 
 func createSandboxFromConfig(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (_ *Sandbox, err error) {
-	span, ctx := trace(ctx, "createSandboxFromConfig")
+	span, ctx := katatrace.Trace(ctx, virtLog, "createSandboxFromConfig", apiTags...)
 	defer span.Finish()
 
 	// Create the sandbox.
@@ -145,7 +132,7 @@ func createSandboxFromConfig(ctx context.Context, sandboxConfig SandboxConfig, f
 // DeleteSandbox is the virtcontainers sandbox deletion entry point.
 // DeleteSandbox will stop an already running container and then delete it.
 func DeleteSandbox(ctx context.Context, sandboxID string) (VCSandbox, error) {
-	span, ctx := trace(ctx, "DeleteSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "DeleteSandbox", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -178,7 +165,7 @@ func DeleteSandbox(ctx context.Context, sandboxID string) (VCSandbox, error) {
 // return the sandbox structure. The caller is responsible of calling
 // VCSandbox.Release() after done with it.
 func FetchSandbox(ctx context.Context, sandboxID string) (VCSandbox, error) {
-	span, ctx := trace(ctx, "FetchSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "FetchSandbox", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -215,7 +202,7 @@ func FetchSandbox(ctx context.Context, sandboxID string) (VCSandbox, error) {
 // sandbox and all its containers.
 // It returns the sandbox ID.
 func StartSandbox(ctx context.Context, sandboxID string) (VCSandbox, error) {
-	span, ctx := trace(ctx, "StartSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "StartSandbox", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -251,7 +238,7 @@ func StartSandbox(ctx context.Context, sandboxID string) (VCSandbox, error) {
 // StopSandbox is the virtcontainers sandbox stopping entry point.
 // StopSandbox will talk to the given agent to stop an existing sandbox and destroy all containers within that sandbox.
 func StopSandbox(ctx context.Context, sandboxID string, force bool) (VCSandbox, error) {
-	span, ctx := trace(ctx, "StopSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "StopSandbox", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -287,7 +274,7 @@ func StopSandbox(ctx context.Context, sandboxID string, force bool) (VCSandbox, 
 // RunSandbox is the virtcontainers sandbox running entry point.
 // RunSandbox creates a sandbox and its containers and then it starts them.
 func RunSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (VCSandbox, error) {
-	span, ctx := trace(ctx, "RunSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "RunSandbox", apiTags...)
 	defer span.Finish()
 
 	// Create the sandbox
@@ -314,7 +301,7 @@ func RunSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 
 // ListSandbox is the virtcontainers sandbox listing entry point.
 func ListSandbox(ctx context.Context) ([]SandboxStatus, error) {
-	span, ctx := trace(ctx, "ListSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "ListSandbox", apiTags...)
 	defer span.Finish()
 
 	store, err := persist.GetDriver()
@@ -354,7 +341,7 @@ func ListSandbox(ctx context.Context) ([]SandboxStatus, error) {
 
 // StatusSandbox is the virtcontainers sandbox status entry point.
 func StatusSandbox(ctx context.Context, sandboxID string) (SandboxStatus, error) {
-	span, ctx := trace(ctx, "StatusSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "StatusSandbox", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -399,7 +386,7 @@ func StatusSandbox(ctx context.Context, sandboxID string) (SandboxStatus, error)
 // CreateContainer is the virtcontainers container creation entry point.
 // CreateContainer creates a container on a given sandbox.
 func CreateContainer(ctx context.Context, sandboxID string, containerConfig ContainerConfig) (VCSandbox, VCContainer, error) {
-	span, ctx := trace(ctx, "CreateContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "CreateContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -434,7 +421,7 @@ func CreateContainer(ctx context.Context, sandboxID string, containerConfig Cont
 // DeleteContainer deletes a Container from a Sandbox. If the container is running,
 // it needs to be stopped first.
 func DeleteContainer(ctx context.Context, sandboxID, containerID string) (VCContainer, error) {
-	span, ctx := trace(ctx, "DeleteContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "DeleteContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -463,7 +450,7 @@ func DeleteContainer(ctx context.Context, sandboxID, containerID string) (VCCont
 // StartContainer is the virtcontainers container starting entry point.
 // StartContainer starts an already created container.
 func StartContainer(ctx context.Context, sandboxID, containerID string) (VCContainer, error) {
-	span, ctx := trace(ctx, "StartContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "StartContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -492,7 +479,7 @@ func StartContainer(ctx context.Context, sandboxID, containerID string) (VCConta
 // StopContainer is the virtcontainers container stopping entry point.
 // StopContainer stops an already running container.
 func StopContainer(ctx context.Context, sandboxID, containerID string) (VCContainer, error) {
-	span, ctx := trace(ctx, "StopContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "StopContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -521,7 +508,7 @@ func StopContainer(ctx context.Context, sandboxID, containerID string) (VCContai
 // EnterContainer is the virtcontainers container command execution entry point.
 // EnterContainer enters an already running container and runs a given command.
 func EnterContainer(ctx context.Context, sandboxID, containerID string, cmd types.Cmd) (VCSandbox, VCContainer, *Process, error) {
-	span, ctx := trace(ctx, "EnterContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "EnterContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -555,7 +542,7 @@ func EnterContainer(ctx context.Context, sandboxID, containerID string, cmd type
 // StatusContainer is the virtcontainers container status entry point.
 // StatusContainer returns a detailed container status.
 func StatusContainer(ctx context.Context, sandboxID, containerID string) (ContainerStatus, error) {
-	span, ctx := trace(ctx, "StatusContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "StatusContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -638,7 +625,7 @@ func statusContainer(sandbox *Sandbox, containerID string) (ContainerStatus, err
 // to a container running inside a sandbox. If all is true, all processes in
 // the container will be sent the signal.
 func KillContainer(ctx context.Context, sandboxID, containerID string, signal syscall.Signal, all bool) error {
-	span, ctx := trace(ctx, "KillContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "KillContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -667,7 +654,7 @@ func KillContainer(ctx context.Context, sandboxID, containerID string, signal sy
 // ProcessListContainer is the virtcontainers entry point to list
 // processes running inside a container
 func ProcessListContainer(ctx context.Context, sandboxID, containerID string, options ProcessListOptions) (ProcessList, error) {
-	span, ctx := trace(ctx, "ProcessListContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "ProcessListContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -696,7 +683,7 @@ func ProcessListContainer(ctx context.Context, sandboxID, containerID string, op
 // UpdateContainer is the virtcontainers entry point to update
 // container's resources.
 func UpdateContainer(ctx context.Context, sandboxID, containerID string, resources specs.LinuxResources) error {
-	span, ctx := trace(ctx, "UpdateContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "UpdateContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -725,7 +712,7 @@ func UpdateContainer(ctx context.Context, sandboxID, containerID string, resourc
 // StatsContainer is the virtcontainers container stats entry point.
 // StatsContainer returns a detailed container stats.
 func StatsContainer(ctx context.Context, sandboxID, containerID string) (ContainerStats, error) {
-	span, ctx := trace(ctx, "StatsContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "StatsContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -754,7 +741,7 @@ func StatsContainer(ctx context.Context, sandboxID, containerID string) (Contain
 // StatsSandbox is the virtcontainers sandbox stats entry point.
 // StatsSandbox returns a detailed sandbox stats.
 func StatsSandbox(ctx context.Context, sandboxID string) (SandboxStats, []ContainerStats, error) {
-	span, ctx := trace(ctx, "StatsSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "StatsSandbox", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -820,7 +807,7 @@ func togglePauseContainer(ctx context.Context, sandboxID, containerID string, pa
 
 // PauseContainer is the virtcontainers container pause entry point.
 func PauseContainer(ctx context.Context, sandboxID, containerID string) error {
-	span, ctx := trace(ctx, "PauseContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "PauseContainer", apiTags...)
 	defer span.Finish()
 
 	return togglePauseContainer(ctx, sandboxID, containerID, true)
@@ -828,7 +815,7 @@ func PauseContainer(ctx context.Context, sandboxID, containerID string) error {
 
 // ResumeContainer is the virtcontainers container resume entry point.
 func ResumeContainer(ctx context.Context, sandboxID, containerID string) error {
-	span, ctx := trace(ctx, "ResumeContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "ResumeContainer", apiTags...)
 	defer span.Finish()
 
 	return togglePauseContainer(ctx, sandboxID, containerID, false)
@@ -836,7 +823,7 @@ func ResumeContainer(ctx context.Context, sandboxID, containerID string) error {
 
 // AddDevice will add a device to sandbox
 func AddDevice(ctx context.Context, sandboxID string, info deviceConfig.DeviceInfo) (deviceApi.Device, error) {
-	span, ctx := trace(ctx, "AddDevice")
+	span, ctx := katatrace.Trace(ctx, virtLog, "AddDevice", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -884,7 +871,7 @@ func toggleInterface(ctx context.Context, sandboxID string, inf *vcTypes.Interfa
 
 // AddInterface is the virtcontainers add interface entry point.
 func AddInterface(ctx context.Context, sandboxID string, inf *vcTypes.Interface) (*vcTypes.Interface, error) {
-	span, ctx := trace(ctx, "AddInterface")
+	span, ctx := katatrace.Trace(ctx, virtLog, "AddInterface", apiTags...)
 	defer span.Finish()
 
 	return toggleInterface(ctx, sandboxID, inf, true)
@@ -892,7 +879,7 @@ func AddInterface(ctx context.Context, sandboxID string, inf *vcTypes.Interface)
 
 // RemoveInterface is the virtcontainers remove interface entry point.
 func RemoveInterface(ctx context.Context, sandboxID string, inf *vcTypes.Interface) (*vcTypes.Interface, error) {
-	span, ctx := trace(ctx, "RemoveInterface")
+	span, ctx := katatrace.Trace(ctx, virtLog, "RemoveInterface", apiTags...)
 	defer span.Finish()
 
 	return toggleInterface(ctx, sandboxID, inf, false)
@@ -900,7 +887,7 @@ func RemoveInterface(ctx context.Context, sandboxID string, inf *vcTypes.Interfa
 
 // ListInterfaces is the virtcontainers list interfaces entry point.
 func ListInterfaces(ctx context.Context, sandboxID string) ([]*vcTypes.Interface, error) {
-	span, ctx := trace(ctx, "ListInterfaces")
+	span, ctx := katatrace.Trace(ctx, virtLog, "ListInterfaces", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -924,7 +911,7 @@ func ListInterfaces(ctx context.Context, sandboxID string) ([]*vcTypes.Interface
 
 // UpdateRoutes is the virtcontainers update routes entry point.
 func UpdateRoutes(ctx context.Context, sandboxID string, routes []*vcTypes.Route) ([]*vcTypes.Route, error) {
-	span, ctx := trace(ctx, "UpdateRoutes")
+	span, ctx := katatrace.Trace(ctx, virtLog, "UpdateRoutes", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -948,7 +935,7 @@ func UpdateRoutes(ctx context.Context, sandboxID string, routes []*vcTypes.Route
 
 // ListRoutes is the virtcontainers list routes entry point.
 func ListRoutes(ctx context.Context, sandboxID string) ([]*vcTypes.Route, error) {
-	span, ctx := trace(ctx, "ListRoutes")
+	span, ctx := katatrace.Trace(ctx, virtLog, "ListRoutes", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {
@@ -974,7 +961,7 @@ func ListRoutes(ctx context.Context, sandboxID string) ([]*vcTypes.Route, error)
 // in the sandbox left, do stop the sandbox and delete it. Those serial operations will be done exclusively by
 // locking the sandbox.
 func CleanupContainer(ctx context.Context, sandboxID, containerID string, force bool) error {
-	span, ctx := trace(ctx, "CleanupContainer")
+	span, ctx := katatrace.Trace(ctx, virtLog, "CleanupContainer", apiTags...)
 	defer span.Finish()
 
 	if sandboxID == "" {

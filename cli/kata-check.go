@@ -26,6 +26,7 @@ import (
 	"syscall"
 
 	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/sirupsen/logrus"
@@ -394,7 +395,7 @@ EXAMPLES:
 			return err
 		}
 
-		span, _ := katautils.Trace(ctx, "kata-check")
+		span, _ := katatrace.Trace(ctx, kataLog, "kata-check", cliTags...)
 		defer span.Finish()
 
 		if !context.Bool("no-network-checks") && os.Getenv(noNetworkEnvVar) == "" {

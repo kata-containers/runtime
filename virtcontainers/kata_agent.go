@@ -22,6 +22,7 @@ import (
 	aTypes "github.com/kata-containers/agent/pkg/types"
 	kataclient "github.com/kata-containers/agent/protocols/client"
 	"github.com/kata-containers/agent/protocols/grpc"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	persistapi "github.com/kata-containers/runtime/virtcontainers/persist/api"
@@ -34,7 +35,6 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/store"
 	"github.com/kata-containers/runtime/virtcontainers/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/net/context"
@@ -231,19 +231,7 @@ type kataAgent struct {
 	ctx      context.Context
 }
 
-func (k *kataAgent) trace(name string) (opentracing.Span, context.Context) {
-	if k.ctx == nil {
-		k.Logger().WithField("type", "bug").Error("trace called before context set")
-		k.ctx = context.Background()
-	}
-
-	span, ctx := opentracing.StartSpanFromContext(k.ctx, name)
-
-	span.SetTag("subsystem", "agent")
-	span.SetTag("type", "kata")
-
-	return span, ctx
-}
+var kataAgentTags = []string{"subsystem", "agent", "type", "kata"}
 
 func (k *kataAgent) Logger() *logrus.Entry {
 	return virtLog.WithField("subsystem", "kata_agent")
@@ -323,7 +311,7 @@ func (k *kataAgent) init(ctx context.Context, sandbox *Sandbox, config interface
 	// save
 	k.ctx = sandbox.ctx
 
-	span, _ := k.trace("init")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "init", kataAgentTags...)
 	defer span.Finish()
 
 	switch c := config.(type) {
@@ -469,7 +457,7 @@ func (k *kataAgent) setupSharedPath(sandbox *Sandbox) error {
 }
 
 func (k *kataAgent) createSandbox(sandbox *Sandbox) error {
-	span, _ := k.trace("createSandbox")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "createSandbox", kataAgentTags...)
 	defer span.Finish()
 
 	if err := k.setupSharedPath(sandbox); err != nil {
@@ -556,7 +544,7 @@ func cmdEnvsToStringSlice(ev []types.EnvVar) []string {
 }
 
 func (k *kataAgent) exec(sandbox *Sandbox, c Container, cmd types.Cmd) (*Process, error) {
-	span, _ := k.trace("exec")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "exec", kataAgentTags...)
 	defer span.Finish()
 
 	var kataProcess *grpc.Process
@@ -692,7 +680,7 @@ func (k *kataAgent) listRoutes() ([]*vcTypes.Route, error) {
 }
 
 func (k *kataAgent) startProxy(sandbox *Sandbox) error {
-	span, _ := k.trace("startProxy")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "startProxy", kataAgentTags...)
 	defer span.Finish()
 
 	var err error
@@ -839,7 +827,7 @@ func (k *kataAgent) getDNS(sandbox *Sandbox) ([]string, error) {
 }
 
 func (k *kataAgent) startSandbox(sandbox *Sandbox) error {
-	span, _ := k.trace("startSandbox")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "startSandbox", kataAgentTags...)
 	defer span.Finish()
 
 	err := k.startProxy(sandbox)
@@ -1000,7 +988,7 @@ func setupStorages(sandbox *Sandbox) []*grpc.Storage {
 }
 
 func (k *kataAgent) stopSandbox(sandbox *Sandbox) error {
-	span, _ := k.trace("stopSandbox")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "stopSandbox", kataAgentTags...)
 	defer span.Finish()
 
 	if k.proxy == nil {
@@ -1379,7 +1367,7 @@ func (k *kataAgent) hasAgentDebugConsole(sandbox *Sandbox) bool {
 }
 
 func (k *kataAgent) createContainer(sandbox *Sandbox, c *Container) (p *Process, err error) {
-	span, _ := k.trace("createContainer")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "createContainer", kataAgentTags...)
 	defer span.Finish()
 
 	var ctrStorages []*grpc.Storage
@@ -1743,7 +1731,7 @@ func (k *kataAgent) checkAgentPidNs(container *Container) bool {
 }
 
 func (k *kataAgent) startContainer(sandbox *Sandbox, c *Container) error {
-	span, _ := k.trace("startContainer")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "startContainer", kataAgentTags...)
 	defer span.Finish()
 
 	req := &grpc.StartContainerRequest{
@@ -1755,7 +1743,7 @@ func (k *kataAgent) startContainer(sandbox *Sandbox, c *Container) error {
 }
 
 func (k *kataAgent) stopContainer(sandbox *Sandbox, c Container) error {
-	span, _ := k.trace("stopContainer")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "stopContainer", kataAgentTags...)
 	defer span.Finish()
 
 	_, err := k.sendReq(&grpc.RemoveContainerRequest{ContainerId: c.id})
@@ -1919,7 +1907,7 @@ func (k *kataAgent) connect() error {
 		return nil
 	}
 
-	span, _ := k.trace("connect")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "connect", kataAgentTags...)
 	defer span.Finish()
 
 	// This is for the first connection only, to prevent race
@@ -1950,7 +1938,7 @@ func (k *kataAgent) connect() error {
 }
 
 func (k *kataAgent) disconnect() error {
-	span, _ := k.trace("disconnect")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "disconnect", kataAgentTags...)
 	defer span.Finish()
 
 	k.Lock()
@@ -1972,7 +1960,7 @@ func (k *kataAgent) disconnect() error {
 
 // check grpc server is serving
 func (k *kataAgent) check() error {
-	span, _ := k.trace("check")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "check", kataAgentTags...)
 	defer span.Finish()
 
 	_, err := k.sendReq(&grpc.CheckRequest{})
@@ -1983,7 +1971,7 @@ func (k *kataAgent) check() error {
 }
 
 func (k *kataAgent) waitProcess(c *Container, processID string) (int32, error) {
-	span, _ := k.trace("waitProcess")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "waitProcess", kataAgentTags...)
 	defer span.Finish()
 
 	resp, err := k.sendReq(&grpc.WaitProcessRequest{
@@ -2142,7 +2130,7 @@ func (k *kataAgent) getReqContext(reqName string) (ctx context.Context, cancel c
 }
 
 func (k *kataAgent) sendReq(request interface{}) (interface{}, error) {
-	span, _ := k.trace("sendReq")
+	span, _ := katatrace.Trace(k.ctx, k.Logger(), "sendReq", kataAgentTags...)
 	span.SetTag("request", request)
 	defer span.Finish()
 

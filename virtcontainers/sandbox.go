@@ -21,12 +21,12 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/kata-containers/agent/protocols/grpc"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/virtcontainers/device/api"
 	"github.com/kata-containers/runtime/virtcontainers/device/config"
 	"github.com/kata-containers/runtime/virtcontainers/device/drivers"
@@ -44,6 +44,8 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/utils"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 )
+
+var sandboxTags = []string{"subsystem", "sandbox"}
 
 const (
 	// vmStartTimeout represents the time in seconds a sandbox can wait before
@@ -134,19 +136,6 @@ type SandboxConfig struct {
 	// Cgroups specifies specific cgroup settings for the various subsystems that the container is
 	// placed into to limit the resources the container has available
 	Cgroups *configs.Cgroup
-}
-
-func (s *Sandbox) trace(name string) (opentracing.Span, context.Context) {
-	if s.ctx == nil {
-		s.Logger().WithField("type", "bug").Error("trace called before context set")
-		s.ctx = context.Background()
-	}
-
-	span, ctx := opentracing.StartSpanFromContext(s.ctx, name)
-
-	span.SetTag("subsystem", "sandbox")
-
-	return span, ctx
 }
 
 func (s *Sandbox) startProxy() error {
@@ -416,7 +405,7 @@ func (s *Sandbox) IOStream(containerID, processID string) (io.WriteCloser, io.Re
 }
 
 func createAssets(ctx context.Context, sandboxConfig *SandboxConfig) error {
-	span, _ := trace(ctx, "createAssets")
+	span, _ := katatrace.Trace(ctx, virtLog, "createAssets", apiTags...)
 	defer span.Finish()
 
 	for _, name := range types.AssetTypes() {
@@ -466,7 +455,7 @@ func (s *Sandbox) getAndStoreGuestDetails() error {
 // to physically create that sandbox i.e. starts a VM for that sandbox to eventually
 // be started.
 func createSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (*Sandbox, error) {
-	span, ctx := trace(ctx, "createSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "createSandbox", apiTags...)
 	defer span.Finish()
 
 	if err := createAssets(ctx, &sandboxConfig); err != nil {
@@ -504,7 +493,7 @@ func createSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Fac
 }
 
 func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factory) (sb *Sandbox, retErr error) {
-	span, ctx := trace(ctx, "newSandbox")
+	span, ctx := katatrace.Trace(ctx, virtLog, "newSandbox", apiTags...)
 	defer span.Finish()
 
 	if !sandboxConfig.valid() {
@@ -680,7 +669,7 @@ func (s *Sandbox) createCgroupManager() error {
 
 // storeSandbox stores a sandbox config.
 func (s *Sandbox) storeSandbox() error {
-	span, _ := s.trace("storeSandbox")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "storeSandbox", sandboxTags...)
 	defer span.Finish()
 
 	// flush data to storage
@@ -840,7 +829,7 @@ func (s *Sandbox) Delete() error {
 }
 
 func (s *Sandbox) startNetworkMonitor() error {
-	span, _ := s.trace("startNetworkMonitor")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "startNetworkMonitor", sandboxTags...)
 	defer span.Finish()
 
 	binPath, err := os.Executable()
@@ -879,7 +868,7 @@ func (s *Sandbox) createNetwork() error {
 		return nil
 	}
 
-	span, _ := s.trace("createNetwork")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "createNetwork", sandboxTags...)
 	defer span.Finish()
 
 	s.networkNS = NetworkNamespace{
@@ -913,7 +902,7 @@ func (s *Sandbox) postCreatedNetwork() error {
 }
 
 func (s *Sandbox) removeNetwork() error {
-	span, _ := s.trace("removeNetwork")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "removeNetwork", sandboxTags...)
 	defer span.Finish()
 
 	if s.config.NetworkConfig.NetmonConfig.Enable {
@@ -1023,7 +1012,7 @@ func (s *Sandbox) ListRoutes() ([]*vcTypes.Route, error) {
 
 // startVM starts the VM.
 func (s *Sandbox) startVM() (err error) {
-	span, ctx := s.trace("startVM")
+	span, ctx := katatrace.Trace(s.ctx, s.Logger(), "startVM", sandboxTags...)
 	defer span.Finish()
 
 	s.Logger().Info("Starting VM")
@@ -1090,7 +1079,7 @@ func (s *Sandbox) startVM() (err error) {
 
 // stopVM: stop the sandbox's VM
 func (s *Sandbox) stopVM() error {
-	span, _ := s.trace("stopVM")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "stopVM", sandboxTags...)
 	defer span.Finish()
 
 	s.Logger().Info("Stopping sandbox in the VM")
@@ -1499,7 +1488,7 @@ func (s *Sandbox) ResumeContainer(containerID string) error {
 // createContainers registers all containers to the proxy, create the
 // containers in the guest and starts one shim per container.
 func (s *Sandbox) createContainers() error {
-	span, _ := s.trace("createContainers")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "createContainers", sandboxTags...)
 	defer span.Finish()
 
 	for _, contConfig := range s.config.Containers {
@@ -1571,7 +1560,7 @@ func (s *Sandbox) Start() error {
 // will be destroyed.
 // When force is true, ignore guest related stop failures.
 func (s *Sandbox) Stop(force bool) error {
-	span, _ := s.trace("stop")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "stop", sandboxTags...)
 	defer span.Finish()
 
 	if s.state.State == types.StateStopped {
@@ -1679,7 +1668,7 @@ func (s *Sandbox) unsetSandboxBlockIndex(index int) error {
 // HotplugAddDevice is used for add a device to sandbox
 // Sandbox implement DeviceReceiver interface from device/api/interface.go
 func (s *Sandbox) HotplugAddDevice(device api.Device, devType config.DeviceType) error {
-	span, _ := s.trace("HotplugAddDevice")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "HotplugAddDevice", sandboxTags...)
 	defer span.Finish()
 
 	if s.config.SandboxCgroupOnly {

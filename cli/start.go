@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vcAnnot "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
@@ -49,7 +50,7 @@ var startCLICommand = cli.Command{
 }
 
 func start(ctx context.Context, containerID string) (vc.VCSandbox, error) {
-	span, _ := katautils.Trace(ctx, "start")
+	span, _ := katatrace.Trace(ctx, kataLog, "start", cliTags...)
 	defer span.Finish()
 
 	kataLog = kataLog.WithField("container", containerID)

@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	pb "github.com/kata-containers/runtime/protocols/cache"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	"github.com/kata-containers/runtime/virtcontainers/factory/base"
@@ -17,11 +18,12 @@ import (
 	"github.com/kata-containers/runtime/virtcontainers/factory/grpccache"
 	"github.com/kata-containers/runtime/virtcontainers/factory/template"
 	"github.com/kata-containers/runtime/virtcontainers/utils"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
 
 var factoryLogger = logrus.FieldLogger(logrus.New())
+
+var factoryTags = []string{"subsystem", "factory"}
 
 // Config is a collection of VM factory configurations.
 type Config struct {
@@ -38,17 +40,9 @@ type factory struct {
 	base base.FactoryBase
 }
 
-func trace(parent context.Context, name string) (opentracing.Span, context.Context) {
-	span, ctx := opentracing.StartSpanFromContext(parent, name)
-
-	span.SetTag("subsystem", "factory")
-
-	return span, ctx
-}
-
 // NewFactory returns a working factory.
 func NewFactory(ctx context.Context, config Config, fetchOnly bool) (vc.Factory, error) {
-	span, _ := trace(ctx, "NewFactory")
+	span, _ := katatrace.Trace(ctx, nil, "NewFactory", factoryTags...)
 	defer span.Finish()
 
 	err := config.VMConfig.Valid()
@@ -156,7 +150,7 @@ func (f *factory) validateNewVMConfig(config vc.VMConfig) error {
 
 // GetVM returns a working blank VM created by the factory.
 func (f *factory) GetVM(ctx context.Context, config vc.VMConfig) (*vc.VM, error) {
-	span, _ := trace(ctx, "GetVM")
+	span, _ := katatrace.Trace(ctx, f.log(), "GetVM", factoryTags...)
 	defer span.Finish()
 
 	hypervisorConfig := config.HypervisorConfig

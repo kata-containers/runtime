@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	vf "github.com/kata-containers/runtime/virtcontainers/factory"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
@@ -106,7 +107,7 @@ func SetEphemeralStorageType(ociSpec specs.Spec) specs.Spec {
 // CreateSandbox create a sandbox container
 func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec specs.Spec, runtimeConfig oci.RuntimeConfig, rootFs vc.RootFs,
 	containerID, bundlePath, console string, disableOutput, systemdCgroup, builtIn bool) (_ vc.VCSandbox, _ vc.Process, err error) {
-	span, ctx := Trace(ctx, "createSandbox")
+	span, ctx := katatrace.Trace(ctx, kataUtilsLogger, "createSandbox", cliTags...)
 	defer span.Finish()
 
 	sandboxConfig, err := oci.SandboxConfig(ociSpec, runtimeConfig, bundlePath, containerID, console, disableOutput, systemdCgroup)
@@ -215,7 +216,7 @@ func checkForFIPS(sandboxConfig *vc.SandboxConfig) error {
 func CreateContainer(ctx context.Context, vci vc.VC, sandbox vc.VCSandbox, ociSpec specs.Spec, rootFs vc.RootFs, containerID, bundlePath, console string, disableOutput, builtIn bool) (vc.Process, error) {
 	var c vc.VCContainer
 
-	span, ctx := Trace(ctx, "createContainer")
+	span, ctx := katatrace.Trace(ctx, kataUtilsLogger, "createContainer", cliTags...)
 	defer span.Finish()
 
 	ociSpec = SetEphemeralStorageType(ociSpec)

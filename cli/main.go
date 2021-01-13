@@ -18,6 +18,7 @@ import (
 	"syscall"
 
 	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/runtime/pkg/signals"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	exp "github.com/kata-containers/runtime/virtcontainers/experimental"
@@ -54,6 +55,8 @@ URL:
 
 // kataLog is the logger used to record all messages
 var kataLog *logrus.Entry
+
+var cliTags = []string{"source", "runtime", "component", "cli"}
 
 // originalLoggerLevel is the default log level. It is used to revert the
 // current log level back to its original value if debug output is not
@@ -198,7 +201,7 @@ func setupSignalHandler(ctx context.Context) {
 	}
 
 	dieCb := func() {
-		katautils.StopTracing(ctx)
+		katatrace.StopTracing(ctx)
 	}
 
 	go func() {
@@ -234,7 +237,7 @@ func setExternalLoggers(ctx context.Context, logger *logrus.Entry) {
 	// created.
 
 	if opentracing.SpanFromContext(ctx) != nil {
-		span, ctx = katautils.Trace(ctx, "setExternalLoggers")
+		span, ctx = katatrace.Trace(ctx, kataLog, "setExternalLoggers", cliTags...)
 		defer span.Finish()
 	}
 
@@ -393,7 +396,7 @@ func handleShowConfig(context *cli.Context) {
 }
 
 func setupTracing(context *cli.Context, rootSpanName string) error {
-	tracer, err := katautils.CreateTracer(name)
+	tracer, err := katatrace.CreateTracer(name)
 	if err != nil {
 		fatal(err)
 	}
@@ -448,7 +451,7 @@ func afterSubcommands(c *cli.Context) error {
 		return err
 	}
 
-	katautils.StopTracing(ctx)
+	katatrace.StopTracing(ctx)
 
 	return nil
 }
@@ -597,7 +600,7 @@ func main() {
 	ctx := context.Background()
 
 	dieCb := func() {
-		katautils.StopTracing(ctx)
+		katatrace.StopTracing(ctx)
 	}
 
 	defer signals.HandlePanic(dieCb)

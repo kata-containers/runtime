@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"sync"
 
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	"github.com/sirupsen/logrus"
 )
 
@@ -52,6 +52,8 @@ const (
 	// UUID represents a set of uuids item to be stored.
 	UUID
 )
+
+var managerTags = []string{"subsystem", "store"}
 
 func (i Item) String() string {
 	switch i {
@@ -198,23 +200,9 @@ func (s *Store) Logger() *logrus.Entry {
 	})
 }
 
-func (s *Store) trace(name string) (opentracing.Span, context.Context) {
-	if s.ctx == nil {
-		s.Logger().WithField("type", "bug").Error("trace called before context set")
-		s.ctx = context.Background()
-	}
-
-	span, ctx := opentracing.StartSpanFromContext(s.ctx, name)
-
-	span.SetTag("subsystem", "store")
-	span.SetTag("path", s.path)
-
-	return span, ctx
-}
-
 // Load loads a virtcontainers item from a Store.
 func (s *Store) Load(item Item, data interface{}) error {
-	span, _ := s.trace("Load")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "Load", append(managerTags, "path", s.path)...)
 	defer span.Finish()
 
 	span.SetTag("item", item)
@@ -227,7 +215,7 @@ func (s *Store) Load(item Item, data interface{}) error {
 
 // Store stores a virtcontainers item into a Store.
 func (s *Store) Store(item Item, data interface{}) error {
-	span, _ := s.trace("Store")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "Store", append(managerTags, "path", s.path)...)
 	defer span.Finish()
 
 	span.SetTag("item", item)
@@ -241,7 +229,7 @@ func (s *Store) Store(item Item, data interface{}) error {
 // Delete deletes all artifacts created by a Store.
 // The Store is also removed from the manager.
 func (s *Store) Delete() error {
-	span, _ := s.trace("Store")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "Delete", append(managerTags, "path", s.path)...)
 	defer span.Finish()
 
 	s.Lock()
@@ -261,9 +249,8 @@ func (s *Store) Delete() error {
 // It returns a full URL to the item and the caller is responsible
 // for handling the item through this URL.
 func (s *Store) Raw(id string) (string, error) {
-	span, _ := s.trace("Raw")
+	span, _ := katatrace.Trace(s.ctx, s.Logger(), "Raw", append(managerTags, "path", s.path)...)
 	defer span.Finish()
-
 	s.Lock()
 	defer s.Unlock()
 

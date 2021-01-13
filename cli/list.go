@@ -19,7 +19,7 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/kata-containers/runtime/pkg/katautils"
+	"github.com/kata-containers/runtime/pkg/katautils/katatrace"
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	oci "github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 )
@@ -115,7 +115,7 @@ To list containers created using a non-default value for "--root":
 			return err
 		}
 
-		span, ctx := katautils.Trace(ctx, "list")
+		span, ctx := katatrace.Trace(ctx, kataLog, "list", cliTags...)
 		defer span.Finish()
 
 		s, err := getContainers(ctx, context)
