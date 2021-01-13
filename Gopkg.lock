@@ -420,13 +420,6 @@
   revision = "2f1d1f20f75d5404f53b9edf6b53ed5505508675"
 
 [[projects]]
-  digest = "1:e4b04b215d8cb0310c06f4a5af631f7df6648ffebf1911d3f4de7f3ea605db87"
-  name = "github.com/intel/govmm"
-  packages = ["qemu"]
-  pruneopts = "NUT"
-  revision = "547a8518098aaa71c5d5d7a370f211e00161016b"
-
-[[projects]]
   digest = "1:f03425555be45830e86903bba35dd82a1b76e322beff9873e6b888d2b054c217"
   name = "github.com/kata-containers/agent"
   packages = [
@@ -436,6 +429,13 @@
   ]
   pruneopts = "NUT"
   revision = "e921aa3d0fa39cbd7933c15bd6ae7f0a1d7ab757"
+
+[[projects]]
+  digest = "1:168ed421445ef3bf865d9ea9c2d87aa6b5114f01c885c4c33f0d2d12a9dffa4a"
+  name = "github.com/kata-containers/govmm"
+  packages = ["qemu"]
+  pruneopts = "NUT"
+  revision = "7d320e8f5dcad260c1723bda3bff21539750d51f"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -821,10 +821,10 @@
     "github.com/gogo/protobuf/proto",
     "github.com/gogo/protobuf/types",
     "github.com/hashicorp/go-multierror",
-    "github.com/intel/govmm/qemu",
     "github.com/kata-containers/agent/pkg/types",
     "github.com/kata-containers/agent/protocols/client",
     "github.com/kata-containers/agent/protocols/grpc",
+    "github.com/kata-containers/govmm/qemu",
     "github.com/mitchellh/mapstructure",
     "github.com/opencontainers/runc/libcontainer/cgroups",
     "github.com/opencontainers/runc/libcontainer/cgroups/fs",

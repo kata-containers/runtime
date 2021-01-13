@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"testing"
 
-	govmmQemu "github.com/intel/govmm/qemu"
+	govmmQemu "github.com/kata-containers/govmm/qemu"
 	"github.com/stretchr/testify/assert"
 )
 
