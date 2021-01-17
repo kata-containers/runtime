@@ -243,6 +243,10 @@ valid_vhost_user_store_paths = @DEFVALIDVHOSTUSERSTOREPATHS@
 # Your distribution recommends: @DEFVALIDFILEMEMBACKENDS@
 valid_file_mem_backends = @DEFVALIDFILEMEMBACKENDS@
 
+# -pflash can add image file to VM. The arguments of it should be in format
+# of ["/path/to/flash0.img", "/path/to/flash1.img"]
+pflashes = []
+
 # Enable swap of vm memory. Default false.
 # The behaviour is undefined if mem_prealloc is also set to true
 #enable_swap = true
@@ -364,10 +368,6 @@ valid_file_mem_backends = @DEFVALIDFILEMEMBACKENDS@
 #
 # Default /var/run/kata-containers/cache.sock
 #vm_cache_endpoint = "/var/run/kata-containers/cache.sock"
-
-# -pflash can add image file to VM. The arguments of it should be in format
-# of ["/path/to/flash0.img", "/path/to/flash1.img"]
-#pflashes = []
 
 [proxy.@PROJECT_TYPE@]
 path = "@PROXYPATH@"
