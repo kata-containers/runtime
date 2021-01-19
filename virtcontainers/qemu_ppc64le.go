@@ -68,12 +68,15 @@ func newQemuArch(config HypervisorConfig) qemuArch {
 		machineType = defaultQemuMachineType
 	}
 
+	qemuMachines := make([]govmmQemu.Machine, len(supportedQemuMachines))
+	copy(qemuMachines, supportedQemuMachines)
+
 	q := &qemuPPC64le{
 		qemuArchBase{
 			machineType:           machineType,
 			memoryOffset:          config.MemOffset,
 			qemuPaths:             qemuPaths,
-			supportedQemuMachines: supportedQemuMachines,
+			supportedQemuMachines: qemuMachines,
 			kernelParamsNonDebug:  kernelParamsNonDebug,
 			kernelParamsDebug:     kernelParamsDebug,
 			kernelParams:          kernelParams,
