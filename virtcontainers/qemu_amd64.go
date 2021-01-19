@@ -93,7 +93,8 @@ func newQemuArch(config HypervisorConfig) qemuArch {
 		factory = true
 	}
 
-	var qemuMachines = supportedQemuMachines
+	qemuMachines := make([]govmmQemu.Machine, len(supportedQemuMachines))
+	copy(qemuMachines, supportedQemuMachines)
 	if config.IOMMU {
 		var q35QemuIOMMUOptions = "accel=kvm,kernel_irqchip=split"
 
