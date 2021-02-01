@@ -1873,8 +1873,9 @@ func (s *Sandbox) updateResources() error {
 	sandboxVCPUs += s.hypervisor.hypervisorConfig().NumVCPUs
 
 	sandboxMemoryByte := s.calculateSandboxMemory()
+
 	// Add default / rsvd memory for sandbox.
-	sandboxMemoryByte += int64(s.hypervisor.hypervisorConfig().MemorySize) << utils.MibToBytesShift
+	sandboxMemoryByte += uint64(s.hypervisor.hypervisorConfig().MemorySize) << utils.MibToBytesShift
 
 	// Update VCPUs
 	s.Logger().WithField("cpus-sandbox", sandboxVCPUs).Debugf("Request to hypervisor to update vCPUs")
@@ -1894,7 +1895,9 @@ func (s *Sandbox) updateResources() error {
 
 	// Update Memory
 	s.Logger().WithField("memory-sandbox-size-byte", sandboxMemoryByte).Debugf("Request to hypervisor to update memory")
-	newMemory, updatedMemoryDevice, err := s.hypervisor.resizeMemory(uint32(sandboxMemoryByte>>utils.MibToBytesShift), s.state.GuestMemoryBlockSizeMB, s.state.GuestMemoryHotplugProbe)
+	newMemoryMB := uint32(sandboxMemoryByte >> utils.MibToBytesShift)
+
+	newMemory, updatedMemoryDevice, err := s.hypervisor.resizeMemory(newMemoryMB, s.state.GuestMemoryBlockSizeMB, s.state.GuestMemoryHotplugProbe)
 	if err != nil {
 		return err
 	}
@@ -1912,8 +1915,8 @@ func (s *Sandbox) updateResources() error {
 	return nil
 }
 
-func (s *Sandbox) calculateSandboxMemory() int64 {
-	memorySandbox := int64(0)
+func (s *Sandbox) calculateSandboxMemory() uint64 {
+	memorySandbox := uint64(0)
 	for _, c := range s.config.Containers {
 		// Do not hot add again non-running containers resources
 		if cont, ok := s.containers[c.ID]; ok && cont.state.State == types.StateStopped {
@@ -1921,10 +1924,18 @@ func (s *Sandbox) calculateSandboxMemory() int64 {
 			continue
 		}
 
-		if m := c.Resources.Memory; m != nil && m.Limit != nil {
-			memorySandbox += *m.Limit
+		if m := c.Resources.Memory; m != nil && m.Limit != nil && *m.Limit > 0 {
+			memorySandbox += uint64(*m.Limit)
+			s.Logger().WithField("memory limit", memorySandbox).Info("Memory Sandbox + Memory Limit ")
+		}
+
+		//Add hugepages memory
+		//HugepageLimit is uint64 - https://github.com/opencontainers/runtime-spec/blob/master/specs-go/config.go#L242
+		for _, l := range c.Resources.HugepageLimits {
+			memorySandbox += uint64(l.Limit)
 		}
 	}
+
 	return memorySandbox
 }
 

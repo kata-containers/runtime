@@ -149,13 +149,14 @@ func TestCalculateSandboxMem(t *testing.T) {
 	sandbox.config = &SandboxConfig{}
 	unconstrained := newTestContainerConfigNoop("cont-00001")
 	constrained := newTestContainerConfigNoop("cont-00001")
-	limit := int64(4000)
-	constrained.Resources.Memory = &specs.LinuxMemory{Limit: &limit}
+	mlimit := int64(4000)
+	limit := uint64(4000)
+	constrained.Resources.Memory = &specs.LinuxMemory{Limit: &mlimit}
 
 	tests := []struct {
 		name       string
 		containers []ContainerConfig
-		want       int64
+		want       uint64
 	}{
 		{"1-unconstrained", []ContainerConfig{unconstrained}, 0},
 		{"2-unconstrained", []ContainerConfig{unconstrained, unconstrained}, 0},
@@ -171,6 +172,45 @@ func TestCalculateSandboxMem(t *testing.T) {
 			assert.Equal(t, got, tt.want)
 		})
 	}
+}
+
+func TestSandboxHugepageLimit(t *testing.T) {
+	contConfig1 := newTestContainerConfigNoop("cont-00001")
+	contConfig2 := newTestContainerConfigNoop("cont-00002")
+	limit := int64(4000)
+	contConfig1.Resources.Memory = &specs.LinuxMemory{Limit: &limit}
+	contConfig2.Resources.Memory = &specs.LinuxMemory{Limit: &limit}
+	hConfig := newHypervisorConfig(nil, nil)
+
+	defer cleanUp()
+	// create a sandbox
+	s, err := testCreateSandbox(t,
+		testSandboxID,
+		MockHypervisor,
+		hConfig,
+		NoopAgentType,
+		NetworkConfig{},
+		[]ContainerConfig{contConfig1, contConfig2},
+		nil)
+
+	assert.NoError(t, err)
+
+	hugepageLimits := []specs.LinuxHugepageLimit{
+		{
+			Pagesize: "1GB",
+			Limit:    322122547,
+		},
+		{
+			Pagesize: "2MB",
+			Limit:    134217728,
+		},
+	}
+
+	for i := range s.config.Containers {
+		s.config.Containers[i].Resources.HugepageLimits = hugepageLimits
+	}
+	err = s.updateResources()
+	assert.NoError(t, err)
 }
 
 func TestCreateSandboxEmptyID(t *testing.T) {
