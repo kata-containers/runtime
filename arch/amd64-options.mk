@@ -12,8 +12,8 @@ CPUFEATURES := pmu=off
 
 QEMUCMD := qemu-system-x86_64
 
-# Qemu experimental with virtiofs
-QEMUVIRTIOFSCMD := qemu-virtiofs-system-x86_64
+# Qemu binary with virtiofs support
+QEMUVIRTIOFSCMD := qemu-system-x86_64
 
 # Firecracker binary name
 FCCMD := firecracker
