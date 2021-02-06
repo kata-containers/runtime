@@ -56,6 +56,9 @@ const (
 	vfioPath = "/dev/vfio/"
 
 	agentPidEnv = "KATA_AGENT_PIDNS"
+
+	hostSandboxObservabilityPath = "/var/log/kata"
+	sandboxObservabilityDir      = "observe"
 )
 
 var (
@@ -399,6 +402,43 @@ func (k *kataAgent) internalConfigure(h hypervisor, id string, builtin bool, con
 	return nil
 }
 
+func setupLoggingBindMount(id string) error {
+	// Create path for observability logs:
+	path := filepath.Join(hostSandboxObservabilityPath, id)
+	if err := os.MkdirAll(path, DirMode); err != nil {
+		return fmt.Errorf("Creating logging directory: %v: %w", err)
+	}
+
+	// Create subdirectory in host shared path for observability logs
+	sharedPath := filepath.Join(getMountPath(id), sandboxObservabilityDir)
+	if err := os.MkdirAll(sharedPath, DirMode); err != nil {
+		return fmt.Errorf("Creating logging directory: %v: %w", err)
+	}
+
+	// Bind mount the log directory into a subdirectory of the shared /var/log/kata/Create bind mount
+	if err := bindMount(context.Background(), path, sharedPath, false, "private"); err != nil {
+		return fmt.Errorf("Mounting logging directory: %v to %v: %w", path, sharedPath, err)
+	}
+
+	return nil
+}
+
+func cleanupLoggingBindMount(id string) error {
+	// Unmount the log directory
+	mountPath := filepath.Join(getMountPath(id), sandboxObservabilityDir)
+	if err := syscall.Unmount(mountPath, syscall.MNT_DETACH|UmountNoFollow); err != nil {
+		return fmt.Errorf("Unmounting observe directory: %v: %w", mountPath, err)
+	}
+
+	// Remove sandboxes' log directory
+	path := filepath.Join(hostSandboxObservabilityPath, id)
+	if err := os.RemoveAll(path); err != nil {
+		return fmt.Errorf("Removing logging directory: %v: %w", path, err)
+	}
+
+	return nil
+}
+
 func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, config interface{}) error {
 	err := k.internalConfigure(h, id, builtin, config)
 	if err != nil {
@@ -442,6 +482,7 @@ func (k *kataAgent) configure(h hypervisor, id, sharePath string, builtin bool, 
 		return err
 	}
 
+	// Add the virtiofs device
 	return h.addDevice(sharedVolume, fsDev)
 }
 
@@ -465,6 +506,12 @@ func (k *kataAgent) setupSharedPath(sandbox *Sandbox) error {
 		return err
 	}
 
+	// If we are providing observability logs from the guest, let's setup a specific bind mount
+	// for observability logs.
+	if err := setupLoggingBindMount(sandbox.id); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -475,7 +522,12 @@ func (k *kataAgent) createSandbox(sandbox *Sandbox) error {
 	if err := k.setupSharedPath(sandbox); err != nil {
 		return err
 	}
-	return k.configure(sandbox.hypervisor, sandbox.id, getSharePath(sandbox.id), k.proxyBuiltIn, sandbox.config.AgentConfig)
+
+	if err := k.configure(sandbox.hypervisor, sandbox.id, getSharePath(sandbox.id), k.proxyBuiltIn, sandbox.config.AgentConfig); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func cmdToKataProcess(cmd types.Cmd) (process *grpc.Process, err error) {
@@ -2459,13 +2511,16 @@ func (k *kataAgent) markDead() {
 }
 
 func (k *kataAgent) cleanup(s *Sandbox) {
+	if err := cleanupLoggingBindMount(s.id); err != nil {
+		k.Logger().WithError(err).Errorf("failed to cleanup observability logs bindmount %s", path)
+	}
+
 	// Unmount shared path
 	path := getSharePath(s.id)
 	k.Logger().WithField("path", path).Infof("cleanup agent")
 	if err := syscall.Unmount(path, syscall.MNT_DETACH|UmountNoFollow); err != nil {
 		k.Logger().WithError(err).Errorf("failed to unmount vm share path %s", path)
 	}
-
 	// Unmount mount path
 	path = getMountPath(s.id)
 	if err := bindUnmountAllRootfs(k.ctx, path, s); err != nil {
