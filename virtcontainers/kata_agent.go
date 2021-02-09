@@ -508,8 +508,10 @@ func (k *kataAgent) setupSharedPath(sandbox *Sandbox) error {
 
 	// If we are providing observability logs from the guest, let's setup a specific bind mount
 	// for observability logs.
-	if err := setupLoggingBindMount(sandbox.id); err != nil {
-		return err
+	if sandbox.config.ObservabilityBindmount {
+		if err := setupLoggingBindMount(sandbox.id); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -2511,8 +2513,10 @@ func (k *kataAgent) markDead() {
 }
 
 func (k *kataAgent) cleanup(s *Sandbox) {
-	if err := cleanupLoggingBindMount(s.id); err != nil {
-		k.Logger().WithError(err).Errorf("failed to cleanup observability logs bindmount %s", path)
+	if s.config.ObservabilityBindmount {
+		if err := cleanupLoggingBindMount(s.id); err != nil {
+			k.Logger().WithError(err).Errorf("failed to cleanup observability logs bindmount")
+		}
 	}
 
 	// Unmount shared path

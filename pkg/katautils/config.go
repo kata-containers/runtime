@@ -148,14 +148,15 @@ type proxy struct {
 }
 
 type runtime struct {
-	Debug               bool     `toml:"enable_debug"`
-	Tracing             bool     `toml:"enable_tracing"`
-	DisableNewNetNs     bool     `toml:"disable_new_netns"`
-	DisableGuestSeccomp bool     `toml:"disable_guest_seccomp"`
-	SandboxCgroupOnly   bool     `toml:"sandbox_cgroup_only"`
-	EnableAgentPidNs    bool     `toml:"enable_agent_pidns"`
-	Experimental        []string `toml:"experimental"`
-	InterNetworkModel   string   `toml:"internetworking_model"`
+	Debug                  bool     `toml:"enable_debug"`
+	DisableGuestSeccomp    bool     `toml:"disable_guest_seccomp"`
+	DisableNewNetNs        bool     `toml:"disable_new_netns"`
+	EnableAgentPidNs       bool     `toml:"enable_agent_pidns"`
+	Experimental           []string `toml:"experimental"`
+	InterNetworkModel      string   `toml:"internetworking_model"`
+	ObservabilityBindmount bool     `toml:"observability_bindmount"`
+	SandboxCgroupOnly      bool     `toml:"sandbox_cgroup_only"`
+	Tracing                bool     `toml:"enable_tracing"`
 }
 
 type shim struct {
@@ -1279,6 +1280,7 @@ func LoadConfiguration(configPath string, ignoreLogging, builtIn bool) (resolved
 
 	config.SandboxCgroupOnly = tomlConf.Runtime.SandboxCgroupOnly
 	config.DisableNewNetNs = tomlConf.Runtime.DisableNewNetNs
+	config.ObservabilityBindmount = tomlConf.Runtime.ObservabilityBindmount
 	config.EnableAgentPidNs = tomlConf.Runtime.EnableAgentPidNs
 	if config.EnableAgentPidNs {
 		kataUtilsLogger.Warn("Feature to allow containers to share PID namespace with the agent has been enabled. Please understand this has security implications and should only be used for debug purposes")

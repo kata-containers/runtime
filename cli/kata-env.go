@@ -62,15 +62,16 @@ type RuntimeConfigInfo struct {
 
 // RuntimeInfo stores runtime details.
 type RuntimeInfo struct {
-	Version             RuntimeVersionInfo
-	Config              RuntimeConfigInfo
-	Debug               bool
-	Trace               bool
-	DisableGuestSeccomp bool
-	DisableNewNetNs     bool
-	SandboxCgroupOnly   bool
-	Experimental        []exp.Feature
-	Path                string
+	Version                RuntimeVersionInfo
+	Config                 RuntimeConfigInfo
+	Debug                  bool
+	Trace                  bool
+	DisableGuestSeccomp    bool
+	DisableNewNetNs        bool
+	SandboxCgroupOnly      bool
+	ObservabilityBindmount bool
+	Experimental           []exp.Feature
+	Path                   string
 }
 
 type VersionInfo struct {

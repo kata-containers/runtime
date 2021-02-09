@@ -123,6 +123,9 @@ type SandboxConfig struct {
 	// SandboxCgroupOnly enables cgroup only at podlevel in the host
 	SandboxCgroupOnly bool
 
+	// ObservabilityBindmount enables support for creation of shared directory between the sandbox and the host
+	ObservabilityBindmount bool
+
 	// EnableAgentPidNs allows containers to share pid namespace with the agent
 	EnableAgentPidNs bool
 

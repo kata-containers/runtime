@@ -124,6 +124,9 @@ type RuntimeConfig struct {
 	//Determines kata processes are managed only in sandbox cgroup
 	SandboxCgroupOnly bool
 
+	// ObservabilityBindmont enables creation of a shared path for logs
+	ObservabilityBindmount bool
+
 	//Determines if containers are allowed to join the pid namespace of the kata agent
 	EnableAgentPidNs bool
 

@@ -503,6 +503,11 @@ disable_guest_seccomp=@DEFDISABLEGUESTSECCOMP@
 # See: https://godoc.org/github.com/kata-containers/runtime/virtcontainers#ContainerType
 sandbox_cgroup_only=@DEFSANDBOXCGROUPONLY@
 
+# 
+#
+#
+observability_bindmount=@DEFOBSERVABILITYBINDMOUNT@
+
 # Enabled experimental feature list, format: ["a", "b"].
 # Experimental features are features not stable enough for production,
 # they may break compatibility, and are prepared for a big version bump.
