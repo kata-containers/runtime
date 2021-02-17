@@ -1,0 +1,61 @@
+on: ["pull_request"]
+name: Static checks
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [1.13.x, 1.14.x, 1.15.x]
+        os: [ubuntu-18.04]
+    runs-on: ${{ matrix.os }}
+    env:
+      GO111MODULE: off
+      TRAVIS: "true"
+      TRAVIS_BRANCH: ${{ github.base_ref }}
+      TRAVIS_PULL_REQUEST_BRANCH: ${{ github.head_ref }}
+      TRAVIS_PULL_REQUEST_SHA : ${{ github.event.pull_request.head.sha }}
+      target_branch: ${{ github.base_ref }}
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Setup GOPATH
+      run: |
+        gopath_org=$(go env GOPATH)/src/github.com/kata-containers/
+        mkdir -p ${gopath_org}
+        ln -s ${PWD} ${gopath_org}
+        echo "TRAVIS_BRANCH: ${TRAVIS_BRANCH}"
+        echo "TRAVIS_PULL_REQUEST_BRANCH: ${TRAVIS_PULL_REQUEST_BRANCH}"
+        echo "TRAVIS_PULL_REQUEST_SHA: ${TRAVIS_PULL_REQUEST_SHA}"
+        echo "TRAVIS: ${TRAVIS}"
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Setup travis references
+      run: |
+        echo "TRAVIS_BRANCH=${TRAVIS_BRANCH:-$(echo $GITHUB_REF | awk 'BEGIN { FS = \"/\" } ; { print $3 }')}" 
+    - name: Install package dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq automake moreutils
+    - name: Versions checker
+      run: |
+        runtime_repo=$(go env GOPATH)/src/github.com/kata-containers/runtime      
+        pushd ${runtime_repo}
+        GOPATH=$(go env GOPATH) .ci/versions_checker.sh
+    - name: Install yq
+      run: |
+        runtime_repo=$(go env GOPATH)/src/github.com/kata-containers/runtime
+        pushd ${runtime_repo}
+        GOPATH=$(go env GOPATH) .ci/install-yq.sh 
+    - name: Building
+      run: |
+        runtime_repo=$(go env GOPATH)/src/github.com/kata-containers/runtime
+        pushd ${runtime_repo}
+        GOPATH=$(go env GOPATH) make
+    - name: Installing             
+      run: |
+        runtime_repo=$(go env GOPATH)/src/github.com/kata-containers/runtime
+        pushd ${runtime_repo}
+        GOPATH=$(go env GOPATH) sudo -E PATH=$PATH make install
