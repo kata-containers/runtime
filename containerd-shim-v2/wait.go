@@ -42,7 +42,7 @@ func wait(s *service, c *container, execID string) (int32, error) {
 	}
 
 	ret, err := s.sandbox.WaitProcess(c.id, processID)
-	if err != nil {
+	if err != nil && err.Error() != "Dead agent" {
 		logrus.WithError(err).WithFields(logrus.Fields{
 			"container": c.id,
 			"pid":       processID,
