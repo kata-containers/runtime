@@ -46,7 +46,7 @@ EXAMPLE:
    If the container is configured to run the linux ps command the following
    will output a list of processes running in the container:
 
-       # ` + name + ` <container-id> ps`,
+       # ` + name + ` exec <container-id> ps`,
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "console",
