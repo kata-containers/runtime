@@ -21,4 +21,5 @@ type NetConfig struct {
 	VhostSocket string `json:"vhost_socket,omitempty"`
 	Id string `json:"id,omitempty"`
 	Fd []int32 `json:"fd,omitempty"`
+	RateLimiterConfig RateLimiterConfig `json:"rate_limiter_config,omitempty"`
 }
