@@ -22,6 +22,7 @@ import (
 	vc "github.com/kata-containers/runtime/virtcontainers"
 	exp "github.com/kata-containers/runtime/virtcontainers/experimental"
 	vf "github.com/kata-containers/runtime/virtcontainers/factory"
+	tl "github.com/kata-containers/runtime/virtcontainers/factory/template"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/oci"
 	"github.com/kata-containers/runtime/virtcontainers/pkg/rootless"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -243,6 +244,9 @@ func setExternalLoggers(ctx context.Context, logger *logrus.Entry) {
 
 	// Set vm factory logger.
 	vf.SetLogger(ctx, logger)
+
+	// Set vm factory template logger.
+	tl.SetLogger(ctx, logger)
 
 	// Set the OCI package logger.
 	oci.SetLogger(ctx, logger)
