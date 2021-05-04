@@ -2320,3 +2320,11 @@ func (s *Sandbox) getSandboxCPUSet() (string, string, error) {
 
 	return cpuResult.String(), memResult.String(), nil
 }
+
+// GetSandboxBlockOffset returns an offset w.r.t. the sandbox block index, to be
+// used when determining a virtio-block drive name. An offset may be present if
+// specific drive names are reserved, e.g. for a sandbox rootfs, but not
+// included in the BlockIndexMap.
+func (s *Sandbox) GetSandboxBlockOffset() int {
+	return s.hypervisor.getVirtDriveOffset()
+}

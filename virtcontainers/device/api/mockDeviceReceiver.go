@@ -41,3 +41,8 @@ func (mockDC *MockDeviceReceiver) AppendDevice(Device) error {
 func (mockDC *MockDeviceReceiver) GetHypervisorType() string {
 	return ""
 }
+
+// GetSandboxBlockOffset returns an offset w.r.t. the sandbox block index
+func (mockDC *MockDeviceReceiver) GetSandboxBlockOffset() int {
+	return 0
+}

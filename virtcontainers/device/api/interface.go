@@ -34,6 +34,11 @@ type DeviceReceiver interface {
 
 	// this is only for virtio-blk and virtio-scsi support
 	GetAndSetSandboxBlockIndex() (int, error)
+
+	// Offset w.r.t. the sandbox block index, to be used when determining
+	// a virtio-block drive name.
+	GetSandboxBlockOffset() int
+
 	UnsetSandboxBlockIndex(int) error
 	GetHypervisorType() string
 
