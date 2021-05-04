@@ -938,6 +938,22 @@ func (q *qemu) waitSandbox(timeout int) error {
 	return nil
 }
 
+func isConnectionRefusedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if neterr, ok := err.(*net.OpError); ok {
+		if syserr, ok := neterr.Err.(*os.SyscallError); ok {
+			if errno, ok := syserr.Err.(syscall.Errno); ok {
+				if errno == unix.ECONNREFUSED {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // stopSandbox will stop the Sandbox's VM.
 func (q *qemu) stopSandbox() error {
 	span, _ := q.trace("stopSandbox")
@@ -969,6 +985,13 @@ func (q *qemu) stopSandbox() error {
 
 	err := q.qmpSetup()
 	if err != nil {
+		// Ignore any "connection refused" error and assume that the Sandbox
+		// is already stopped in that case.
+		if isConnectionRefusedError(err) {
+			q.Logger().WithError(err).Warn(
+				"Failed to connect to qemu. Assuming Sandbox is already gone.")
+			return nil
+		}
 		return err
 	}
 
