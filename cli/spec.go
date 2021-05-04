@@ -83,6 +83,8 @@ generate a proper rootless spec file.`,
 
 		spec := specconv.Example()
 
+		spec.Hostname = "kata"
+
 		checkNoFile := func(name string) error {
 			_, err := os.Stat(name)
 			if err == nil {
