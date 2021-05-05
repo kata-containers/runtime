@@ -254,6 +254,8 @@ pflashes = []
 # This option changes the default hypervisor and kernel parameters
 # to enable debug output where available. This extra output is added
 # to the proxy logs, but only when proxy debug is also enabled.
+# Note: Debug output will only be put into qemu.log in the event
+# of a virtual hardware issue, otherwise it will be empty.
 #
 # Default false
 #enable_debug = true
