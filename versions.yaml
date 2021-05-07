@@ -170,7 +170,7 @@ components:
       Container management service running in the guest virtual machines
       root context.
     url: "https://github.com/kata-containers/agent"
-    commit: "6f6e9ecd8aded0783c31968b304a9d6589114363"
+    commit: "0b75b2d82d41609fd30dadd11f93c7fe41258893"
 
 externals:
   description: "Third-party projects used by the system"
